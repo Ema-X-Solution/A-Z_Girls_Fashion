@@ -1,0 +1,13 @@
+.supplier-success {
+  padding: 12px 16px;
+  background: #edf8f0;
+  color: #33784a;
+  border: 1px solid #cde9d5;
+  border-radius: 7px;
+  margin-bottom: 18px;
+  font-size: 12px;
+}
+.supplier-invoice-actions {
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}

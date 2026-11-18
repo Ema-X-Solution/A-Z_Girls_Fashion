@@ -1,0 +1,334 @@
+.sales-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  vertical-align: middle;
+}
+.sales-row-actions .btn {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  flex: 0 0 34px;
+  border-radius: 7px;
+  padding: 0;
+  color: #62656d;
+  background: #fff;
+  border-color: #e6e7eb;
+}
+.sales-row-actions .btn:hover {
+  color: #171717;
+  background: #f7f5ef;
+  border-color: #c6a353;
+}
+.sales-row-actions .btn:focus-visible {
+  outline: 2px solid #a8822b;
+  outline-offset: 2px;
+}
+.sales-row-actions .btn svg {
+  flex-shrink: 0;
+}
+.receipt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 24px;
+  border: 1px solid #e8e5df;
+  border-radius: 12px;
+  background: #faf9f6;
+}
+.receipt-actions-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.receipt-actions .btn {
+  min-height: 44px;
+  min-width: 145px;
+  padding: 11px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.receipt-actions .btn svg {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .receipt-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .receipt-actions > .btn,
+  .receipt-actions-secondary {
+    width: 100%;
+  }
+  .receipt-actions-secondary .btn {
+    width: 100%;
+    min-width: 0;
+  }
+  .receipt-actions-secondary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.receipt.fashion-receipt {
+  box-sizing: border-box;
+  margin: 20px auto;
+  padding: 3mm;
+  color: #000;
+  background: #fff;
+  font-family: Tahoma, Arial, sans-serif;
+  font-size: 9.5px;
+  line-height: 1.5;
+  text-align: right;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.fashion-receipt-head {
+  text-align: center;
+  border-bottom: 1px dashed #000;
+  padding-bottom: 3mm;
+  margin-bottom: 3mm;
+}
+.receipt-store-logo {
+  display: block;
+  width: 24mm;
+  height: 24mm;
+  object-fit: contain;
+  margin: 0 auto 2mm;
+}
+.fashion-wordmark {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 45px;
+  letter-spacing: -5px;
+  line-height: 1.1;
+  margin-bottom: 2mm;
+  font-weight: 500;
+}
+.fashion-wordmark span {
+  font-size: 31px;
+  letter-spacing: -3px;
+}
+.fashion-receipt-head h2 {
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+  letter-spacing: 0.5px;
+  font-weight: bold;
+  line-height: 1.3;
+  margin-bottom: 2mm;
+}
+.fashion-receipt-head p {
+  font-size: 9px;
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.fashion-receipt-meta {
+  padding-bottom: 3mm;
+  border-bottom: 1px dashed #000;
+}
+.fashion-receipt-meta p {
+  margin: 0 0 1mm;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+.receipt-meta-separator {
+  padding: 0 1mm;
+}
+.fashion-receipt .fashion-receipt-items {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: normal;
+  table-layout: fixed;
+  font-size: 8px;
+  margin: 2mm 0;
+  border-bottom: 1px dashed #000;
+}
+.fashion-receipt-items thead {
+  display: table-header-group;
+}
+.fashion-receipt .fashion-receipt-items th {
+  background: white;
+  color: #000;
+  text-align: right;
+  padding: 1mm 0.4mm;
+  font-size: 7.5px;
+  line-height: 1.3;
+  font-weight: bold;
+  border-bottom: 1px solid #000;
+  white-space: normal;
+}
+.fashion-receipt .fashion-receipt-items td {
+  color: #000;
+  padding: 2mm 0.4mm;
+  border-bottom: 1px dotted #999;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.fashion-receipt-items tr {
+  break-inside: avoid;
+}
+.fashion-receipt-items small {
+  font-size: 7px;
+  color: #000;
+  line-height: 1.4;
+  margin-top: 0.5mm;
+}
+.fashion-receipt .fashion-receipt-items .receipt-numeric {
+  text-align: left;
+  direction: ltr;
+  white-space: nowrap;
+  font-size: 7.4px;
+  letter-spacing: -0.15px;
+}
+.receipt-sku {
+  font-size: 7.3px;
+}
+.fashion-receipt-summary {
+  padding: 2mm 0;
+  border-bottom: 1px dashed #000;
+}
+.fashion-receipt h3 {
+  font-size: 10px;
+  line-height: 1.5;
+  margin-bottom: 2mm;
+}
+.receipt-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2mm;
+  padding: 1mm 0;
+  font-size: 9px;
+}
+.receipt-summary-row > span {
+  max-width: 69%;
+}
+.receipt-summary-row > b {
+  white-space: nowrap;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+}
+.receipt-summary-row.final {
+  border-top: 1px dashed #000;
+  margin-top: 1.5mm;
+  padding-top: 2mm;
+  font-weight: bold;
+}
+.receipt-summary-row.final > b {
+  font-size: 12px;
+}
+.receipt-summary-row.final > span {
+  font-size: 10px;
+}
+.receipt-payment {
+  padding-top: 1mm;
+}
+.receipt-payment p {
+  font-size: 8.5px;
+  margin: 0;
+}
+.fashion-return-policy {
+  padding: 3mm 0;
+  border-bottom: 1px dashed #000;
+  font-size: 8.5px;
+  line-height: 1.65;
+  break-inside: avoid;
+}
+.fashion-return-policy p {
+  margin: 0 0 2mm;
+}
+.fashion-receipt-footer {
+  text-align: center;
+  padding-top: 3mm;
+  break-inside: avoid;
+}
+.fashion-receipt-footer svg {
+  display: block;
+  width: 100%;
+  height: 18mm;
+  max-height: 21mm;
+}
+.fashion-receipt-footer p {
+  margin-top: 2mm;
+  font-size: 10px;
+  font-weight: bold;
+}
+.receipt-exchange-return {
+  padding: 2mm 0;
+  border-bottom: 1px dashed #000;
+}
+.receipt-exchange-return p {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  gap: 2mm;
+}
+.receipt-exchange-return h3 {
+  margin-top: 2mm;
+}
+.receipt-exchange-settlement {
+  border-top: 1px dashed #000;
+  margin-top: 2mm;
+}
+.payment-row {
+  border: 1px solid #e5e5e8;
+  border-radius: 7px;
+  padding: 12px;
+  margin: 0 0 12px;
+}
+.payment-row legend {
+  font-size: 11px;
+  color: #888;
+  padding: 0 5px;
+}
+.payment-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 12px;
+}
+.payment-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+.payment-card-fields > .field:last-child {
+  grid-column: 1/-1;
+}
+.payment-editor > .btn {
+  margin-bottom: 8px;
+}
+#az-receipt-print-root {
+  display: none;
+}
+@media print {
+  body[data-print-kind="receipt"] > *:not(#az-receipt-print-root) {
+    display: none !important;
+  }
+  #az-receipt-print-root,
+  #az-receipt-print-root * {
+    visibility: visible !important;
+  }
+  #az-receipt-print-root {
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  #az-receipt-print-root .receipt.fashion-receipt {
+    margin: 0 !important;
+    position: static !important;
+    max-width: none !important;
+    font-size: 9.5px;
+    color: #000 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

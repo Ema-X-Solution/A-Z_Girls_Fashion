@@ -1,0 +1,11 @@
+GRANT USAGE ON SCHEMA public TO az_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO az_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO az_app;
+REVOKE UPDATE, DELETE ON "StockMovement", "CashMovement", "AuditLog" FROM az_app;
+REVOKE ALL ON "_prisma_migrations" FROM az_app;
+REVOKE UPDATE, DELETE ON "SupplierInvoice", "SupplierPayment", "PurchaseReturn", "PurchaseReturnItem" FROM az_app;
+REVOKE UPDATE, DELETE ON "Exchange", "SalePayment", "SaleReturn" FROM az_app;
+REVOKE UPDATE, DELETE ON "SaleReturnItem" FROM az_app;
+REVOKE DELETE ON "DiscountApproval" FROM az_app;
+REVOKE UPDATE, DELETE ON "BrandAsset" FROM az_app;
+REVOKE UPDATE, DELETE ON "LoyaltyEntry", "StockDocument", "StockDocumentItem" FROM az_app;

@@ -1,0 +1,103 @@
+name: az-fashion
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: az_fashion
+      POSTGRES_USER: az_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./infrastructure/scripts/grants.sql:/grants.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U az_admin -d az_fashion"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+  migrate:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+      target: build
+    environment:
+      DATABASE_URL: postgresql://az_admin:${POSTGRES_PASSWORD}@postgres:5432/az_fashion
+    command: [npm, run, db:migrate]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+  grants:
+    image: postgres:17-bookworm
+    environment:
+      PGHOST: postgres
+      PGUSER: az_admin
+      PGDATABASE: az_fashion
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./infrastructure/scripts/grants.sql:/grants.sql:ro
+    command: [psql, -v, ON_ERROR_STOP=1, -f, /grants.sql]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    logging: *logging
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://az_app:${APP_DB_PASSWORD}@postgres:5432/az_fashion
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+    depends_on:
+      grants:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+    restart: unless-stopped
+    ports: ["8080:80"]
+    depends_on:
+      api:
+        condition: service_started
+    logging: *logging
+  initialize:
+    profiles: [setup]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+      target: build
+    environment:
+      DATABASE_URL: postgresql://az_admin:${POSTGRES_PASSWORD}@postgres:5432/az_fashion
+      INITIAL_OWNER_EMAIL: ${INITIAL_OWNER_EMAIL:-}
+      INITIAL_OWNER_PASSWORD: ${INITIAL_OWNER_PASSWORD:-}
+    command: [node, --import, tsx, apps/api/prisma/initialize.ts]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+volumes:
+  pgdata:

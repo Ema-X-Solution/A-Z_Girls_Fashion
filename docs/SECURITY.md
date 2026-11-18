@@ -1,0 +1,11 @@
+# Security verification and remaining work
+
+Application controls include Argon2id, hashed opaque sessions, HTTP-only/SameSite cookies, production Secure cookies, exact-origin/CSRF checks, session rotation/revocation, login rate limiting/lockout, database RBAC, Zod validation, request-size limits, Helmet, Nginx CSP, structured redacted logs, transaction audit events, append-only stock/cash/audit ledgers and least-privilege application database grants.
+
+Security updates made during implementation: Zod 4.6.7+, compatible React Hook Form resolver 5, and overrides for patched deepmerge-ts/effect versions used by Prisma tooling. Migration and validation compatibility are covered by the real PostgreSQL suite. The lockfile records the tested package resolution. Review overrides when upgrading Prisma; the package major is intentionally pinned to the implemented Prisma 6 schema/client workflow.
+
+The final dependency audit must be recorded in IMPLEMENTATION_PROGRESS.md. ExcelJS 4.4 currently retains a moderate advisory in its transitive UUID 8 dependency (GHSA-w5hq-g745-h8pq). The described buffer-taking UUID generation functions are not exposed by this API. An attempted UUID major override was removed to preserve a compatible dependency tree; upgrade/replace the export dependency when a supported fix is available. This remains a tracked dependency risk, not a clean audit claim.
+
+Production readiness still requires validating the Docker images, database role grants, HTTPS and certificate renewal, actual reverse-proxy/rate-limit behavior, offsite backup delivery and restore, dependency advisories at deployment time, large-catalog performance, printer/browser behavior and the remaining business features. File upload endpoints and self-service password-reset email are intentionally absent until their validation/storage/delivery workflows are implemented. Do not expose placeholder endpoints for those features.
+
+The current rate limiter and account-lockout/session design targets one API instance. Redis-backed distributed throttling and infrastructure monitoring would be needed before horizontal scaling. Configure trusted proxy topology deliberately; the production API trusts one Nginx hop and must remain on a private network.

@@ -1,0 +1,585 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  name String
+  employeeCode String? @unique
+  passwordHash String
+  active Boolean @default(true)
+  discountLimit Decimal @default(0) @db.Decimal(5,2)
+  failedAttempts Int @default(0)
+  lockedUntil DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  roles UserRole[]
+  sessions Session[]
+  shifts CashShift[]
+  sales Sale[]
+}
+model Role {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  protected Boolean @default(false)
+  users UserRole[]
+  permissions RolePermission[]
+}
+model Permission {
+  key String @id
+  roles RolePermission[]
+}
+model RolePermission {
+  roleId String @db.Uuid
+  permissionKey String
+  role Role @relation(fields:[roleId], references:[id], onDelete:Cascade)
+  permission Permission @relation(fields:[permissionKey], references:[key])
+  @@id([roleId,permissionKey])
+}
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user User @relation(fields:[userId], references:[id])
+  role Role @relation(fields:[roleId], references:[id])
+  @@id([userId,roleId])
+}
+model Session {
+  id String @id
+  userId String @db.Uuid
+  csrf String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id],onDelete:Cascade)
+  @@index([expiresAt])
+}
+model Branch {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  locations StockLocation[]
+  registers Register[]
+  sales Sale[]
+}
+model StockLocation {
+  id String @id @default(uuid()) @db.Uuid
+  branchId String @db.Uuid
+  name String
+  branch Branch @relation(fields:[branchId], references:[id])
+  balances StockBalance[]
+  movements StockMovement[]
+  registers Register[]
+  purchases PurchaseOrder[]
+  counts StockCount[]
+}
+model Register {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  branchId String @db.Uuid
+  locationId String @db.Uuid
+  branch Branch @relation(fields:[branchId], references:[id])
+  location StockLocation @relation(fields:[locationId], references:[id])
+  shifts CashShift[]
+}
+model CashShift {
+  id String @id @default(uuid()) @db.Uuid
+  registerId String @db.Uuid
+  userId String @db.Uuid
+  openingCash Decimal @db.Decimal(18,2)
+  countedCash Decimal? @db.Decimal(18,2)
+  expectedCash Decimal? @db.Decimal(18,2)
+  difference Decimal? @db.Decimal(18,2)
+  notes String @default("")
+  openedAt DateTime @default(now())
+  closedAt DateTime?
+  register Register @relation(fields:[registerId], references:[id])
+  user User @relation(fields:[userId], references:[id])
+  sales Sale[]
+  movements CashMovement[]
+  supplierPayments SupplierPayment[]
+  @@index([userId,closedAt])
+}
+model CashMovement {
+  id String @id @default(uuid()) @db.Uuid
+  shiftId String @db.Uuid
+  amount Decimal @db.Decimal(18,2)
+  type String
+  reference String
+  reason String
+  userId String @db.Uuid
+  createdAt DateTime @default(now())
+  shift CashShift @relation(fields:[shiftId], references:[id])
+  @@index([shiftId])
+}
+model Category {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  parentId String? @db.Uuid
+  parent Category? @relation("CategoryTree",fields:[parentId], references:[id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+}
+model Brand {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  products Product[]
+}
+model Product {
+  id String @id @default(uuid()) @db.Uuid
+  nameAr String
+  nameEn String?
+  description String @default("")
+  sku String @unique
+  categoryId String @db.Uuid
+  brandId String? @db.Uuid
+  season String?
+  collection String?
+  status String @default("ACTIVE")
+  returnRule String @default("STANDARD")
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  category Category @relation(fields:[categoryId], references:[id])
+  brand Brand? @relation(fields:[brandId], references:[id])
+  variants ProductVariant[]
+  @@index([nameAr])
+  @@index([categoryId,status])
+}
+model ProductVariant {
+  id String @id @default(uuid()) @db.Uuid
+  productId String @db.Uuid
+  sku String @unique
+  barcode String @unique
+  options Json @default("{}")
+  cost Decimal @default(0) @db.Decimal(18,4)
+  price Decimal @db.Decimal(18,2)
+  minStock Int @default(2)
+  reorderQuantity Int @default(5)
+  active Boolean @default(true)
+  product Product @relation(fields:[productId], references:[id])
+  balances StockBalance[]
+  movements StockMovement[]
+  saleItems SaleItem[]
+  purchaseItems PurchaseOrderItem[]
+  countItems StockCountItem[]
+}
+model StockBalance {
+  variantId String @db.Uuid
+  locationId String @db.Uuid
+  quantity Int @default(0)
+  averageCost Decimal @default(0) @db.Decimal(18,4)
+  variant ProductVariant @relation(fields:[variantId], references:[id])
+  location StockLocation @relation(fields:[locationId], references:[id])
+  @@id([variantId,locationId])
+}
+model StockMovement {
+  id String @id @default(uuid()) @db.Uuid
+  variantId String @db.Uuid
+  locationId String @db.Uuid
+  quantity Int
+  unitCost Decimal @db.Decimal(18,4)
+  type String
+  reference String
+  reason String
+  userId String @db.Uuid
+  createdAt DateTime @default(now())
+  variant ProductVariant @relation(fields:[variantId], references:[id])
+  location StockLocation @relation(fields:[locationId], references:[id])
+  @@index([variantId,locationId,createdAt])
+  @@index([reference])
+}
+model StockCount {
+  id String @id @default(uuid()) @db.Uuid
+  locationId String @db.Uuid
+  status String @default("OPEN")
+  createdBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  cutoff DateTime @default(now())
+  approvedAt DateTime?
+  location StockLocation @relation(fields:[locationId], references:[id])
+  items StockCountItem[]
+}
+model StockDocument {
+  id String @id @default(uuid()) @db.Uuid
+  number BigInt @unique @default(autoincrement())
+  type String
+  sourceId String @db.Uuid
+  destinationId String? @db.Uuid
+  reason String
+  totalCost Decimal @db.Decimal(18,2)
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  items StockDocumentItem[]
+  @@index([createdAt])
+}
+model StockDocumentItem {
+  id String @id @default(uuid()) @db.Uuid
+  documentId String @db.Uuid
+  variantId String @db.Uuid
+  name String
+  sku String
+  quantity Int
+  unitCost Decimal @db.Decimal(18,4)
+  document StockDocument @relation(fields:[documentId],references:[id])
+  @@unique([documentId,variantId])
+}
+model StockCountItem {
+  countId String @db.Uuid
+  variantId String @db.Uuid
+  expected Int
+  actual Int?
+  count StockCount @relation(fields:[countId], references:[id])
+  variant ProductVariant @relation(fields:[variantId], references:[id])
+  @@id([countId,variantId])
+}
+model Supplier {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  phone String @default("")
+  email String?
+  address String @default("")
+  notes String @default("")
+  openingBalance Decimal @default(0) @db.Decimal(18,2)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  purchases PurchaseOrder[]
+  payments SupplierPayment[]
+  invoices SupplierInvoice[]
+  returns PurchaseReturn[]
+}
+model PurchaseOrder {
+  id String @id @default(uuid()) @db.Uuid
+  supplierId String @db.Uuid
+  locationId String @db.Uuid
+  status String @default("DRAFT")
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  supplier Supplier @relation(fields:[supplierId], references:[id])
+  location StockLocation @relation(fields:[locationId], references:[id])
+  items PurchaseOrderItem[]
+  receipts PurchaseReceipt[]
+}
+model PurchaseOrderItem {
+  id String @id @default(uuid()) @db.Uuid
+  purchaseId String @db.Uuid
+  variantId String @db.Uuid
+  quantity Int
+  received Int @default(0)
+  unitCost Decimal @db.Decimal(18,4)
+  purchase PurchaseOrder @relation(fields:[purchaseId], references:[id])
+  variant ProductVariant @relation(fields:[variantId], references:[id])
+  receipts PurchaseReceiptItem[]
+  @@unique([purchaseId,variantId])
+}
+model PurchaseReceipt {
+  id String @id @default(uuid()) @db.Uuid
+  purchaseId String @db.Uuid
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  total Decimal @db.Decimal(18,2)
+  purchase PurchaseOrder @relation(fields:[purchaseId], references:[id])
+  items PurchaseReceiptItem[]
+  invoice SupplierInvoice?
+}
+model PurchaseReceiptItem {
+  id String @id @default(uuid()) @db.Uuid
+  receiptId String @db.Uuid
+  purchaseItemId String @db.Uuid
+  quantity Int
+  unitCost Decimal @db.Decimal(18,4)
+  lineTotal Decimal @default(0) @db.Decimal(18,2)
+  returned Int @default(0)
+  returnedAmount Decimal @default(0) @db.Decimal(18,2)
+  receipt PurchaseReceipt @relation(fields:[receiptId], references:[id])
+  purchaseItem PurchaseOrderItem @relation(fields:[purchaseItemId], references:[id])
+  returns PurchaseReturnItem[]
+}
+model SupplierPayment {
+  id String @id @default(uuid()) @db.Uuid
+  supplierId String @db.Uuid
+  amount Decimal @db.Decimal(18,2)
+  method String
+  reference String @default("")
+  notes String @default("")
+  shiftId String? @db.Uuid
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  supplier Supplier @relation(fields:[supplierId], references:[id])
+  shift CashShift? @relation(fields:[shiftId],references:[id])
+  @@index([supplierId,createdAt])
+}
+model SupplierInvoice {
+  id String @id @default(uuid()) @db.Uuid
+  number BigInt @unique @default(autoincrement())
+  supplierId String @db.Uuid
+  receiptId String @unique @db.Uuid
+  total Decimal @db.Decimal(18,2)
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  supplier Supplier @relation(fields:[supplierId],references:[id])
+  receipt PurchaseReceipt @relation(fields:[receiptId],references:[id])
+  returns PurchaseReturn[]
+  @@index([supplierId,createdAt])
+}
+model PurchaseReturn {
+  id String @id @default(uuid()) @db.Uuid
+  number BigInt @unique @default(autoincrement())
+  supplierId String @db.Uuid
+  invoiceId String @db.Uuid
+  reason String
+  total Decimal @db.Decimal(18,2)
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  supplier Supplier @relation(fields:[supplierId],references:[id])
+  invoice SupplierInvoice @relation(fields:[invoiceId],references:[id])
+  items PurchaseReturnItem[]
+  @@index([supplierId,createdAt])
+}
+model PurchaseReturnItem {
+  id String @id @default(uuid()) @db.Uuid
+  returnId String @db.Uuid
+  receiptItemId String @db.Uuid
+  quantity Int
+  amount Decimal @db.Decimal(18,2)
+  inventoryCost Decimal @db.Decimal(18,4)
+  return PurchaseReturn @relation(fields:[returnId],references:[id])
+  receiptItem PurchaseReceiptItem @relation(fields:[receiptItemId],references:[id])
+  @@unique([returnId,receiptItemId])
+}
+model Customer {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  phone String @unique
+  email String?
+  address String @default("")
+  notes String @default("")
+  createdAt DateTime @default(now())
+  sales Sale[]
+  loyaltyAccount LoyaltyAccount?
+  loyaltyLots LoyaltyLot[]
+  loyaltyEntries LoyaltyEntry[]
+}
+model LoyaltyAccount {
+  customerId String @id @db.Uuid
+  debt Int @default(0)
+  customer Customer @relation(fields:[customerId],references:[id])
+}
+model LoyaltyLot {
+  id String @id @default(uuid()) @db.Uuid
+  customerId String @db.Uuid
+  reference String @unique
+  saleId String? @unique @db.Uuid
+  points Int
+  remaining Int
+  expired Int @default(0)
+  reversed Int @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  customer Customer @relation(fields:[customerId],references:[id])
+  redemptions LoyaltyRedemption[]
+  @@index([customerId,expiresAt])
+}
+model LoyaltyRedemption {
+  id String @id @default(uuid()) @db.Uuid
+  saleId String @db.Uuid
+  lotId String @db.Uuid
+  points Int
+  restored Int @default(0)
+  lot LoyaltyLot @relation(fields:[lotId],references:[id])
+  @@unique([saleId,lotId])
+}
+model LoyaltyEntry {
+  id String @id @default(uuid()) @db.Uuid
+  customerId String @db.Uuid
+  reference String @unique
+  kind String
+  points Int
+  saleId String? @db.Uuid
+  returnId String? @db.Uuid
+  createdAt DateTime @default(now())
+  customer Customer @relation(fields:[customerId],references:[id])
+  @@index([customerId,createdAt])
+}
+model Sale {
+  id String @id @default(uuid()) @db.Uuid
+  number BigInt @unique @default(autoincrement())
+  receiptNumber String? @unique
+  userId String @db.Uuid
+  branchId String @db.Uuid
+  shiftId String @db.Uuid
+  customerId String? @db.Uuid
+  subtotal Decimal @db.Decimal(18,2)
+  discount Decimal @db.Decimal(18,2)
+  tax Decimal @db.Decimal(18,2)
+  netBeforeTax Decimal @default(0) @db.Decimal(18,2)
+  taxRate Decimal @default(0) @db.Decimal(7,4)
+  taxMode String @default("EXCLUSIVE")
+  receiptSnapshot Json @default("{}")
+  total Decimal @db.Decimal(18,2)
+  change Decimal @db.Decimal(18,2)
+  notes String @default("")
+  status String @default("COMPLETED")
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id])
+  branch Branch @relation(fields:[branchId], references:[id])
+  shift CashShift @relation(fields:[shiftId], references:[id])
+  customer Customer? @relation(fields:[customerId], references:[id])
+  items SaleItem[]
+  payments SalePayment[]
+  returns SaleReturn[]
+  replacementExchange Exchange?
+  @@index([createdAt])
+  @@index([userId,createdAt])
+  @@index([customerId,createdAt])
+}
+model SaleItem {
+  id String @id @default(uuid()) @db.Uuid
+  saleId String @db.Uuid
+  variantId String @db.Uuid
+  name String
+  options Json
+  barcode String
+  sku String @default("")
+  returnRule String @default("STANDARD")
+  unitPrice Decimal @db.Decimal(18,2)
+  unitCost Decimal @db.Decimal(18,4)
+  quantity Int
+  returned Int @default(0)
+  discount Decimal @db.Decimal(18,2)
+  tax Decimal @db.Decimal(18,2)
+  total Decimal @db.Decimal(18,2)
+  refunded Decimal @default(0) @db.Decimal(18,2)
+  refundedTax Decimal @default(0) @db.Decimal(18,2)
+  sale Sale @relation(fields:[saleId], references:[id])
+  variant ProductVariant @relation(fields:[variantId], references:[id])
+  returns SaleReturnItem[]
+}
+model SalePayment {
+  id String @id @default(uuid()) @db.Uuid
+  saleId String @db.Uuid
+  method String
+  amount Decimal @db.Decimal(18,2)
+  cardBrand String @default("")
+  authorizationCode String @default("")
+  cardLast4 String @default("")
+  sale Sale @relation(fields:[saleId], references:[id])
+}
+model SaleReturn {
+  id String @id @default(uuid()) @db.Uuid
+  saleId String @db.Uuid
+  shiftId String @db.Uuid
+  createdBy String @db.Uuid
+  reason String
+  method String
+  total Decimal @db.Decimal(18,2)
+  refundAmount Decimal @default(0) @db.Decimal(18,2)
+  creditAmount Decimal @default(0) @db.Decimal(18,2)
+  reasonType String @default("CHANGE_MIND")
+  createdAt DateTime @default(now())
+  sale Sale @relation(fields:[saleId], references:[id])
+  items SaleReturnItem[]
+  exchange Exchange?
+  @@index([createdAt])
+  @@index([saleId,createdAt])
+}
+model SaleReturnItem {
+  id String @id @default(uuid()) @db.Uuid
+  returnId String @db.Uuid
+  saleItemId String @db.Uuid
+  quantity Int
+  sellable Boolean
+  amount Decimal @db.Decimal(18,2)
+  tax Decimal @default(0) @db.Decimal(18,2)
+  cost Decimal @db.Decimal(18,4)
+  return SaleReturn @relation(fields:[returnId], references:[id])
+  saleItem SaleItem @relation(fields:[saleItemId], references:[id])
+}
+model Exchange {
+  id String @id @default(uuid()) @db.Uuid
+  number BigInt @unique @default(autoincrement())
+  originalSaleId String @db.Uuid
+  returnId String @unique @db.Uuid
+  replacementSaleId String @unique @db.Uuid
+  difference Decimal @db.Decimal(18,2)
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  return SaleReturn @relation(fields:[returnId],references:[id])
+  replacement Sale @relation(fields:[replacementSaleId],references:[id])
+  @@index([originalSaleId,createdAt])
+}
+model Expense {
+  id String @id @default(uuid()) @db.Uuid
+  category String
+  amount Decimal @db.Decimal(18,2)
+  method String
+  description String
+  createdBy String @db.Uuid
+  date DateTime @default(now())
+  @@index([date])
+}
+model SystemSetting {
+  key String @id
+  value Json
+}
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  userId String? @db.Uuid
+  action String
+  reference String
+  details Json @default("{}")
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
+model Promotion {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  type String
+  productIds Json @default("[]")
+  percent Decimal @default(0) @db.Decimal(7,2)
+  buyQuantity Int @default(2)
+  getQuantity Int @default(1)
+  startsAt DateTime
+  endsAt DateTime
+  active Boolean @default(false)
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([active, startsAt, endsAt])
+}
+model BrandAsset {
+  id String @id
+  mime String
+  data Bytes
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+}
+model DiscountApproval {
+  id String @id @default(uuid()) @db.Uuid
+  requesterId String @db.Uuid
+  shiftId String @db.Uuid
+  input Json
+  fingerprint String
+  reason String
+  subtotal Decimal @db.Decimal(18,2)
+  discount Decimal @db.Decimal(18,2)
+  total Decimal @db.Decimal(18,2)
+  status String @default("PENDING")
+  approverId String? @db.Uuid
+  decisionNote String?
+  decidedAt DateTime?
+  consumedSaleId String? @unique @db.Uuid
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([requesterId, createdAt])
+  @@index([status, createdAt])
+}
+model IdempotencyKey {
+  key String @id
+  userId String @db.Uuid
+  operation String
+  hash String
+  response Json
+  createdAt DateTime @default(now())
+}
