@@ -253,6 +253,107 @@ schemas["POST /api/products"].properties.returnRule = {
   type: "string",
   enum: ["STANDARD", "DEFECT_ONLY"],
 };
+const binding = object({
+  id: uuid,
+  revision: { type: "integer", minimum: 1 },
+  token: { type: "string", pattern: "^[a-f0-9]{64}$" },
+});
+const draft = {
+  type: "object",
+  description:
+    "Bounded POS draft: display-only variants/items, quantities, customer, discounts, notes and tender drafts. Shared cart binding is supplied separately. Server prices/costs are authoritative.",
+};
+schemas["POST /api/expenses"].properties.submitForApproval = {
+  type: "boolean",
+  description:
+    "True queues for another reviewer; users without expenses.approve always queue. Authorized direct CASH posts require own open shift.",
+};
+schemas["POST /api/inventory/stock-counts"].properties.mode = {
+  type: "string",
+  enum: ["CUTOFF", "CONTINUOUS"],
+  default: "CUTOFF",
+};
+Object.assign(schemas, {
+  "POST /api/expense-categories": object({ name: str }),
+  "PATCH /api/expense-categories/:id": object({ active: { type: "boolean" } }),
+  "POST /api/expenses/:id/decision": object(
+    { approve: { type: "boolean" }, note: str, shiftId: uuid },
+    ["approve", "note"],
+  ),
+  "POST /api/expenses/:id/attachments": object({
+    name: str,
+    dataUrl: {
+      type: "string",
+      maxLength: 1100000,
+      description:
+        "Base64 PDF/JPEG/PNG/WebP, decoded limit 750000 bytes, max five attachments; authenticated download only.",
+    },
+  }),
+  "POST /api/administration/branches": object({ name: str, locationName: str }),
+  "PATCH /api/administration/branches/:id": object({
+    name: str,
+    active: { type: "boolean" },
+  }),
+  "POST /api/administration/registers": object({
+    name: str,
+    branchId: uuid,
+    locationId: uuid,
+  }),
+  "PATCH /api/administration/registers/:id": object({
+    name: str,
+    locationId: uuid,
+    active: { type: "boolean" },
+  }),
+  "PATCH /api/administration/users/:id/role": object({ roleId: uuid }),
+  "PATCH /api/customers/:id/discount": object({ percent: amount }),
+  "POST /api/inventory/shipments": object({
+    sourceId: uuid,
+    destinationId: uuid,
+    reason: str,
+    items: array(object({ variantId: uuid, quantity: integer })),
+  }),
+  "POST /api/inventory/shipments/:id/receive": object({
+    items: array(object({ itemId: uuid, quantity: integer })),
+  }),
+  "POST /api/inventory/holds": object({
+    locationId: uuid,
+    variantId: uuid,
+    quantity: integer,
+    reason: str,
+  }),
+  "POST /api/inventory/holds/:id/resolve": object({
+    action: { type: "string", enum: ["RELEASE", "DISPOSE"] },
+    quantity: integer,
+    reason: str,
+  }),
+  "POST /api/shared-carts": object(
+    {
+      title: str,
+      locationId: uuid,
+      draft,
+      reserve: { type: "boolean", default: false },
+    },
+    ["title", "locationId", "draft"],
+  ),
+  "POST /api/shared-carts/:id/sync": object({
+    binding,
+    stamp: {
+      type: "integer",
+      minimum: 1,
+      description:
+        "Monotonically increasing client timestamp within this lease; older writes ignored.",
+    },
+    draft,
+  }),
+  "POST /api/shared-carts/:id/release": object({ binding, draft }),
+});
+checkout.properties.sharedCart = binding;
+schemas["POST /api/products"].properties.imageDataUrl = {
+  type: "string",
+  maxLength: 200000,
+  description:
+    "Optional PNG/JPEG/WebP base64 image, decoded maximum 140000 bytes. Product and image are saved atomically under products.create. Omit to create without an image.",
+};
 schemas["POST /api/sales/:id/returns"].properties.reasonType = {
   type: "string",
   enum: ["CHANGE_MIND", "MANUFACTURING_DEFECT"],
@@ -287,6 +388,15 @@ schemas["POST /api/settings/logo"] = object({
     type: "string",
     maxLength: 200000,
     description: "Base64 PNG/JPEG/WebP, decoded maximum 140000 bytes.",
+  },
+});
+schemas["POST /api/products/:id/image"] = object({
+  dataUrl: {
+    type: "string",
+    nullable: true,
+    maxLength: 200000,
+    description:
+      "Base64 PNG/JPEG/WebP; decoded limit 140000 bytes. Null removes the product image. Requires products.update. Content-addressed assets are retained; stock and historical receipts are unchanged.",
   },
 });
 checkout.properties.discountApprovalId = uuid;
@@ -339,9 +449,16 @@ for (const [file, prefix] of [
   ["apps/api/src/discount-approvals.ts", "/api"],
   ["apps/api/src/promotions.ts", "/api"],
   ["apps/api/src/branding.ts", "/api"],
+  ["apps/api/src/product-images.ts", "/api"],
   ["apps/api/src/loyalty-routes.ts", "/api"],
   ["apps/api/src/stock-documents.ts", "/api"],
   ["apps/api/src/customers.ts", "/api"],
+  ["apps/api/src/expense-workflow.ts", "/api"],
+  ["apps/api/src/administration.ts", "/api"],
+  ["apps/api/src/customer-discounts.ts", "/api"],
+  ["apps/api/src/advanced-stock.ts", "/api"],
+  ["apps/api/src/shared-carts.ts", "/api"],
+  ["apps/api/src/detailed-reports.ts", "/api"],
 ]) {
   const source = readFileSync(file, "utf8");
   const sourceFile = ts.createSourceFile(
@@ -365,10 +482,17 @@ for (const [file, prefix] of [
         "discountApprovals",
         "promotions",
         "branding",
+        "productImages",
         "publicBranding",
         "loyaltyRoutes",
         "stockDocuments",
         "customers",
+        "expenseWorkflow",
+        "administration",
+        "customerDiscounts",
+        "advancedStock",
+        "sharedCarts",
+        "detailedReports",
       ].includes(node.expression.expression.getText(sourceFile)) &&
       ["get", "post", "patch"].includes(node.expression.name.text) &&
       node.arguments[0] &&
@@ -397,11 +521,13 @@ for (const [file, prefix] of [
         in: "path",
         name: param[1],
         required: true,
-        schema: raw.startsWith("/api/brand-assets/")
-          ? { type: "string", pattern: "^[a-f0-9]{64}$" }
-          : param[1] === "id"
-            ? uuid
-            : str,
+        schema:
+          raw.startsWith("/api/brand-assets/") ||
+          raw.startsWith("/api/administration/sessions/")
+            ? { type: "string", pattern: "^[a-f0-9]{64}$" }
+            : param[1] === "id"
+              ? uuid
+              : str,
       });
     const auth =
       raw.includes("/auth/login") ||
@@ -469,12 +595,25 @@ for (const [file, prefix] of [
         parameters.push({
           in: "query",
           name,
-          required: raw.endsWith("/export"),
+          required: raw.endsWith("/export") || raw.includes("/detail/"),
           schema: { type: "string", format: "date-time" },
         });
+    if (raw === "/api/reports/detail/:kind")
+      parameters.push(
+        { in: "query", name: "q", schema: str },
+        {
+          in: "query",
+          name: "format",
+          schema: {
+            type: "string",
+            enum: ["json", "xlsx", "pdf"],
+            default: "json",
+          },
+        },
+      );
     const financial =
       verb === "post" &&
-      /discount-approvals$|sales(?:\/|$)|receive$|adjustments$|shifts\/open$|cash-movements$|\/close$|expenses$|\/payments$|supplier-invoices\/.+\/returns$/.test(
+      /inventory\/(?:shipments|holds)(?:\/|$)|inventory\/stock-counts\/.+\/cancel$|shared-carts(?:$|\/[^/]+\/(?:claim|cancel)$)|\/decision$|discount-approvals$|sales(?:\/|$)|receive$|adjustments$|shifts\/open$|cash-movements$|\/close$|expenses$|\/payments$|supplier-invoices\/.+\/returns$/.test(
         raw,
       );
     if (financial)

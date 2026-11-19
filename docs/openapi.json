@@ -1499,6 +1499,11 @@
                       "STANDARD",
                       "DEFECT_ONLY"
                     ]
+                  },
+                  "imageDataUrl": {
+                    "type": "string",
+                    "maxLength": 200000,
+                    "description": "Optional PNG/JPEG/WebP base64 image, decoded maximum 140000 bytes. Product and image are saved atomically under products.create. Omit to create without an image."
                   }
                 },
                 "required": [
@@ -2625,6 +2630,14 @@
                   "locationId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "CUTOFF",
+                      "CONTINUOUS"
+                    ],
+                    "default": "CUTOFF"
                   }
                 },
                 "required": [
@@ -3892,6 +3905,28 @@
                   "notes": {
                     "type": "string"
                   },
+                  "sharedCart": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "token": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "token"
+                    ]
+                  },
                   "discountApprovalId": {
                     "type": "string",
                     "format": "uuid"
@@ -4454,6 +4489,28 @@
                       },
                       "notes": {
                         "type": "string"
+                      },
+                      "sharedCart": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "token": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "token"
+                        ]
                       },
                       "discountApprovalId": {
                         "type": "string",
@@ -5101,6 +5158,10 @@
                   "shiftId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "submitForApproval": {
+                    "type": "boolean",
+                    "description": "True queues for another reviewer; users without expenses.approve always queue. Authorized direct CASH posts require own open shift."
                   }
                 },
                 "required": [
@@ -5570,6 +5631,28 @@
                   },
                   "notes": {
                     "type": "string"
+                  },
+                  "sharedCart": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "token": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "token"
+                    ]
                   },
                   "discountApprovalId": {
                     "type": "string",
@@ -6931,6 +7014,28 @@
                       "notes": {
                         "type": "string"
                       },
+                      "sharedCart": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "token": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "token"
+                        ]
+                      },
                       "discountApprovalId": {
                         "type": "string",
                         "format": "uuid"
@@ -7210,6 +7315,28 @@
                       },
                       "notes": {
                         "type": "string"
+                      },
+                      "sharedCart": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "token": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "token"
+                        ]
                       },
                       "discountApprovalId": {
                         "type": "string",
@@ -7633,6 +7760,28 @@
                       "notes": {
                         "type": "string"
                       },
+                      "sharedCart": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "token": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "token"
+                        ]
+                      },
                       "discountApprovalId": {
                         "type": "string",
                         "format": "uuid"
@@ -7805,6 +7954,16 @@
             "schema": {
               "type": "string",
               "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
             }
           }
         ],
@@ -8371,6 +8530,103 @@
                     "type": "string",
                     "maxLength": 200000,
                     "description": "Base64 PNG/JPEG/WebP, decoded maximum 140000 bytes."
+                  }
+                },
+                "required": [
+                  "dataUrl"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}/image": {
+      "post": {
+        "summary": "POST /api/products/:id/image",
+        "operationId": "post__api_products__id_image",
+        "tags": [
+          "products"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "products.update"
+        ],
+        "description": "Required backend permission(s): products.update. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dataUrl": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 200000,
+                    "description": "Base64 PNG/JPEG/WebP; decoded limit 140000 bytes. Null removes the product image. Requires products.update. Content-addressed assets are retained; stock and historical receipts are unchanged."
                   }
                 },
                 "required": [
@@ -8990,6 +9246,2850 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    "/api/expense-categories": {
+      "get": {
+        "summary": "GET /api/expense-categories",
+        "operationId": "get__api_expense_categories",
+        "tags": [
+          "expense-categories"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "x-permissions": [
+          "expenses.view",
+          "expenses.create"
+        ],
+        "description": "Required backend permission(s): expenses.view, expenses.create. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/expense-categories",
+        "operationId": "post__api_expense_categories",
+        "tags": [
+          "expense-categories"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "expenses.approve"
+        ],
+        "description": "Required backend permission(s): expenses.approve. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expense-categories/{id}": {
+      "patch": {
+        "summary": "PATCH /api/expense-categories/:id",
+        "operationId": "patch__api_expense_categories__id",
+        "tags": [
+          "expense-categories"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "expenses.approve"
+        ],
+        "description": "Required backend permission(s): expenses.approve. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "active"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/{id}/decision": {
+      "post": {
+        "summary": "POST /api/expenses/:id/decision",
+        "operationId": "post__api_expenses__id_decision",
+        "tags": [
+          "expenses"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "expenses.approve"
+        ],
+        "description": "Required backend permission(s): expenses.approve. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approve": {
+                    "type": "boolean"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "shiftId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "approve",
+                  "note"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/{id}/attachments": {
+      "get": {
+        "summary": "GET /api/expenses/:id/attachments",
+        "operationId": "get__api_expenses__id_attachments",
+        "tags": [
+          "expenses"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "x-permissions": [
+          "expenses.view",
+          "expenses.create"
+        ],
+        "description": "Required backend permission(s): expenses.view, expenses.create. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/expenses/:id/attachments",
+        "operationId": "post__api_expenses__id_attachments",
+        "tags": [
+          "expenses"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "expenses.create"
+        ],
+        "description": "Required backend permission(s): expenses.create. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "dataUrl": {
+                    "type": "string",
+                    "maxLength": 1100000,
+                    "description": "Base64 PDF/JPEG/PNG/WebP, decoded limit 750000 bytes, max five attachments; authenticated download only."
+                  }
+                },
+                "required": [
+                  "name",
+                  "dataUrl"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expense-attachments/{id}": {
+      "get": {
+        "summary": "GET /api/expense-attachments/:id",
+        "operationId": "get__api_expense_attachments__id",
+        "tags": [
+          "expense-attachments"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "x-permissions": [
+          "expenses.view",
+          "expenses.create"
+        ],
+        "description": "Required backend permission(s): expenses.view, expenses.create. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/administration/branches": {
+      "get": {
+        "summary": "GET /api/administration/branches",
+        "operationId": "get__api_administration_branches",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "x-permissions": [
+          "settings.manage"
+        ],
+        "description": "Required backend permission(s): settings.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/administration/branches",
+        "operationId": "post__api_administration_branches",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "settings.manage"
+        ],
+        "description": "Required backend permission(s): settings.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "locationName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "locationName"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/administration/branches/{id}": {
+      "patch": {
+        "summary": "PATCH /api/administration/branches/:id",
+        "operationId": "patch__api_administration_branches__id",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "settings.manage"
+        ],
+        "description": "Required backend permission(s): settings.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "active"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/administration/registers": {
+      "post": {
+        "summary": "POST /api/administration/registers",
+        "operationId": "post__api_administration_registers",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "settings.manage"
+        ],
+        "description": "Required backend permission(s): settings.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "branchId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "name",
+                  "branchId",
+                  "locationId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/administration/registers/{id}": {
+      "patch": {
+        "summary": "PATCH /api/administration/registers/:id",
+        "operationId": "patch__api_administration_registers__id",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "settings.manage"
+        ],
+        "description": "Required backend permission(s): settings.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "locationId",
+                  "active"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/administration/sessions": {
+      "get": {
+        "summary": "GET /api/administration/sessions",
+        "operationId": "get__api_administration_sessions",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "x-permissions": [
+          "users.manage"
+        ],
+        "description": "Required backend permission(s): users.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/administration/sessions/{id}/revoke": {
+      "post": {
+        "summary": "POST /api/administration/sessions/:id/revoke",
+        "operationId": "post__api_administration_sessions__id_revoke",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "users.manage"
+        ],
+        "description": "Required backend permission(s): users.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/administration/users/{id}/revoke-sessions": {
+      "post": {
+        "summary": "POST /api/administration/users/:id/revoke-sessions",
+        "operationId": "post__api_administration_users__id_revoke_sessions",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "users.manage"
+        ],
+        "description": "Required backend permission(s): users.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/administration/users/{id}/role": {
+      "patch": {
+        "summary": "PATCH /api/administration/users/:id/role",
+        "operationId": "patch__api_administration_users__id_role",
+        "tags": [
+          "administration"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "roles.manage",
+          "users.manage"
+        ],
+        "description": "Required backend permission(s): roles.manage, users.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roleId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "roleId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/customers/{id}/discount": {
+      "patch": {
+        "summary": "PATCH /api/customers/:id/discount",
+        "operationId": "patch__api_customers__id_discount",
+        "tags": [
+          "customers"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "settings.manage"
+        ],
+        "description": "Required backend permission(s): settings.manage. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "percent": {
+                    "type": "string",
+                    "pattern": "^\\d{1,10}(\\.\\d{1,2})?$",
+                    "example": "100.00"
+                  }
+                },
+                "required": [
+                  "percent"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/stock-counts/{id}/cancel": {
+      "post": {
+        "summary": "POST /api/inventory/stock-counts/:id/cancel",
+        "operationId": "post__api_inventory_stock_counts__id_cancel",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "inventory.count"
+        ],
+        "description": "Required backend permission(s): inventory.count. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/inventory/shipments": {
+      "get": {
+        "summary": "GET /api/inventory/shipments",
+        "operationId": "get__api_inventory_shipments",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "x-permissions": [
+          "inventory.view"
+        ],
+        "description": "Required backend permission(s): inventory.view. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/inventory/shipments",
+        "operationId": "post__api_inventory_shipments",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "inventory.adjust"
+        ],
+        "description": "Required backend permission(s): inventory.adjust. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "destinationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "variantId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "variantId",
+                        "quantity"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "sourceId",
+                  "destinationId",
+                  "reason",
+                  "items"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/shipments/{id}/receive": {
+      "post": {
+        "summary": "POST /api/inventory/shipments/:id/receive",
+        "operationId": "post__api_inventory_shipments__id_receive",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "purchases.receive",
+          "inventory.adjust"
+        ],
+        "description": "Required backend permission(s): purchases.receive, inventory.adjust. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "itemId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "itemId",
+                        "quantity"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "items"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/holds": {
+      "get": {
+        "summary": "GET /api/inventory/holds",
+        "operationId": "get__api_inventory_holds",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "x-permissions": [
+          "inventory.view"
+        ],
+        "description": "Required backend permission(s): inventory.view. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/inventory/holds",
+        "operationId": "post__api_inventory_holds",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "inventory.adjust"
+        ],
+        "description": "Required backend permission(s): inventory.adjust. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "locationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "variantId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "locationId",
+                  "variantId",
+                  "quantity",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/holds/{id}/resolve": {
+      "post": {
+        "summary": "POST /api/inventory/holds/:id/resolve",
+        "operationId": "post__api_inventory_holds__id_resolve",
+        "tags": [
+          "inventory"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "inventory.adjust"
+        ],
+        "description": "Required backend permission(s): inventory.adjust. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "RELEASE",
+                      "DISPOSE"
+                    ]
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action",
+                  "quantity",
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shared-carts": {
+      "get": {
+        "summary": "GET /api/shared-carts",
+        "operationId": "get__api_shared_carts",
+        "tags": [
+          "shared-carts"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "x-permissions": [
+          "pos.access"
+        ],
+        "description": "Required backend permission(s): pos.access. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/shared-carts",
+        "operationId": "post__api_shared_carts",
+        "tags": [
+          "shared-carts"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "pos.access"
+        ],
+        "description": "Required backend permission(s): pos.access. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "draft": {
+                    "type": "object",
+                    "description": "Bounded POS draft: display-only variants/items, quantities, customer, discounts, notes and tender drafts. Shared cart binding is supplied separately. Server prices/costs are authoritative."
+                  },
+                  "reserve": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "title",
+                  "locationId",
+                  "draft"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shared-carts/{id}/claim": {
+      "post": {
+        "summary": "POST /api/shared-carts/:id/claim",
+        "operationId": "post__api_shared_carts__id_claim",
+        "tags": [
+          "shared-carts"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "pos.access"
+        ],
+        "description": "Required backend permission(s): pos.access. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/shared-carts/{id}/sync": {
+      "post": {
+        "summary": "POST /api/shared-carts/:id/sync",
+        "operationId": "post__api_shared_carts__id_sync",
+        "tags": [
+          "shared-carts"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "pos.access"
+        ],
+        "description": "Required backend permission(s): pos.access. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "binding": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "token": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "token"
+                    ]
+                  },
+                  "stamp": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Monotonically increasing client timestamp within this lease; older writes ignored."
+                  },
+                  "draft": {
+                    "type": "object",
+                    "description": "Bounded POS draft: display-only variants/items, quantities, customer, discounts, notes and tender drafts. Shared cart binding is supplied separately. Server prices/costs are authoritative."
+                  }
+                },
+                "required": [
+                  "binding",
+                  "stamp",
+                  "draft"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shared-carts/{id}/release": {
+      "post": {
+        "summary": "POST /api/shared-carts/:id/release",
+        "operationId": "post__api_shared_carts__id_release",
+        "tags": [
+          "shared-carts"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "x-permissions": [
+          "pos.access"
+        ],
+        "description": "Required backend permission(s): pos.access. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "binding": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "token": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "token"
+                    ]
+                  },
+                  "draft": {
+                    "type": "object",
+                    "description": "Bounded POS draft: display-only variants/items, quantities, customer, discounts, notes and tender drafts. Shared cart binding is supplied separately. Server prices/costs are authoritative."
+                  }
+                },
+                "required": [
+                  "binding",
+                  "draft"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shared-carts/{id}/cancel": {
+      "post": {
+        "summary": "POST /api/shared-carts/:id/cancel",
+        "operationId": "post__api_shared_carts__id_cancel",
+        "tags": [
+          "shared-carts"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 100
+            }
+          }
+        ],
+        "x-permissions": [
+          "pos.access"
+        ],
+        "description": "Required backend permission(s): pos.access. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/reports/detail/{kind}": {
+      "get": {
+        "summary": "GET /api/reports/detail/:kind",
+        "operationId": "get__api_reports_detail__kind",
+        "tags": [
+          "reports"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "xlsx",
+                "pdf"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "x-permissions": [
+          "reports.sales",
+          "reports.inventory"
+        ],
+        "description": "Required backend permission(s): reports.sales, reports.inventory. Multiple gates may require both; see API.md.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. JSON { data, total? }; decimal and invoice-number values are strings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
           }
         }
       }

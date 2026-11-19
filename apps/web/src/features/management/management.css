@@ -1,0 +1,97 @@
+.management-table {
+  overflow: auto;
+  max-width: 100%;
+}
+.management-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.management-table td,
+.management-table th {
+  padding: 12px;
+  border-bottom: 1px solid #e8e8ec;
+  text-align: start;
+  white-space: normal;
+  min-width: 90px;
+}
+.management-table th {
+  background: #fafafa;
+  color: #686d76;
+  font-weight: 500;
+}
+.management-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  margin-block: 10px;
+}
+.management-field input,
+.management-field select,
+.management-field textarea {
+  width: 100%;
+  min-width: 0;
+}
+.management-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.management-tools .management-field {
+  flex: 1;
+  min-width: 145px;
+}
+.management-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.management-tools + .management-table {
+  margin-top: 16px;
+}
+.management-note {
+  color: #767c88;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.management-card {
+  padding: 20px;
+}
+.management-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+@media print {
+  body.report-print .sidebar,
+  body.report-print .topbar,
+  body.report-print .footer,
+  body.report-print .page-head,
+  body.report-print .report-controls {
+    display: none !important;
+  }
+  body.report-print .app-shell,
+  body.report-print .workspace,
+  body.report-print .content {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+  body.report-print .management-table {
+    overflow: visible;
+  }
+  body.report-print .management-table th {
+    position: static;
+  }
+  body.report-print .management-table tr {
+    break-inside: avoid;
+  }
+  body.report-print .management-table thead {
+    display: table-header-group;
+  }
+}

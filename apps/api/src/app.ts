@@ -26,7 +26,6 @@ import {
 import {
   activeShift,
   checkout,
-  expenseSchema,
   once,
   receive,
   receiveSchema,
@@ -45,6 +44,17 @@ import { checkoutRecovery } from "./checkout-recovery.js";
 import { discountApprovals } from "./discount-approvals.js";
 import { promotions } from "./promotions.js";
 import { publicBranding, branding } from "./branding.js";
+import {
+  expenseWorkflow,
+  expenseInput,
+  createExpense,
+} from "./expense-workflow.js";
+import { administration } from "./administration.js";
+import { sharedCarts } from "./shared-carts.js";
+import { customerDiscounts } from "./customer-discounts.js";
+import { advancedStock } from "./advanced-stock.js";
+import { detailedReports } from "./detailed-reports.js";
+import { productImages, productImageAsset } from "./product-images.js";
 import { loyaltyRoutes } from "./loyalty-routes.js";
 import { stockDocuments, postStockDocument } from "./stock-documents.js";
 import {
@@ -61,7 +71,7 @@ app.disable("x-powered-by");
 if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
 app.use(
   helmet(),
-  express.json({ limit: "256kb" }),
+  express.json({ limit: "2mb" }),
   cookieParser(),
   pinoHttp({
     redact: [
@@ -552,11 +562,22 @@ app.post(
   "/api/products",
   can("products.create"),
   route(async (req, res) => {
-    const input = productSchema.parse(req.body);
+    const { imageDataUrl, ...input } = productSchema
+      .extend({
+        imageDataUrl: z.string().max(200000).optional(),
+      })
+      .parse(req.body);
+    const image =
+      imageDataUrl === undefined
+        ? undefined
+        : productImageAsset(imageDataUrl, actor(req).id);
     const product = await transaction(async (tx) => {
+      if (image)
+        await tx.brandAsset.createMany({ data: [image], skipDuplicates: true });
       const p = await tx.product.create({
         data: {
           ...input,
+          imageUrl: image ? `/api/brand-assets/${image.id}` : null,
           createdBy: actor(req).id,
           variants: {
             create: input.variants.map((v) => ({
@@ -709,7 +730,13 @@ app.get(
 app.get(
   "/api/registers",
   can("cash.open_shift"),
-  route(async (_req, res) => res.json({ data: await db.register.findMany() })),
+  route(async (_req, res) =>
+    res.json({
+      data: await db.register.findMany({
+        where: { active: true, branch: { active: true } },
+      }),
+    }),
+  ),
 );
 app.get(
   "/api/inventory",
@@ -821,15 +848,32 @@ app.post(
   "/api/inventory/stock-counts",
   can("inventory.count"),
   route(async (req, res) => {
-    const { locationId } = z.object({ locationId: id }).parse(req.body);
+    const { locationId, mode } = z
+      .object({
+        locationId: id,
+        mode: z.enum(["CUTOFF", "CONTINUOUS"]).default("CUTOFF"),
+      })
+      .parse(req.body);
     res.status(201).json({
       data: await transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "StockLocation" WHERE id=${locationId}::uuid FOR UPDATE`;
+        const openCounts = await tx.stockCount.findMany({
+          where: { locationId, status: "OPEN" },
+          select: { mode: true },
+        });
+        assert(
+          !openCounts.some((c) => c.mode === "CONTINUOUS") &&
+            (mode !== "CONTINUOUS" || openCounts.length === 0),
+          "COUNT_OPEN",
+          "أغلق جلسات الجرد المفتوحة في المخزن قبل الجرد المستمر",
+        );
         const balances = await tx.stockBalance.findMany({
           where: { locationId },
         });
         const count = await tx.stockCount.create({
           data: {
             locationId,
+            mode,
             createdBy: actor(req).id,
             items: {
               create: balances.map((b) => ({
@@ -862,11 +906,32 @@ app.patch(
         where: { id: countId },
       });
       assert(count.status === "OPEN", "COUNT_CLOSED", "Count already approved");
-      for (const item of input.items)
+      for (const item of [...input.items].sort((a, b) =>
+        a.variantId.localeCompare(b.variantId),
+      )) {
+        let expected: number | undefined;
+        if (count.mode === "CONTINUOUS") {
+          await tx.$queryRaw`SELECT quantity FROM "StockBalance" WHERE "variantId"=${item.variantId}::uuid AND "locationId"=${count.locationId}::uuid FOR UPDATE`;
+          expected = (
+            await tx.stockBalance.findUniqueOrThrow({
+              where: {
+                variantId_locationId: {
+                  variantId: item.variantId,
+                  locationId: count.locationId,
+                },
+              },
+            })
+          ).quantity;
+        }
         await tx.stockCountItem.update({
           where: { countId_variantId: { countId, variantId: item.variantId } },
-          data: { actual: item.actual },
+          data: {
+            actual: item.actual,
+            countedAt: new Date(),
+            ...(expected !== undefined ? { expected } : {}),
+          },
         });
+      }
     });
     res.json({ data: { ok: true } });
   }),
@@ -893,7 +958,7 @@ app.post(
         },
       });
       assert(
-        movements === 0,
+        movements === 0 || count.mode === "CONTINUOUS",
         "COUNT_MOVED",
         "Stock moved after cutoff; recount using a new session",
       );
@@ -901,6 +966,8 @@ app.post(
         a.variantId.localeCompare(b.variantId),
       )) {
         const diff = item.actual! - item.expected;
+        if (count.mode === "CONTINUOUS")
+          assert(item.countedAt, "COUNT_INVALID", "أدخل كمية حديثة لكل صنف");
         if (diff)
           await stock(tx, actor(req), {
             variantId: item.variantId,
@@ -1020,6 +1087,17 @@ app.post(
         "open-shift",
         input,
         async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "Register" WHERE id=${input.registerId}::uuid FOR UPDATE`;
+          const register = await tx.register.findUnique({
+            where: { id: input.registerId },
+            include: { branch: true },
+          });
+          assert(
+            register?.active && register.branch.active,
+            "REGISTER_INACTIVE",
+            "الجهاز أو الفرع غير نشط",
+            400,
+          );
           const existing = await tx.cashShift.count({
             where: {
               closedAt: null,
@@ -1459,6 +1537,13 @@ app.get(
   route(async (req, res) =>
     res.json({
       data: await db.expense.findMany({
+        where: req.query.status
+          ? {
+              status: z
+                .enum(["PENDING", "APPROVED", "REJECTED"])
+                .parse(req.query.status),
+            }
+          : {},
         orderBy: { date: "desc" },
         ...page(req.query),
       }),
@@ -1469,46 +1554,14 @@ app.post(
   "/api/expenses",
   can("expenses.create"),
   route(async (req, res) => {
-    const input = expenseSchema.parse(req.body);
+    const input = expenseInput.parse(req.body);
     res.status(201).json({
       data: await once(
         actor(req),
         req.get("Idempotency-Key"),
         "expense",
         input,
-        async (tx) => {
-          if (input.method === "CASH") {
-            assert(
-              input.shiftId,
-              "SHIFT_REQUIRED",
-              "Cash expenses require a shift",
-              400,
-            );
-            await activeShift(tx, input.shiftId, actor(req));
-          }
-          const e = await tx.expense.create({
-            data: {
-              category: input.category,
-              amount: input.amount,
-              method: input.method,
-              description: input.description,
-              createdBy: actor(req).id,
-            },
-          });
-          if (input.method === "CASH")
-            await tx.cashMovement.create({
-              data: {
-                shiftId: input.shiftId!,
-                userId: actor(req).id,
-                type: "EXPENSE",
-                amount: D(input.amount).negated(),
-                reference: e.id,
-                reason: input.description,
-              },
-            });
-          await audit(tx, actor(req).id, "EXPENSE", e.id);
-          return e;
-        },
+        (tx) => createExpense(tx, actor(req), input),
       ),
     });
   }),
@@ -1594,6 +1647,13 @@ app.use("/api", checkoutRecovery);
 app.use("/api", discountApprovals);
 app.use("/api", promotions);
 app.use("/api", branding);
+app.use("/api", productImages);
+app.use("/api", expenseWorkflow);
+app.use("/api", administration);
+app.use("/api", sharedCarts);
+app.use("/api", customerDiscounts);
+app.use("/api", advancedStock);
+app.use("/api", detailedReports);
 app.use("/api", loyaltyRoutes);
 app.use("/api", stockDocuments);
 app.use("/api", customers);

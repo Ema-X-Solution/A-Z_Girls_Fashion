@@ -10,6 +10,7 @@ import type { PrismaClient } from "@prisma/client";
 import { chromium, expect as browserExpect, type Page } from "@playwright/test";
 import { preview } from "vite";
 import { createServer as createSocketServer } from "node:net";
+import { registerCompletionTests } from "./completion-scenarios";
 const origin = "http://localhost:5173",
   password = randomBytes(24).toString("hex");
 let pg: EmbeddedPostgres,
@@ -356,6 +357,127 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect(lookup.status).toBe(200);
     expect(lookup.body.data.cost).toBeUndefined();
   });
+  it("uploads, deduplicates and removes product images with update permission and CSRF", async () => {
+    const bytes = await readFile("apps/web/public/brand/az-logo.jpg");
+    const dataUrl = `data:image/jpeg;base64,${bytes.toString("base64")}`;
+    const path = `/products/${product.id}/image`;
+    expect((await send(cashier, path, { dataUrl })).status).toBe(403);
+    expect(
+      (
+        await manager.agent
+          .post(`/api${path}`)
+          .set("Origin", origin)
+          .send({ dataUrl })
+      ).status,
+    ).toBe(403);
+    for (const bad of [
+      "https://example.test/image.jpg",
+      "data:image/svg+xml;base64,PHN2Zz4=",
+      "data:image/png;base64," + bytes.toString("base64"),
+      "data:image/jpeg;base64," + Buffer.alloc(140001, 255).toString("base64"),
+    ]) {
+      expect((await send(manager, path, { dataUrl: bad })).status).toBe(400);
+    }
+    const before = await db.brandAsset.count();
+    const uploaded = await send(manager, path, { dataUrl });
+    expect(uploaded.status).toBe(200);
+    const imageUrl = uploaded.body.data.imageUrl;
+    expect(imageUrl).toMatch(/^\/api\/brand-assets\/[a-f0-9]{64}$/);
+    expect((await send(manager, path, { dataUrl })).body.data.imageUrl).toBe(
+      imageUrl,
+    );
+    expect(await db.brandAsset.count()).toBe(before + 1);
+    const asset = await request(app).get(imageUrl);
+    expect(asset.status).toBe(200);
+    expect(asset.headers["content-type"]).toContain("image/jpeg");
+    expect(Buffer.from(asset.body)).toEqual(bytes);
+    expect(
+      (await cashier.agent.get(`/api/products/${product.id}`)).body.data
+        .imageUrl,
+    ).toBe(imageUrl);
+    expect(
+      (await cashier.agent.get("/api/products?q=DRESS-TEST")).body.data[0]
+        .imageUrl,
+    ).toBe(imageUrl);
+    expect(
+      (
+        await send(manager, `/products/${crypto.randomUUID()}/image`, {
+          dataUrl,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await send(manager, path, { dataUrl: null })).body.data.imageUrl,
+    ).toBeNull();
+    expect(
+      (await db.product.findUniqueOrThrow({ where: { id: product.id } }))
+        .imageUrl,
+    ).toBeNull();
+    expect(
+      await db.auditLog.count({
+        where: { action: "PRODUCT_IMAGE_UPDATED", reference: product.id },
+      }),
+    ).toBe(3);
+  });
+  it("creates products with optional images atomically and rejects invalid images without creating products", async () => {
+    await resetFixtureQuota();
+    const category = await db.category.findFirstOrThrow();
+    const input = {
+      nameAr: "منتج بصورة اختيارية",
+      sku: "IMAGE-CREATE",
+      categoryId: category.id,
+      variants: [{ sku: "IMAGE-CREATE-V1", price: "10", cost: "2" }],
+    };
+    const bytes = await readFile("apps/web/public/brand/az-logo.jpg");
+    const dataUrl = `data:image/jpeg;base64,${bytes.toString("base64")}`;
+    expect(
+      (await send(cashier, "/products", { ...input, imageDataUrl: dataUrl }))
+        .status,
+    ).toBe(403);
+    const count = await db.product.count();
+    expect(
+      (await send(manager, "/products", { ...input, imageDataUrl: "invalid" }))
+        .status,
+    ).toBe(400);
+    expect(await db.product.count()).toBe(count);
+    const assets = await db.brandAsset.count();
+    const created = await send(manager, "/products", {
+      ...input,
+      imageDataUrl: dataUrl,
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data.imageUrl).toMatch(
+      /^\/api\/brand-assets\/[a-f0-9]{64}$/,
+    );
+    expect(
+      (
+        await db.product.findUniqueOrThrow({
+          where: { id: created.body.data.id },
+        })
+      ).imageUrl,
+    ).toBe(created.body.data.imageUrl);
+    expect(await db.brandAsset.count()).toBe(assets);
+    const plain = await send(manager, "/products", {
+      ...input,
+      sku: "NO-IMAGE-CREATE",
+      variants: [{ sku: "NO-IMAGE-V1", price: "10" }],
+    });
+    expect(plain.status).toBe(201);
+    expect(plain.body.data.imageUrl).toBeNull();
+    expect(
+      (
+        await send(manager, "/products", {
+          ...input,
+          sku: "FAILED-IMAGE-CREATE",
+          variants: [{ sku: "IMAGE-CREATE-V1", price: "10" }],
+          imageDataUrl: dataUrl,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      await db.product.count({ where: { sku: "FAILED-IMAGE-CREATE" } }),
+    ).toBe(0);
+  });
   it("receives partial purchases and tracks weighted average cost", async () => {
     const s = await send(manager, "/suppliers", { name: "Test supplier" });
     supplier = s.body.data;
@@ -563,7 +685,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect(
       (
         await send(manager, "/expenses", {
-          category: "Internet",
+          category: "إنترنت",
           amount: "10",
           method: "BANK",
           description: "Bank payment",
@@ -573,7 +695,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect(
       (
         await send(cashier, "/expenses", {
-          category: "Other",
+          category: "أخرى",
           amount: "10",
           method: "CASH",
           description: "No permission",
@@ -1051,7 +1173,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       }),
       key = crypto.randomUUID(),
       body = {
-        category: "Packaging",
+        category: "تغليف",
         amount: "5",
         method: "CASH",
         description: "Cash packaging",
@@ -2090,6 +2212,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     });
   });
   it("stores authorized logos once and preserves receipt branding when store logo changes", async () => {
+    await resetFixtureQuota();
     const previous = await db.systemSetting.findUniqueOrThrow({
         where: { key: "store" },
       }),
@@ -2252,7 +2375,94 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await browserExpect(
         page.getByRole("heading", { name: /أهلاً/ }),
       ).toBeVisible();
+      await openSidebarPage(page, "المنتجات");
+      for (const withImage of [false, true]) {
+        await page
+          .getByRole("button", { name: "إضافة منتج", exact: true })
+          .click();
+        const form = page.getByRole("dialog");
+        const sku = withImage ? "BROWSER-IMAGE" : "BROWSER-NO-IMAGE";
+        await form
+          .locator('input[name="nameAr"]')
+          .fill("منتج اختبار صورة اختيارية");
+        await form.locator('input[name="sku"]').fill(sku);
+        await form
+          .locator('select[name="categoryId"]')
+          .selectOption({ index: 1 });
+        await form
+          .locator(".variant-row input")
+          .nth(0)
+          .fill(sku + "-V1");
+        await form.locator(".variant-row input").nth(3).fill("15");
+        if (withImage) {
+          await form
+            .getByLabel("صورة المنتج (اختياري)", { exact: true })
+            .setInputFiles("apps/web/public/brand/az-logo.jpg");
+          await browserExpect(
+            form.locator(".product-image-preview img"),
+          ).toBeVisible();
+          await form
+            .getByRole("button", { name: "إزالة الصورة", exact: true })
+            .click();
+          await browserExpect(
+            form.locator(".product-image-preview img"),
+          ).toHaveCount(0);
+          await form
+            .getByLabel("صورة المنتج (اختياري)", { exact: true })
+            .setInputFiles("apps/web/public/brand/az-logo.jpg");
+          await browserExpect(
+            form.locator(".product-image-preview img"),
+          ).toBeVisible();
+          await page.screenshot({
+            path: "test-results/new-product-optional-image.png",
+            fullPage: true,
+          });
+        }
+        const creation = page.waitForResponse(
+          (r) =>
+            r.url().endsWith("/api/products") &&
+            r.request().method() === "POST",
+        );
+        await form.getByRole("button", { name: "حفظ", exact: true }).click();
+        const response = await creation;
+        expect(response.status()).toBe(201);
+        const body = await response.json();
+        if (withImage)
+          expect(body.data.imageUrl).toMatch(/^\/api\/brand-assets\//);
+        else expect(body.data.imageUrl).toBeNull();
+        await browserExpect(form).toHaveCount(0);
+      }
+      await page.locator(".toolbar input").fill("DRESS-TEST");
+      await page
+        .getByRole("row")
+        .filter({ hasText: "DRESS-TEST" })
+        .getByRole("button", { name: "التفاصيل", exact: true })
+        .click();
+      const imageUpload = page.waitForResponse(
+        (r) =>
+          r.url().endsWith(`/products/${product.id}/image`) &&
+          r.request().method() === "POST",
+      );
+      await page
+        .getByLabel("رفع صورة المنتج", { exact: true })
+        .setInputFiles("apps/web/public/brand/az-logo.jpg");
+      expect((await imageUpload).status()).toBe(200);
+      await browserExpect(
+        page.locator(".product-image-preview img"),
+      ).toBeVisible();
+      await page.screenshot({
+        path: "test-results/product-image-editor.png",
+        fullPage: true,
+      });
+      await page.keyboard.press("Escape");
       await openSidebarPage(page, "نقطة البيع");
+      await browserExpect(
+        page.locator(".catalog-art img").first(),
+      ).toBeVisible();
+      await page.screenshot({
+        path: "test-results/product-images-pos.png",
+        fullPage: true,
+      });
       await openSidebarPage(page, "إعدادات المتجر");
       const logoUpload = page.waitForResponse(
         (r) =>
@@ -3936,3 +4146,17 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     }
   }, 60000);
 });
+
+registerCompletionTests(() => ({
+  db,
+  app,
+  owner,
+  manager,
+  cashier,
+  send,
+  login,
+  resetFixtureQuota,
+  password,
+  origin: () => process.env.APP_ORIGIN ?? origin,
+  availablePort,
+}));

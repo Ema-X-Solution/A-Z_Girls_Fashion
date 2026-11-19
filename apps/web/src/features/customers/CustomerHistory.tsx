@@ -5,6 +5,7 @@ import { formatDate, formatMoney } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { ErrorMessage } from "../shared/Controls";
 import { CustomerLoyalty } from "./Loyalty";
+import { CustomerDiscount } from "./CustomerDiscount";
 
 export function CustomerHistory({ customerId }: { customerId: string }) {
   const [offset, setOffset] = useState(0);
@@ -31,6 +32,11 @@ export function CustomerHistory({ customerId }: { customerId: string }) {
   return (
     <div>
       <CustomerLoyalty customerId={customerId} />
+      <CustomerDiscount
+        key={customerId}
+        customerId={customerId}
+        percent={data.customer.discountPercent ?? "0"}
+      />
       <p>
         <bdi dir="ltr" className="customer-phone">
           {data.customer.phone}

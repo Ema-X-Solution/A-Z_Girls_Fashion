@@ -21,6 +21,7 @@ RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY --from=build /app/node_modules/.prisma node_modules/.prisma
 COPY --from=build /app/node_modules/argon2 node_modules/argon2
 COPY --from=build /app/apps/api/dist apps/api/dist
+COPY --from=build /app/apps/api/assets apps/api/assets
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 USER node
 EXPOSE 3001

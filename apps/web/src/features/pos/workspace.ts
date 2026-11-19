@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { checkoutSchema } from "@az/shared";
+import { sharedCartBinding } from "@az/shared";
 import { emptyPayment } from "./PaymentEditor";
 const text = z.string().max(5000);
 const payment = z.object({
@@ -10,6 +11,7 @@ const payment = z.object({
   cardLast4: text,
 });
 const draftSchema = z.object({
+  sharedCart: sharedCartBinding.optional(),
   customerSearch: z.string().max(100).optional(),
   customerNameDraft: z.string().max(200).optional(),
   loyaltyPoints: z.number().int().min(0).max(1000000).optional(),

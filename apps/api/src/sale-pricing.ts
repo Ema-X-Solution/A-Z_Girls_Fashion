@@ -44,7 +44,7 @@ export async function quoteSale(
   );
   const variants = await tx.productVariant.findMany({
     where: { id: { in: ids } },
-    include: { product: true },
+    include: { product: { include: { category: true } } },
   });
   assert(
     variants.length === ids.length &&
@@ -77,8 +77,17 @@ export async function quoteSale(
     );
   const afterItems = afterPromotion.map((w, i) => w.minus(itemDiscounts[i]!)),
     available = afterItems.reduce((s, v) => s.plus(v), D(0));
+  const customer = input.customerId
+    ? await tx.customer.findUnique({
+        where: { id: input.customerId },
+        select: { discountPercent: true },
+      })
+    : null;
+  const customerDiscount = round(
+    available.mul(customer?.discountPercent ?? 0).div(100),
+  );
   const invoiceDiscount = discountAmount(
-      available,
+      available.minus(customerDiscount),
       input.discount,
       input.discountType ?? "FIXED",
     ),
@@ -95,7 +104,7 @@ export async function quoteSale(
     tx,
     input.customerId,
     input.loyaltyPoints ?? 0,
-    available.minus(invoiceDiscount),
+    available.minus(customerDiscount).minus(invoiceDiscount),
   );
   const sum = totals(
     lines.map((i) => ({
@@ -104,6 +113,7 @@ export async function quoteSale(
     })),
     combinedDiscount
       .plus(promotion?.discount ?? 0)
+      .plus(customerDiscount)
       .plus(loyalty.discount)
       .toFixed(2),
     taxRate,
@@ -125,7 +135,7 @@ export async function quoteSale(
         })
       : null;
   const invoiceAllocations = allocate(
-      invoiceDiscount.plus(loyalty.discount),
+      invoiceDiscount.plus(customerDiscount).plus(loyalty.discount),
       afterItems,
     ),
     discounts = itemDiscounts.map((v, i) =>
@@ -147,7 +157,8 @@ export async function quoteSale(
     percent,
     approved,
     promotion: promotion?.snapshot ?? null,
-    automaticDiscount: promotion?.discount ?? D(0),
+    automaticDiscount: (promotion?.discount ?? D(0)).plus(customerDiscount),
+    customerDiscount,
     manualDiscount: combinedDiscount,
     loyalty,
   };

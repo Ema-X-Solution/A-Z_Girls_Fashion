@@ -7,6 +7,7 @@ import { activeShift, stock } from "./operations.js";
 import { D } from "./money.js";
 import { quoteSale, receiptSettings } from "./sale-pricing.js";
 import { lockLoyalty, postLoyaltySale } from "./loyalty.js";
+import { assertCartLease } from "./shared-carts.js";
 export async function checkout(
   tx: Tx,
   actor: Actor,
@@ -20,6 +21,17 @@ export async function checkout(
     400,
   );
   const shift = await activeShift(tx, input.shiftId, actor);
+  if (input.sharedCart) {
+    await assertCartLease(
+      tx,
+      actor,
+      input.sharedCart,
+      shift.register.locationId,
+    );
+    await tx.cartReservation.deleteMany({
+      where: { cartId: input.sharedCart.id },
+    });
+  }
   if (input.customerId) await lockLoyalty(tx, input.customerId);
   const pricing = await quoteSale(tx, actor, input);
   const { lines, weights, discounts, taxes, sum, setting, taxMode, taxRate } =
@@ -64,6 +76,7 @@ export async function checkout(
     items.push({
       variantId: line.variantId,
       name: line.variant.product.nameAr,
+      categoryName: line.variant.product.category.name,
       options: line.variant.options as Prisma.InputJsonValue,
       barcode: line.variant.barcode,
       sku: line.variant.sku,
@@ -103,7 +116,11 @@ export async function checkout(
       ...sum,
       taxMode,
       taxRate,
-      receiptSnapshot: { ...snapshot, promotion: pricing.promotion },
+      receiptSnapshot: {
+        ...snapshot,
+        promotion: pricing.promotion,
+        customerDiscount: pricing.customerDiscount.toFixed(2),
+      },
       change,
       createdAt,
       items: { create: items },
@@ -143,6 +160,7 @@ export async function checkout(
   const receiptSnapshot = {
     ...snapshot,
     promotion: pricing.promotion,
+    customerDiscount: pricing.customerDiscount.toFixed(2),
     loyalty:
       pricing.loyalty.settings.enabled && input.customerId ? loyalty : null,
   };
@@ -188,5 +206,15 @@ export async function checkout(
     taxRate,
     receiptNumber,
   });
+  if (input.sharedCart)
+    await tx.sharedCart.update({
+      where: { id: input.sharedCart.id },
+      data: {
+        status: "CONSUMED",
+        saleId: sale.id,
+        leaseHash: null,
+        leaseUntil: null,
+      },
+    });
   return { ...sale, receiptNumber, receiptSnapshot };
 }

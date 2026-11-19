@@ -102,6 +102,49 @@ The existing `/api/inventory/adjustments` endpoint now creates a formal adjustme
 
 `POST /api/inventory/locations` requires inventory adjustment permission, accepts `{name,branchId}` for an existing branch, and audits creation. The inventory UI provides creation, filtering, details and direct posting of documents; multi-step shipment/receipt transfers and damaged-goods quarantine are separate future workflows.
 
+## Operations completion (19 November 2026)
+
+The following endpoints are implemented and require authenticated sessions and CSRF for writes. Existing financial documents remain unchanged by migration 14. Lists use 30-row pages; report exports are limited to 10,000 matching rows.
+
+### Expenses
+
+- `GET/POST /api/expense-categories`, `PATCH /api/expense-categories/:id {active}`. Creating/deactivating categories requires `expenses.approve`; names are retained on earlier expenses. Existing category names are migrated, and inactive categories cannot be used for new expenses.
+- `POST /api/expenses` accepts the existing category/amount/method/description/shiftId fields plus optional `submitForApproval`. True creates PENDING without cash/profit effects. Without `expenses.approve`, requests are always PENDING. Authorized direct posting remains supported for compatibility; direct cash requires the caller's open shift. Pending cash requests select the actual paying reviewer's shift at approval, not at submission.
+- `POST /api/expenses/:id/decision {approve,note,shiftId?}` requires `expenses.approve`, an idempotency key, a different reviewer and PENDING state. Approval posts cash exactly once to the reviewer's own open shift and recognizes expense on the approval date. Rejection never posts cash or operating cost. Approved/rejected expenses are immutable.
+- `GET/POST /api/expenses/:id/attachments`, `GET /api/expense-attachments/:id`. Upload `{name,dataUrl}` using PDF/JPEG/PNG/WebP; raw limit 750,000 bytes, five attachments per expense. Downloads require expense visibility or ownership and are attachments with no-store/nosniff. Upload requires expense creation plus ownership or approval authority. No public file URL is exposed.
+
+### Administration
+
+- `GET/POST /api/administration/branches`: create `{name,locationName}`; PATCH `/:id {name,active}`. Requires `settings.manage`. Deactivation is blocked while the branch has open shifts.
+- `POST /api/administration/registers {name,branchId,locationId}`, PATCH `/:id {name,locationId,active}`. A register's location must belong to its branch. Editing is blocked during open shifts; inactive registers/branches cannot open a new shift. Existing branches/registers are active by default.
+- `GET /api/administration/sessions?offset=0` requires `users.manage`; returns session resource IDs, user names/emails and creation/expiry/current flags, never cookies or CSRF values. POST `/sessions/:id/revoke` or `/users/:id/revoke-sessions` ends one/all sessions and records audit events. A session resource ID is a 64-character hash, not a bearer token.
+- `PATCH /api/administration/users/:id/role {roleId}` requires both role and user management. Own/protected owner assignments are blocked; nonowners cannot grant permissions they do not hold. Changing a user's role ends that user's sessions.
+
+### Detailed reports
+
+`GET /api/reports/detail/:kind?from=<ISO>&to=<ISO>&q=&offset=0&format=json|xlsx|pdf` supports daily, monthly, category, product, variant, cashier, payments, returns, discounts, purchases, suppliers, inventory, low-stock, movements, expenses, gross-profit, net-profit and shifts. Date ranges must be ordered and at most 366 elapsed days. UI calendar dates are resolved as Cairo day boundaries, including daylight-saving changes; stored UTC timestamps are converted to Cairo for day/month buckets.
+
+Sales groups combine sales with return events in the selected period and use immutable sale/return prices, tax and costs. Payment groups show external sale receipts after cash change; return/refund flows are separate. Expense profit includes only APPROVED rows. Inventory and supplier balances are current snapshots, explicitly labeled; inventory valuation includes available, in-transit and quarantined assets as separate rows. Legacy sale lines without category snapshots are labeled unclassified; new lines freeze the category label. Purchase reports select receipt-backed invoices in the period and explicitly label all-time credits against each invoice.
+
+Profit/purchase/supplier financial reports require profit authority (plus their underlying module permissions). Inventory costs/profit columns are omitted without that authority. Own-sales and own-shift restrictions apply to both JSON and exports. Aggregation, search, count and pagination run in one repeatable-read transaction. Excel preserves monetary numeric cells and RTL columns. PDFs embed the redistributable Amiri font and process bidirectional runs while retaining number order. Browser printing prints the displayed page; full-result exports use XLSX/PDF.
+
+### Advanced inventory
+
+- `GET/POST /api/inventory/shipments`: create `{sourceId,destinationId,reason,items:[{variantId,quantity}]}` under inventory adjustment authority. Sending deducts source quantities once at original weighted-average cost; goods remain valued in transit.
+- `POST /api/inventory/shipments/:id/receive {items:[{itemId,quantity}]}` under receiving/adjustment authority. Positive partial receipts may not exceed outstanding quantities; retries with the same key do not duplicate receipt. Destination weighted-average cost updates using the frozen shipment cost. State is SHIPPED/PARTIAL/RECEIVED. Sending and receiving are separate real movements; no silent cancellation of shipped stock is supported. To return goods, receive and document the reverse shipment.
+- `GET/POST /api/inventory/holds`: create `{locationId,variantId,quantity,reason}` to remove sellable stock into quarantine without recognizing a loss. Resolve with `POST /holds/:id/resolve {action:RELEASE|DISPOSE,quantity,reason}`. Release returns original cost to available stock; disposal creates one immutable DAMAGE document and recognizes its cost once. Holds are for stock already on hand; nonsellable customer returns retain their existing cost treatment and are not automatically booked as new quarantine assets.
+- Stock-count creation supports `mode:CUTOFF|CONTINUOUS` (default CUTOFF). Continuous counts require no overlapping open count in the location. Save each actual line immediately when measured: the server locks the balance and stores its measurement baseline/recorded time. Approval applies actual-minus-measurement-baseline against the current balance, preserving all movements after measurement without relying on timestamp ordering. POST `/api/inventory/stock-counts/:id/cancel` closes an unused OPEN session without changing stock. CUTOFF retains its existing movement rejection. Negative available stock remains prohibited; this update does not enable a negative-stock override.
+
+### Customer discounts and shared carts
+
+`PATCH /api/customers/:id/discount {percent}` requires settings management and accepts 0–100. It is an automatic policy discount after campaign/item discounts and before manual invoice discount/loyalty. It does not expand the cashier's manual discount limit. New receipt snapshots freeze its amount; earlier receipts/return values remain unchanged.
+
+Shared-cart operations require POS and sales creation. `GET /api/shared-carts?offset=0` lists one's carts, or all carts with all-sales visibility. `POST {title,locationId,draft,reserve?}` uses an idempotency key and stores at most 50 open carts per owner. Optional reservations last 30 minutes, do not change physical quantities and reduce stock available to unrelated sales/transfers/adjustments.
+
+`POST /shared-carts/:id/claim {}` with an idempotency key acquires a 30-minute exclusive lease and returns `{draft,binding:{id,revision,token},locationId,leaseUntil}`. Tokens are hashed in the cart record; replay responses remain actor-scoped. Claiming an active lease is rejected even on the same account from another device. Claim after expiry rotates token/revision. `POST /:id/sync {binding,stamp,draft}` updates a leased draft; monotonically increasing stamps prevent delayed requests from overwriting newer drafts. Valid remaining reservations are refreshed to match quantities, and the lease is extended. The browser syncs edits after 500 ms and renews an open lease every five minutes.
+
+`POST /:id/release {binding,draft}` makes a cart AVAILABLE, removes its reservations and invalidates the lease. `POST /:id/cancel {}` cancels only available/expired carts. Checkout accepts optional `sharedCart:binding`, locks/verifies it and its location, releases its reservations, and marks it CONSUMED with the sale atomically. Concurrent requests with different checkout keys still cannot consume a cart twice. Cloud checkout retains the existing exact-request recovery journal; a failed response is not treated as proof of cancellation. The UI can retry synchronization, reacquire an expired available lease or close a stale local copy without cloning a potentially sold cart into another sale. Local-only suspended carts retain their original behavior and do not reserve stock.
+
 ## Errors
 
 Errors use `{ "error": { "code": "...", "message": "...", "fields": {} } }` (fields only for validation). HTTP 400: malformed request/invalid monetary or date values. 401: missing/expired session. 403: permission or CSRF denial. 404: unknown record/endpoint. 409: uniqueness, stock, shift, return-policy or concurrent business conflict. 429: rate limited (rate-limit middleware may return text). 500: unexpected internal error; details appear only in server logs.

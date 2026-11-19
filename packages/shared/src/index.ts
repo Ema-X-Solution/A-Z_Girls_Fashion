@@ -1,4 +1,5 @@
 import { z } from "zod";
+export { cartDraftSchema, sharedCartBinding } from "./cart-draft.js";
 export {
   asciiPhone,
   customerPhoneKey,
@@ -31,6 +32,7 @@ export const permissions = [
   "customers.manage",
   "expenses.create",
   "expenses.view",
+  "expenses.approve",
   "reports.sales",
   "reports.profit",
   "reports.inventory",
@@ -91,6 +93,13 @@ export const saleLineSchema = z.object({
   discountType: z.enum(["FIXED", "PERCENT"]).default("FIXED"),
 });
 export const checkoutSchema = z.object({
+  sharedCart: z
+    .object({
+      id,
+      revision: z.number().int().positive(),
+      token: z.string().regex(/^[a-f0-9]{64}$/),
+    })
+    .optional(),
   requireCustomer: z.literal(true).optional(),
   loyaltyPoints: z.number().int().min(0).max(1000000).optional(),
   discountApprovalId: id.optional(),

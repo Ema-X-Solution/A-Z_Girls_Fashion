@@ -59,6 +59,7 @@ model Session {
 model Branch {
   id String @id @default(uuid()) @db.Uuid
   name String
+  active Boolean @default(true)
   locations StockLocation[]
   registers Register[]
   sales Sale[]
@@ -77,6 +78,7 @@ model StockLocation {
 model Register {
   id String @id @default(uuid()) @db.Uuid
   name String
+  active Boolean @default(true)
   branchId String @db.Uuid
   locationId String @db.Uuid
   branch Branch @relation(fields:[branchId], references:[id])
@@ -131,6 +133,7 @@ model Product {
   nameAr String
   nameEn String?
   description String @default("")
+  imageUrl String?
   sku String @unique
   categoryId String @db.Uuid
   brandId String? @db.Uuid
@@ -194,6 +197,7 @@ model StockCount {
   id String @id @default(uuid()) @db.Uuid
   locationId String @db.Uuid
   status String @default("OPEN")
+  mode String @default("CUTOFF")
   createdBy String @db.Uuid
   approvedBy String? @db.Uuid
   cutoff DateTime @default(now())
@@ -230,6 +234,7 @@ model StockCountItem {
   variantId String @db.Uuid
   expected Int
   actual Int?
+  countedAt DateTime?
   count StockCount @relation(fields:[countId], references:[id])
   variant ProductVariant @relation(fields:[variantId], references:[id])
   @@id([countId,variantId])
@@ -351,6 +356,7 @@ model PurchaseReturnItem {
 model Customer {
   id String @id @default(uuid()) @db.Uuid
   name String
+  discountPercent Decimal @default(0) @db.Decimal(5,2)
   phone String @unique
   email String?
   address String @default("")
@@ -439,6 +445,7 @@ model SaleItem {
   saleId String @db.Uuid
   variantId String @db.Uuid
   name String
+  categoryName String @default("غير مصنف")
   options Json
   barcode String
   sku String @default("")
@@ -512,12 +519,93 @@ model Exchange {
 model Expense {
   id String @id @default(uuid()) @db.Uuid
   category String
+  status String @default("APPROVED")
+  shiftId String? @db.Uuid
+  decidedBy String? @db.Uuid
+  decisionNote String @default("")
+  decidedAt DateTime?
+  attachments ExpenseAttachment[]
   amount Decimal @db.Decimal(18,2)
   method String
   description String
   createdBy String @db.Uuid
   date DateTime @default(now())
   @@index([date])
+}
+model ExpenseCategory {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  active Boolean @default(true)
+}
+model ExpenseAttachment {
+  id String @id @default(uuid()) @db.Uuid
+  expenseId String @db.Uuid
+  name String
+  mime String
+  data Bytes
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  expense Expense @relation(fields:[expenseId],references:[id])
+}
+model Shipment {
+  id String @id @default(uuid()) @db.Uuid
+  sourceId String @db.Uuid
+  destinationId String @db.Uuid
+  status String @default("SHIPPED")
+  reason String
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+  items ShipmentItem[]
+}
+model ShipmentItem {
+  id String @id @default(uuid()) @db.Uuid
+  shipmentId String @db.Uuid
+  variantId String @db.Uuid
+  quantity Int
+  received Int @default(0)
+  unitCost Decimal @db.Decimal(18,4)
+  shipment Shipment @relation(fields:[shipmentId],references:[id])
+  @@unique([shipmentId,variantId])
+}
+model StockHold {
+  id String @id @default(uuid()) @db.Uuid
+  locationId String @db.Uuid
+  variantId String @db.Uuid
+  quantity Int
+  released Int @default(0)
+  disposed Int @default(0)
+  unitCost Decimal @db.Decimal(18,4)
+  reason String
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now())
+}
+model SharedCart {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @db.Uuid
+  locationId String @db.Uuid
+  title String
+  draft Json
+  status String @default("AVAILABLE")
+  revision Int @default(1)
+  syncStamp BigInt @default(0)
+  leaseHash String?
+  leasedBy String? @db.Uuid
+  leaseUntil DateTime?
+  saleId String? @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reservations CartReservation[]
+  @@index([ownerId,status])
+}
+model CartReservation {
+  cartId String @db.Uuid
+  variantId String @db.Uuid
+  locationId String @db.Uuid
+  quantity Int
+  expiresAt DateTime
+  cart SharedCart @relation(fields:[cartId],references:[id])
+  @@id([cartId,variantId])
+  @@index([variantId,locationId,expiresAt])
 }
 model SystemSetting {
   key String @id

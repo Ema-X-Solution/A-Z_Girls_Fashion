@@ -9,3 +9,5 @@ REVOKE UPDATE, DELETE ON "SaleReturnItem" FROM az_app;
 REVOKE DELETE ON "DiscountApproval" FROM az_app;
 REVOKE UPDATE, DELETE ON "BrandAsset" FROM az_app;
 REVOKE UPDATE, DELETE ON "LoyaltyEntry", "StockDocument", "StockDocumentItem" FROM az_app;
+REVOKE UPDATE, DELETE ON "ExpenseAttachment" FROM az_app;
+REVOKE DELETE ON "Expense", "Shipment", "ShipmentItem", "StockHold", "SharedCart" FROM az_app;

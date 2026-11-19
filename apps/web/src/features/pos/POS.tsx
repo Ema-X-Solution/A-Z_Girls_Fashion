@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ProductImage } from "../shared/ProductImage";
 import {
   ScanBarcode,
   Search,
@@ -8,6 +9,10 @@ import {
   Plus,
   Minus,
   Check,
+  Users,
+  CreditCard,
+  ReceiptText,
+  Trash2,
 } from "lucide-react";
 import { api, ApiError, post, useSession } from "../../api";
 import { formatMoney as fm } from "../../i18n";
@@ -21,10 +26,12 @@ import {
 } from "./PaymentEditor";
 import { cents, previewTotals, decimal } from "./money";
 import { usePosWorkspace } from "./usePosWorkspace";
+import { CloudCarts } from "./CloudCarts";
 import { emptyDraft, type CartDraft } from "./workspace";
 import { approvalError } from "./approval-messages";
 import { CustomerPicker } from "../customers/CustomerPicker";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import "./pos.css";
 type Row = Record<string, any>;
 export function POS() {
   const client = useQueryClient(),
@@ -37,6 +44,8 @@ export function POS() {
     [scanning, setScanning] = useState(false),
     [busy, setBusy] = useState(false),
     [customerBusy, setCustomerBusy] = useState(false),
+    [cloudBusy, setCloudBusy] = useState(false),
+    [cloudReady, setCloudReady] = useState(true),
     [error, setError] = useState("");
   const { workspace, commit, ready, storageError } = usePosWorkspace(user!.id);
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
@@ -49,6 +58,7 @@ export function POS() {
   const frozen =
     busy ||
     customerBusy ||
+    cloudBusy ||
     scanning ||
     !ready ||
     !!pending ||
@@ -217,6 +227,12 @@ export function POS() {
     };
   }, [ready, workspace.receiptId]);
   function clear() {
+    if (workspace.active.sharedCart) {
+      setError(
+        "حرّر السلة للخادم أولًا أو أتم بيعها؛ لا تُمسح سلة مشتركة مستخدمة محليًا.",
+      );
+      return;
+    }
     commit((w) => ({ ...w, active: emptyDraft() }));
     setError("");
   }
@@ -239,7 +255,7 @@ export function POS() {
     }
   }
   async function complete() {
-    if (frozen || inFlight.current) return;
+    if (frozen || !cloudReady || inFlight.current) return;
     if (!customer) {
       setError("حدد رقم العميل قبل إتمام البيع، حتى مع الدفع النقدي");
       return;
@@ -248,6 +264,9 @@ export function POS() {
       key: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       body: {
+        ...(workspace.active.sharedCart
+          ? { sharedCart: workspace.active.sharedCart }
+          : {}),
         requireCustomer: true as const,
         ...(workspace.active.loyaltyPoints
           ? { loyaltyPoints: workspace.active.loyaltyPoints }
@@ -339,7 +358,7 @@ export function POS() {
     // Check on hydration; later attempts are sent explicitly by complete().
   }, [ready]);
   return (
-    <>
+    <div className="pos-page">
       <Header
         title="نقطة البيع"
         subtitle="امسح الباركود، راجع الفاتورة ووزّع المبلغ على طرق الدفع."
@@ -410,6 +429,23 @@ export function POS() {
       >
         <div className="pos-grid">
           <section className="panel pos-catalog">
+            <div className="pos-catalog-heading">
+              <div>
+                <h2>اختيار المنتجات</h2>
+                <p>ابحث عن الصنف أو امسح الباركود لإضافته</p>
+              </div>
+              <span className="pos-catalog-count">
+                {products.data?.data.reduce(
+                  (n: number, p: Row) =>
+                    n +
+                    p.variants.filter(
+                      (v: Row) => v.active && p.status === "ACTIVE",
+                    ).length,
+                  0,
+                ) ?? 0}{" "}
+                أصناف
+              </span>
+            </div>
             <form className="scanner" onSubmit={scan}>
               <ScanBarcode size={24} />
               <input
@@ -459,7 +495,7 @@ export function POS() {
                         }
                       >
                         <div className="catalog-art">
-                          <ShoppingBag size={32} />
+                          <ProductImage url={p.imageUrl} name={p.nameAr} />
                           <span>{p.category.name}</span>
                         </div>
                         <strong>{p.nameAr}</strong>
@@ -482,7 +518,9 @@ export function POS() {
             <div className="panel-title">
               <h2>
                 الفاتورة الحالية{" "}
-                <span className="count">{cart.items.length}</span>
+                <span className="count">
+                  {cart.items.reduce((n, i) => n + i.quantity, 0)} قطع
+                </span>
               </h2>
               <Button
                 variant="ghost"
@@ -495,299 +533,420 @@ export function POS() {
                     clear();
                 }}
               >
+                <Trash2 size={14} />
                 مسح
               </Button>
             </div>
-            <div className="cart-items">
-              {cart.items.length ? (
-                cart.items.map((i) => (
-                  <div className="cart-line-wrapper" key={i.variant.id}>
-                    <div className="cart-line">
-                      <div>
-                        <strong>{i.variant.product?.nameAr}</strong>
-                        <small>
-                          {Object.values(i.variant.options ?? {}).join(" / ")}
-                        </small>
-                        <b>{fm(currentPrice(i))}</b>
+            <div className="pos-cart-scroll">
+              <div className="cart-items">
+                {cart.items.length ? (
+                  cart.items.map((i) => (
+                    <div className="cart-line-wrapper" key={i.variant.id}>
+                      <div className="cart-line">
+                        <div>
+                          <strong>{i.variant.product?.nameAr}</strong>
+                          <small>
+                            {Object.values(i.variant.options ?? {}).join(" / ")}
+                          </small>
+                          <b>{fm(currentPrice(i))}</b>
+                        </div>
+                        <div className="qty">
+                          <button
+                            disabled={busy}
+                            aria-label="تقليل الكمية"
+                            onClick={() =>
+                              cart.quantity(i.variant.id, i.quantity - 1)
+                            }
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span>{i.quantity}</span>
+                          <button
+                            disabled={busy}
+                            aria-label="زيادة الكمية"
+                            onClick={() =>
+                              cart.quantity(i.variant.id, i.quantity + 1)
+                            }
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                        <strong>
+                          {fm(
+                            decimal(
+                              cents(currentPrice(i)) * BigInt(i.quantity),
+                            ),
+                          )}
+                        </strong>
                       </div>
-                      <div className="qty">
-                        <button
-                          disabled={busy}
-                          aria-label="تقليل الكمية"
-                          onClick={() =>
-                            cart.quantity(i.variant.id, i.quantity - 1)
-                          }
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span>{i.quantity}</span>
-                        <button
-                          disabled={busy}
-                          aria-label="زيادة الكمية"
-                          onClick={() =>
-                            cart.quantity(i.variant.id, i.quantity + 1)
-                          }
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                      <strong>
-                        {fm(
-                          decimal(cents(currentPrice(i)) * BigInt(i.quantity)),
-                        )}
-                      </strong>
-                    </div>
-                    <div className="line-discount-fields">
-                      <label>
-                        خصم الصنف{" "}
-                        <input
-                          aria-label={`خصم ${i.variant.sku}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={itemDiscounts[i.variant.id]?.value ?? "0"}
+                      <div className="line-discount-fields">
+                        <label>
+                          خصم الصنف{" "}
+                          <input
+                            aria-label={`خصم ${i.variant.sku}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={itemDiscounts[i.variant.id]?.value ?? "0"}
+                            onChange={(e) =>
+                              setItemDiscounts((old) => ({
+                                ...old,
+                                [i.variant.id]: {
+                                  type: old[i.variant.id]?.type ?? "FIXED",
+                                  value: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </label>
+                        <select
+                          aria-label={`نوع خصم ${i.variant.sku}`}
+                          value={itemDiscounts[i.variant.id]?.type ?? "FIXED"}
                           onChange={(e) =>
                             setItemDiscounts((old) => ({
                               ...old,
                               [i.variant.id]: {
-                                type: old[i.variant.id]?.type ?? "FIXED",
-                                value: e.target.value,
+                                value: old[i.variant.id]?.value ?? "0",
+                                type: e.target.value as "FIXED" | "PERCENT",
                               },
                             }))
                           }
-                        />
-                      </label>
-                      <select
-                        aria-label={`نوع خصم ${i.variant.sku}`}
-                        value={itemDiscounts[i.variant.id]?.type ?? "FIXED"}
-                        onChange={(e) =>
-                          setItemDiscounts((old) => ({
-                            ...old,
-                            [i.variant.id]: {
-                              value: old[i.variant.id]?.value ?? "0",
-                              type: e.target.value as "FIXED" | "PERCENT",
-                            },
-                          }))
-                        }
-                      >
-                        <option value="FIXED">جنيه على السطر</option>
-                        <option value="PERCENT">نسبة %</option>
-                      </select>
+                        >
+                          <option value="FIXED">جنيه على السطر</option>
+                          <option value="PERCENT">نسبة %</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty">
-                  <ShoppingBag size={30} />
-                  <p>امسح منتجًا لبدء الفاتورة.</p>
-                </div>
-              )}
-            </div>
-            <div className="cart-bottom">
-              <CustomerPicker
-                value={customer}
-                search={workspace.active.customerSearch ?? ""}
-                name={workspace.active.customerNameDraft ?? ""}
-                disabled={frozen}
-                onSearch={(text) => field("customerSearch", text)}
-                onName={(text) => field("customerNameDraft", text)}
-                onSelect={(selected) => setCustomer(selected?.id ?? "")}
-                onBusyChange={setCustomerBusy}
-              />
-              <div className="summary-row">
-                <span>الإجمالي قبل الخصم</span>
-                <b>{fm(decimal(summary.subtotal))}</b>
-              </div>
-              <div className="payment-grid">
-                <Field label="خصم على الفاتورة">
-                  {(id) => (
-                    <input
-                      id={id}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={discount}
-                      onChange={(e) => setDiscount(e.target.value)}
-                    />
-                  )}
-                </Field>
-                <Field label="نوع خصم الفاتورة">
-                  {(id) => (
-                    <select
-                      id={id}
-                      value={discountType}
-                      onChange={(e) =>
-                        setDiscountType(e.target.value as "FIXED" | "PERCENT")
-                      }
-                    >
-                      <option value="FIXED">مبلغ ثابت بالجنيه</option>
-                      <option value="PERCENT">نسبة مئوية %</option>
-                    </select>
-                  )}
-                </Field>
-              </div>
-              <small>
-                حد الخصم الإجمالي لحسابك: {user?.discountLimit ?? "0"}%
-              </small>
-              <div className="summary-row">
-                <span>الصافي قبل الضريبة</span>
-                <b>{fm(decimal(summary.net))}</b>
-              </div>
-              <div className="summary-row">
-                <span>
-                  ضريبة القيمة المضافة (
-                  {quote.data?.data.taxRate ?? store.data?.data.taxRate ?? 0}%)
-                </span>
-                <b>{fm(decimal(summary.tax))}</b>
-              </div>
-              <div className="grand-total">
-                <span>الإجمالي النهائي المستحق</span>
-                <strong>{fm(decimal(summary.total))}</strong>
-              </div>
-              {quote.error && (
-                <ErrorMessage
-                  message={
-                    quote.error instanceof ApiError &&
-                    quote.error.code === "DISCOUNT_LIMIT"
-                      ? "الخصم يتجاوز الحد المسموح لحسابك."
-                      : quote.error instanceof Error
-                        ? approvalError(quote.error)
-                        : "تعذر مراجعة الفاتورة"
-                  }
-                />
-              )}
-              {quote.data?.data.promotion && (
-                <div className="notice" role="status">
-                  <div>
-                    <b>{quote.data.data.promotion.name}</b>
-                    <p>
-                      خصم العرض التلقائي:{" "}
-                      {fm(quote.data.data.automaticDiscount)}. الخصومات اليدوية
-                      تُحسب بعد العرض.
-                    </p>
-                    {quote.data.data.promotion.returnRule === "FULL_BUNDLE" && (
-                      <small>
-                        إرجاع أو استبدال العرض يتطلب جميع أصنافه معًا بالقيمة
-                        المدفوعة.
-                      </small>
-                    )}
-                  </div>
-                </div>
-              )}
-              {workspace.active.discountApprovalId && (
-                <div className="notice" role="status">
-                  {approval.data &&
-                  new Date(approval.data.data.expiresAt) < new Date()
-                    ? "انتهت صلاحية طلب الخصم. أزل الطلب واطلب موافقة جديدة."
-                    : approval.data?.data.status === "APPROVED"
-                      ? "المدير وافق على الخصم لهذه السلة. الموافقة تُراجع عند إتمام البيع."
-                      : approval.data?.data.status === "REJECTED"
-                        ? `تم رفض الخصم: ${approval.data.data.decisionNote}`
-                        : approval.data?.data.status === "CONSUMED"
-                          ? "هذه الموافقة استُخدمت بالفعل."
-                          : "طلب الخصم قيد المراجعة. تتم متابعة النتيجة تلقائيًا."}
-                  <Button
-                    variant="ghost"
-                    onClick={() => field("discountApprovalId", undefined)}
-                  >
-                    إزالة الطلب
-                  </Button>
-                </div>
-              )}
-              {quote.error instanceof ApiError &&
-                [
-                  "DISCOUNT_LIMIT",
-                  "DISCOUNT_APPROVAL_INVALID",
-                  "DISCOUNT_APPROVAL_CHANGED",
-                ].includes(quote.error.code) &&
-                !workspace.active.discountApprovalId && (
-                  <div>
-                    <Field label="سبب تجاوز حد الخصم">
-                      {(id) => (
-                        <input
-                          id={id}
-                          value={approvalReason}
-                          maxLength={1000}
-                          onChange={(e) => setApprovalReason(e.target.value)}
-                          placeholder="اكتب سبب طلب الخصم الاستثنائي"
-                        />
-                      )}
-                    </Field>
-                    <Button
-                      variant="outline"
-                      disabled={frozen || approvalReason.trim().length < 3}
-                      onClick={() => {
-                        setBusy(true);
-                        setError("");
-                        void post(
-                          "/discount-approvals",
-                          { sale: pricingInput, reason: approvalReason },
-                          crypto.randomUUID(),
-                        )
-                          .then((r) => field("discountApprovalId", r.data.id))
-                          .catch((e) => setError(approvalError(e)))
-                          .finally(() => setBusy(false));
-                      }}
-                    >
-                      طلب موافقة المدير
-                    </Button>
+                  ))
+                ) : (
+                  <div className="empty">
+                    <ShoppingBag size={30} />
+                    <p>امسح منتجًا لبدء الفاتورة.</p>
                   </div>
                 )}
-              {customer && (
-                <div>
-                  <Field label="نقاط الولاء للاستبدال">
+              </div>
+              <div className="cart-bottom">
+                <h3 className="pos-section-heading">
+                  <Users size={15} /> بيانات العميل
+                </h3>
+                <CustomerPicker
+                  value={customer}
+                  search={workspace.active.customerSearch ?? ""}
+                  name={workspace.active.customerNameDraft ?? ""}
+                  disabled={frozen}
+                  onSearch={(text) => field("customerSearch", text)}
+                  onName={(text) => field("customerNameDraft", text)}
+                  onSelect={(selected) => setCustomer(selected?.id ?? "")}
+                  onBusyChange={setCustomerBusy}
+                />
+                <h3 className="pos-section-heading">
+                  <ReceiptText size={15} /> ملخص الحساب والخصم
+                </h3>
+                <div className="summary-row">
+                  <span>الإجمالي قبل الخصم</span>
+                  <b>{fm(decimal(summary.subtotal))}</b>
+                </div>
+                <div className="payment-grid">
+                  <Field label="خصم على الفاتورة">
                     {(id) => (
                       <input
                         id={id}
                         type="number"
                         min="0"
-                        max="1000000"
-                        step="1"
-                        value={workspace.active.loyaltyPoints ?? 0}
-                        disabled={frozen}
-                        onChange={(e) =>
-                          field(
-                            "loyaltyPoints",
-                            Math.max(
-                              0,
-                              Math.min(
-                                1000000,
-                                Math.trunc(Number(e.target.value) || 0),
-                              ),
-                            ),
-                          )
-                        }
+                        step="0.01"
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
                       />
                     )}
                   </Field>
-                  {quote.data?.data.loyalty && (
-                    <p className="note">
-                      {quote.data.data.loyalty.enabled
-                        ? `المتاح: ${quote.data.data.loyalty.available} نقطة • المكتسب من الفاتورة: ${quote.data.data.loyalty.earned} نقطة • خصم النقاط: ${fm(quote.data.data.loyalty.discount)}`
-                        : "برنامج الولاء غير مفعّل."}
-                    </p>
-                  )}
+                  <Field label="نوع خصم الفاتورة">
+                    {(id) => (
+                      <select
+                        id={id}
+                        value={discountType}
+                        onChange={(e) =>
+                          setDiscountType(e.target.value as "FIXED" | "PERCENT")
+                        }
+                      >
+                        <option value="FIXED">مبلغ ثابت بالجنيه</option>
+                        <option value="PERCENT">نسبة مئوية %</option>
+                      </select>
+                    )}
+                  </Field>
                 </div>
-              )}
-              <PaymentEditor
-                value={payments}
-                onChange={setPayments}
-                due={summary.total}
-                disabled={busy}
-              />
-              <Field label="ملاحظات">
-                {(id) => (
-                  <input
-                    id={id}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                <small>
+                  حد الخصم الإجمالي لحسابك: {user?.discountLimit ?? "0"}%
+                </small>
+                <div className="summary-row">
+                  <span>الصافي قبل الضريبة</span>
+                  <b>{fm(decimal(summary.net))}</b>
+                </div>
+                <div className="summary-row">
+                  <span>
+                    ضريبة القيمة المضافة (
+                    {quote.data?.data.taxRate ?? store.data?.data.taxRate ?? 0}
+                    %)
+                  </span>
+                  <b>{fm(decimal(summary.tax))}</b>
+                </div>
+                {quote.error && (
+                  <ErrorMessage
+                    message={
+                      quote.error instanceof ApiError &&
+                      quote.error.code === "DISCOUNT_LIMIT"
+                        ? "الخصم يتجاوز الحد المسموح لحسابك."
+                        : quote.error instanceof Error
+                          ? approvalError(quote.error)
+                          : "تعذر مراجعة الفاتورة"
+                    }
                   />
                 )}
-              </Field>
+                {quote.data?.data.promotion && (
+                  <div className="notice" role="status">
+                    <div>
+                      <b>{quote.data.data.promotion.name}</b>
+                      <p>
+                        خصم العرض التلقائي:{" "}
+                        {fm(quote.data.data.automaticDiscount)}. الخصومات
+                        اليدوية تُحسب بعد العرض.
+                      </p>
+                      {quote.data.data.promotion.returnRule ===
+                        "FULL_BUNDLE" && (
+                        <small>
+                          إرجاع أو استبدال العرض يتطلب جميع أصنافه معًا بالقيمة
+                          المدفوعة.
+                        </small>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {workspace.active.discountApprovalId && (
+                  <div className="notice" role="status">
+                    {approval.data &&
+                    new Date(approval.data.data.expiresAt) < new Date()
+                      ? "انتهت صلاحية طلب الخصم. أزل الطلب واطلب موافقة جديدة."
+                      : approval.data?.data.status === "APPROVED"
+                        ? "المدير وافق على الخصم لهذه السلة. الموافقة تُراجع عند إتمام البيع."
+                        : approval.data?.data.status === "REJECTED"
+                          ? `تم رفض الخصم: ${approval.data.data.decisionNote}`
+                          : approval.data?.data.status === "CONSUMED"
+                            ? "هذه الموافقة استُخدمت بالفعل."
+                            : "طلب الخصم قيد المراجعة. تتم متابعة النتيجة تلقائيًا."}
+                    <Button
+                      variant="ghost"
+                      onClick={() => field("discountApprovalId", undefined)}
+                    >
+                      إزالة الطلب
+                    </Button>
+                  </div>
+                )}
+                {quote.error instanceof ApiError &&
+                  [
+                    "DISCOUNT_LIMIT",
+                    "DISCOUNT_APPROVAL_INVALID",
+                    "DISCOUNT_APPROVAL_CHANGED",
+                  ].includes(quote.error.code) &&
+                  !workspace.active.discountApprovalId && (
+                    <div>
+                      <Field label="سبب تجاوز حد الخصم">
+                        {(id) => (
+                          <input
+                            id={id}
+                            value={approvalReason}
+                            maxLength={1000}
+                            onChange={(e) => setApprovalReason(e.target.value)}
+                            placeholder="اكتب سبب طلب الخصم الاستثنائي"
+                          />
+                        )}
+                      </Field>
+                      <Button
+                        variant="outline"
+                        disabled={frozen || approvalReason.trim().length < 3}
+                        onClick={() => {
+                          setBusy(true);
+                          setError("");
+                          void post(
+                            "/discount-approvals",
+                            { sale: pricingInput, reason: approvalReason },
+                            crypto.randomUUID(),
+                          )
+                            .then((r) => field("discountApprovalId", r.data.id))
+                            .catch((e) => setError(approvalError(e)))
+                            .finally(() => setBusy(false));
+                        }}
+                      >
+                        طلب موافقة المدير
+                      </Button>
+                    </div>
+                  )}
+                {customer &&
+                  (quote.data?.data.loyalty?.enabled ||
+                    (workspace.active.loyaltyPoints ?? 0) > 0) && (
+                    <div>
+                      <Field label="نقاط الولاء للاستبدال">
+                        {(id) => (
+                          <input
+                            id={id}
+                            type="number"
+                            min="0"
+                            max="1000000"
+                            step="1"
+                            value={workspace.active.loyaltyPoints ?? 0}
+                            disabled={frozen}
+                            onChange={(e) =>
+                              field(
+                                "loyaltyPoints",
+                                Math.max(
+                                  0,
+                                  Math.min(
+                                    1000000,
+                                    Math.trunc(Number(e.target.value) || 0),
+                                  ),
+                                ),
+                              )
+                            }
+                          />
+                        )}
+                      </Field>
+                      {quote.data?.data.loyalty && (
+                        <p className="note">
+                          {quote.data.data.loyalty.enabled
+                            ? `المتاح: ${quote.data.data.loyalty.available} نقطة • المكتسب من الفاتورة: ${quote.data.data.loyalty.earned} نقطة • خصم النقاط: ${fm(quote.data.data.loyalty.discount)}`
+                            : "برنامج الولاء غير مفعّل."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                <h3 className="pos-section-heading">
+                  <CreditCard size={15} /> طريقة الدفع
+                </h3>
+                <PaymentEditor
+                  value={payments}
+                  onChange={setPayments}
+                  due={summary.total}
+                  disabled={busy}
+                />
+                <Field label="ملاحظات">
+                  {(id) => (
+                    <input
+                      id={id}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  )}
+                </Field>
+                {suspended.length > 1 && (
+                  <Field label="اختر سلة معلّقة">
+                    {(id) => (
+                      <select
+                        id={id}
+                        value={resumeId}
+                        onChange={(e) => setResumeId(e.target.value)}
+                      >
+                        <option value="">آخر سلة معلّقة</option>
+                        {suspended.map((saved) => (
+                          <option key={saved.id} value={saved.id}>
+                            {new Date(saved.savedAt).toLocaleString("ar-EG")} —{" "}
+                            {saved.items.reduce((n, i) => n + i.quantity, 0)}{" "}
+                            قطع
+                            {saved.notes
+                              ? ` — ${saved.notes.slice(0, 40)}`
+                              : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+                )}
+                <div className="suspend">
+                  <Button
+                    variant="outline"
+                    disabled={
+                      !cart.items.length ||
+                      busy ||
+                      suspended.length >= 50 ||
+                      !!workspace.active.sharedCart
+                    }
+                    onClick={() => {
+                      commit((w) => ({
+                        ...w,
+                        suspended: [
+                          ...w.suspended,
+                          {
+                            ...w.active,
+                            id: crypto.randomUUID(),
+                            savedAt: new Date().toISOString(),
+                          },
+                        ],
+                        active: emptyDraft(),
+                      }));
+                    }}
+                  >
+                    تعليق السلة
+                  </Button>
+                  {suspended.length > 0 && (
+                    <Button
+                      variant="outline"
+                      disabled={!!cart.items.length || busy}
+                      onClick={() => {
+                        commit((w) => {
+                          const saved =
+                            w.suspended.find((s) => s.id === resumeId) ??
+                            w.suspended.at(-1)!;
+                          return {
+                            ...w,
+                            active: saved,
+                            suspended: w.suspended.filter(
+                              (s) => s.id !== saved.id,
+                            ),
+                          };
+                        });
+                        setResumeId("");
+                      }}
+                    >
+                      استئناف ({suspended.length})
+                    </Button>
+                  )}
+                </div>
+                <small className="note">
+                  السلال المعلقة محفوظة على هذا الجهاز، ولا تحجز الكميات.
+                </small>
+                <CloudCarts
+                  draft={workspace.active}
+                  locationId={shift.data?.data?.register?.locationId}
+                  disabled={
+                    busy ||
+                    customerBusy ||
+                    scanning ||
+                    !ready ||
+                    !!pending ||
+                    !!workspace.receiptId
+                  }
+                  onBusyChange={setCloudBusy}
+                  onReadyChange={setCloudReady}
+                  onLoad={(draft) => commit((w) => ({ ...w, active: draft }))}
+                  onClear={() => {
+                    commit((w) => ({ ...w, active: emptyDraft() }));
+                  }}
+                />
+              </div>
+            </div>
+            <div className="pos-checkout">
+              <div className="grand-total">
+                <div>
+                  <span>الإجمالي المستحق</span>
+                  <small>
+                    {cart.items.reduce((n, i) => n + i.quantity, 0)} قطع في
+                    الفاتورة
+                  </small>
+                </div>
+                <strong>{fm(decimal(summary.total))}</strong>
+              </div>
               <Button
                 className="full"
                 disabled={
                   frozen ||
+                  !cloudReady ||
                   !customer ||
                   !cart.items.length ||
                   !shift.data?.data ||
@@ -800,78 +959,6 @@ export function POS() {
                 <Check size={18} />
                 {busy ? "جارٍ تسجيل البيع..." : "إتمام البيع"}
               </Button>
-              {suspended.length > 1 && (
-                <Field label="اختر سلة معلّقة">
-                  {(id) => (
-                    <select
-                      id={id}
-                      value={resumeId}
-                      onChange={(e) => setResumeId(e.target.value)}
-                    >
-                      <option value="">آخر سلة معلّقة</option>
-                      {suspended.map((saved) => (
-                        <option key={saved.id} value={saved.id}>
-                          {new Date(saved.savedAt).toLocaleString("ar-EG")} —{" "}
-                          {saved.items.reduce((n, i) => n + i.quantity, 0)} قطع
-                          {saved.notes ? ` — ${saved.notes.slice(0, 40)}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </Field>
-              )}
-              <div className="suspend">
-                <Button
-                  variant="outline"
-                  disabled={
-                    !cart.items.length || busy || suspended.length >= 50
-                  }
-                  onClick={() => {
-                    commit((w) => ({
-                      ...w,
-                      suspended: [
-                        ...w.suspended,
-                        {
-                          ...w.active,
-                          id: crypto.randomUUID(),
-                          savedAt: new Date().toISOString(),
-                        },
-                      ],
-                      active: emptyDraft(),
-                    }));
-                  }}
-                >
-                  تعليق السلة
-                </Button>
-                {suspended.length > 0 && (
-                  <Button
-                    variant="outline"
-                    disabled={!!cart.items.length || busy}
-                    onClick={() => {
-                      commit((w) => {
-                        const saved =
-                          w.suspended.find((s) => s.id === resumeId) ??
-                          w.suspended.at(-1)!;
-                        return {
-                          ...w,
-                          active: saved,
-                          suspended: w.suspended.filter(
-                            (s) => s.id !== saved.id,
-                          ),
-                        };
-                      });
-                      setResumeId("");
-                    }}
-                  >
-                    استئناف ({suspended.length})
-                  </Button>
-                )}
-              </div>
-              <small className="note">
-                السلال محفوظة لحسابك على نفس المتصفح والجهاز، ولا تحجز المخزون.{" "}
-                السعر والضريبة والخصم تُراجع على الخادم، وكل فاتورة تحتفظ بنسخة
-                ثابتة من حساباتها.
-              </small>
             </div>
           </section>
         </div>
@@ -885,6 +972,6 @@ export function POS() {
       >
         {receipt && <ReceiptView sale={receipt} />}
       </Modal>
-    </>
+    </div>
   );
 }

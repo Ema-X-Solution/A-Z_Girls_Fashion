@@ -52,6 +52,7 @@ try {
     await tx.category.createMany({
       data: ["ملابس", "أحذية", "حقائب", "إكسسوارات"].map((name) => ({ name })),
     });
+    await tx.expenseCategory.createMany({data:["إيجار","كهرباء","إنترنت","رواتب","نقل","تغليف","صيانة","تسويق","أخرى"].map(name=>({name})),skipDuplicates:true});
     await tx.systemSetting.create({
       data: {
         key: "store",

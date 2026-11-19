@@ -61,6 +61,11 @@ import { POS } from "./features/pos/POS";
 import { DiscountApprovals } from "./features/pos/DiscountApprovals";
 import { BrandLogo } from "./features/shared/BrandLogo";
 import { LogoSettings } from "./features/shared/LogoSettings";
+import {
+  ProductImage,
+  ProductImageEditor,
+  ProductImagePicker,
+} from "./features/shared/ProductImage";
 import { Promotions } from "./features/pos/Promotions";
 import { ReceiptView } from "./features/receipts/ReceiptView";
 import { ExchangeDialog } from "./features/pos/ExchangeDialog";
@@ -73,6 +78,10 @@ import { CustomerHistory } from "./features/customers/CustomerHistory";
 import { LoyaltySettings } from "./features/customers/Loyalty";
 import { StockDocuments } from "./features/inventory/StockDocuments";
 import { useDebouncedSearch } from "./hooks/useDebouncedSearch";
+import { Expenses } from "./features/management/Expenses";
+import { Administration } from "./features/management/Administration";
+import { Reports } from "./features/management/Reports";
+import { AdvancedInventory } from "./features/management/AdvancedInventory";
 
 type Row = Record<string, any>;
 const nav = [
@@ -81,6 +90,19 @@ const nav = [
     title: ar.dashboard,
     permission: "dashboard.view",
     icon: LayoutDashboard,
+  },
+
+  {
+    path: "/administration",
+    title: "الفروع والأجهزة والجلسات",
+    permission: ["settings.manage", "users.manage"],
+    icon: Settings,
+  },
+  {
+    path: "/inventory/advanced",
+    title: "الشحن وحجر المخزون",
+    permission: "inventory.view",
+    icon: Truck,
   },
   { path: "/pos", title: ar.pos, permission: "pos.access", icon: ScanBarcode },
   {
@@ -192,7 +214,12 @@ const navGroups = [
     id: "stock",
     title: "المنتجات والمخزون",
     icon: Boxes,
-    paths: ["/products", "/products/barcodes", "/inventory"],
+    paths: [
+      "/products",
+      "/products/barcodes",
+      "/inventory",
+      "/inventory/advanced",
+    ],
   },
   {
     id: "buying",
@@ -210,7 +237,7 @@ const navGroups = [
     id: "admin",
     title: "إدارة النظام",
     icon: Settings,
-    paths: ["/users", "/roles", "/settings", "/audit-logs"],
+    paths: ["/users", "/roles", "/settings", "/administration", "/audit-logs"],
   },
 ];
 function SidebarNavigation({ permissions }: { permissions: string[] }) {
@@ -688,6 +715,30 @@ function Shell() {
         <main className="content">
           <Routes>
             <Route
+              path="/administration"
+              element={
+                <Gate permission={["settings.manage", "users.manage"]}>
+                  <Administration />
+                </Gate>
+              }
+            />
+            <Route
+              path="/inventory/advanced"
+              element={
+                <Gate permission="inventory.view">
+                  <AdvancedInventory />
+                </Gate>
+              }
+            />
+            <Route
+              path="/expenses"
+              element={
+                <Gate permission="expenses.view">
+                  <Expenses />
+                </Gate>
+              }
+            />
+            <Route
               path="/"
               element={
                 <Navigate
@@ -788,7 +839,7 @@ function Shell() {
               path="/reports"
               element={
                 <Gate permission="reports.sales">
-                  <Dashboard reports />
+                  <Reports />
                 </Gate>
               }
             />
@@ -824,7 +875,7 @@ function Shell() {
                 </Gate>
               }
             />
-            {["customers", "expenses", "users", "audit-logs"].map((key) => (
+            {["customers", "users", "audit-logs"].map((key) => (
               <Route
                 key={key}
                 path={`/${key}`}
@@ -1216,7 +1267,7 @@ function Products() {
                   render: (r) => (
                     <div className="product-cell">
                       <div className="product-symbol">
-                        <ShoppingBag size={22} />
+                        <ProductImage url={r.imageUrl} name={r.nameAr} />
                       </div>
                       <div>
                         <strong>{r.nameAr}</strong>
@@ -1333,6 +1384,23 @@ function Products() {
       >
         {selected && (
           <>
+            {edit && (
+              <ProductImageEditor
+                key={selected.id}
+                product={{
+                  id: selected.id,
+                  nameAr: selected.nameAr,
+                  imageUrl: selected.imageUrl,
+                }}
+                onChange={(imageUrl) =>
+                  setSelected((current) =>
+                    current?.id === selected.id
+                      ? { ...current, imageUrl }
+                      : current,
+                  )
+                }
+              />
+            )}
             <Table
               rows={selected.variants}
               columns={[
@@ -1422,6 +1490,8 @@ function ProductForm({
   busy: boolean;
   submit: (body: Row) => void;
 }) {
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null),
+    [imageBusy, setImageBusy] = useState(false);
   const [variants, setVariants] = useState([
     { sku: "", size: "", color: "", price: "", cost: "0", barcode: "" },
   ]);
@@ -1430,6 +1500,7 @@ function ProductForm({
       className="entry-form"
       onSubmit={(e) => {
         e.preventDefault();
+        if (busy || imageBusy) return;
         const f = Object.fromEntries(new FormData(e.currentTarget));
         submit({
           nameAr: f.nameAr,
@@ -1438,6 +1509,7 @@ function ProductForm({
           ...(f.brandId ? { brandId: f.brandId } : {}),
           description: f.description ?? "",
           returnRule: f.returnRule,
+          ...(imageDataUrl ? { imageDataUrl } : {}),
           variants: variants.map((v) => ({
             sku: v.sku,
             price: v.price,
@@ -1479,6 +1551,12 @@ function ProductForm({
           </select>
         </Field>
       </div>
+      <ProductImagePicker
+        value={imageDataUrl}
+        onChange={setImageDataUrl}
+        onBusyChange={setImageBusy}
+        disabled={busy}
+      />
       <h3>المتغيرات</h3>
       <Field label="سياسة إرجاع هذا المنتج">
         <select name="returnRule" defaultValue="STANDARD">
@@ -1549,7 +1627,10 @@ function ProductForm({
         <Plus size={16} />
         مقاس / لون آخر
       </Button>
-      <Button className="form-submit" disabled={busy || !categories.length}>
+      <Button
+        className="form-submit"
+        disabled={busy || imageBusy || !categories.length}
+      >
         {ar.save}
       </Button>
     </form>
@@ -1782,8 +1863,9 @@ function Inventory() {
         {selected?.new ? (
           <>
             <p className="note">
-              أوقف حركة المخزون أثناء الجرد. تُرفض الموافقة إذا تحرك المخزون بعد
-              لقطة البداية.
+              الجرد بلقطة ثابتة يحتاج إيقاف الحركة. في الجرد المستمر سجّل كل سطر
+              فور عدّه بالخروج من حقل الكمية؛ تُضاف الحركات التالية لذلك التوقيت
+              عند الاعتماد.
             </p>
             <EntryForm
               fields={[
@@ -1795,6 +1877,17 @@ function Inventory() {
                       value: l.id,
                       label: l.name,
                     })) ?? [],
+                },
+                {
+                  key: "mode",
+                  label: "أسلوب الجرد",
+                  options: [
+                    { value: "CUTOFF", label: "لقطة ثابتة مع إيقاف الحركة" },
+                    {
+                      value: "CONTINUOUS",
+                      label: "جرد مستمر مع تسوية الحركات اللاحقة",
+                    },
+                  ],
                 },
               ]}
               busy={action.busy}
@@ -1814,12 +1907,13 @@ function Inventory() {
                 const data = new FormData(e.currentTarget);
                 void action.run(
                   async () => {
-                    await patch(`/inventory/stock-counts/${selected.id}`, {
-                      items: selected.items.map((i: Row) => ({
-                        variantId: i.variantId,
-                        actual: Number(data.get(i.variantId)),
-                      })),
-                    });
+                    if (selected.mode !== "CONTINUOUS")
+                      await patch(`/inventory/stock-counts/${selected.id}`, {
+                        items: selected.items.map((i: Row) => ({
+                          variantId: i.variantId,
+                          actual: Number(data.get(i.variantId)),
+                        })),
+                      });
                     await post(
                       `/inventory/stock-counts/${selected.id}/approve`,
                       {},
@@ -1842,12 +1936,67 @@ function Inventory() {
                     step="1"
                     name={i.variantId}
                     defaultValue={i.actual ?? ""}
+                    onBlur={(e) => {
+                      if (
+                        selected.mode === "CONTINUOUS" &&
+                        selected.status === "OPEN" &&
+                        e.target.value !== ""
+                      ) {
+                        const actual = Number(e.target.value);
+                        if (Number.isInteger(actual) && actual >= 0)
+                          void action.run(
+                            () =>
+                              patch(`/inventory/stock-counts/${selected.id}`, {
+                                items: [{ variantId: i.variantId, actual }],
+                              }),
+                            () =>
+                              setSelected((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      items: current.items.map((line: Row) =>
+                                        line.variantId === i.variantId
+                                          ? {
+                                              ...line,
+                                              actual,
+                                              countedAt:
+                                                new Date().toISOString(),
+                                            }
+                                          : line,
+                                      ),
+                                    }
+                                  : current,
+                              ),
+                          );
+                      }
+                    }}
                     disabled={selected.status !== "OPEN"}
                   />
                 </Field>
               ))}
               {adjust && selected.status === "OPEN" && (
                 <Button disabled={action.busy}>حفظ واعتماد الجرد</Button>
+              )}
+              {selected.status === "OPEN" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={action.busy}
+                  onClick={() => {
+                    if (window.confirm("إلغاء جلسة الجرد دون تغيير المخزون؟"))
+                      void action.run(
+                        () =>
+                          post(
+                            `/inventory/stock-counts/${selected.id}/cancel`,
+                            {},
+                            crypto.randomUUID(),
+                          ),
+                        () => setSelected(null),
+                      );
+                  }}
+                >
+                  إلغاء جلسة الجرد
+                </Button>
               )}
             </form>
           )
