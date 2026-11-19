@@ -27,6 +27,9 @@ jobs:
             git fetch --prune origin main
             git checkout -f main
             git reset --hard origin/main
+            set -a
+            source /etc/az-fashion/app.env
+            set +a
             npm ci --no-audit --no-fund
             npm run db:generate
             npm run db:migrate
