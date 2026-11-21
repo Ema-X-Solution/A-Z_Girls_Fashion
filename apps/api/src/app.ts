@@ -1351,9 +1351,7 @@ app.get(
   route(async (req, res) =>
     res.json({
       data: await db.cashShift.findMany({
-        where: actor(req).permissions.includes("cash.view_all")
-          ? {}
-          : { userId: actor(req).id },
+        where: { userId: actor(req).id },
         include: { register: true },
         orderBy: { openedAt: "desc" },
         ...page(req.query),
@@ -1420,7 +1418,7 @@ app.post(
             tx,
             shiftId,
             actor(req),
-            !actor(req).permissions.includes("cash.view_all"),
+            true,
           );
           const movements = await tx.cashMovement.aggregate({
               where: { shiftId },
