@@ -396,6 +396,126 @@ app.post(
   }),
 );
 app.patch(
+  "/api/users/:id",
+  can("users.manage"),
+  route(async (req, res) => {
+    const userId = uuid(req.params.id);
+    const input = z
+      .object({
+        name: text.optional(),
+        email: z
+          .string()
+          .email()
+          .transform((v) => v.toLowerCase())
+          .optional(),
+        password: z.string().min(8).max(256).optional(),
+        roleIds: z.array(id).min(1).optional(),
+        discountLimit: money.optional(),
+      })
+      .parse(req.body);
+
+    if (input.discountLimit !== undefined) {
+      assert(
+        D(input.discountLimit).lte(100),
+        "INVALID_LIMIT",
+        "Discount limit exceeds 100",
+        400,
+      );
+    }
+
+    const updated = await transaction(async (tx) => {
+      const u = await tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        include: { roles: { include: { role: true } } },
+      });
+
+      const isTargetOwner = u.roles.some((r) => r.role.protected);
+      if (isTargetOwner && !actor(req).roles.includes("OWNER")) {
+        throw new AppError(
+          403,
+          "OWNER_PROTECTED",
+          "Only owner may modify owner accounts",
+        );
+      }
+
+      if (input.email && input.email !== u.email) {
+        const existing = await tx.user.findUnique({
+          where: { email: input.email },
+        });
+        assert(!existing, "EMAIL_EXISTS", "Email is already taken", 400);
+      }
+
+      if (input.roleIds) {
+        const roles = await db.role.findMany({
+          where: { id: { in: input.roleIds } },
+        });
+        assert(
+          roles.length === new Set(input.roleIds).size,
+          "INVALID_ROLE",
+          "Some roles do not exist",
+          400,
+        );
+        assert(
+          actor(req).roles.includes("OWNER") || roles.every((r) => !r.protected),
+          "OWNER_PROTECTED",
+          "Only owner may assign protected roles",
+          403,
+        );
+        if (!actor(req).roles.includes("OWNER")) {
+          const assigned = await db.rolePermission.findMany({
+            where: { roleId: { in: input.roleIds } },
+          });
+          assert(
+            assigned.every((p) =>
+              actor(req).permissions.includes(p.permissionKey),
+            ) &&
+              (input.discountLimit === undefined ||
+                D(input.discountLimit).lte(actor(req).discountLimit)),
+            "PRIVILEGE_ESCALATION",
+            "Cannot grant privileges above your own",
+            403,
+          );
+        }
+        await tx.userRole.deleteMany({ where: { userId } });
+        await tx.userRole.createMany({
+          data: input.roleIds.map((roleId) => ({ userId, roleId })),
+        });
+      }
+
+      let passwordHash: string | undefined;
+      if (input.password) {
+        passwordHash = await hash(input.password, { type: argon2id });
+      }
+
+      const resUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          ...(input.name ? { name: input.name } : {}),
+          ...(input.email ? { email: input.email } : {}),
+          ...(input.discountLimit !== undefined
+            ? { discountLimit: input.discountLimit }
+            : {}),
+          ...(passwordHash
+            ? { passwordHash, failedAttempts: 0, lockedUntil: null }
+            : {}),
+        },
+        select: publicUser,
+      });
+
+      if (input.password || input.roleIds) {
+        if (userId !== actor(req).id) {
+          await tx.session.deleteMany({ where: { userId } });
+        }
+      }
+
+      await audit(tx, actor(req).id, "USER_UPDATE", userId);
+      return resUser;
+    });
+
+    res.json({ data: updated });
+  }),
+);
+app.patch(
   "/api/users/:id/status",
   can("users.manage"),
   route(async (req, res) => {

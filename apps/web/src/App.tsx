@@ -1209,6 +1209,7 @@ function EntryForm({
         const data = Object.fromEntries(new FormData(e.currentTarget));
         if (
           typeof data.password === "string" &&
+          data.password.length > 0 &&
           data.password.length < 8
         ) {
           setFormError("كلمة المرور يجب أن تكون ٨ أحرف على الأقل");
@@ -3132,7 +3133,7 @@ function Records({ kind }: { kind: string }) {
   const [search, setSearch] = useState("");
   const { debounced: debouncedSearch, searchPending } =
     useDebouncedSearch(search);
-  const [editingCustomer, setEditingCustomer] = useState<Row | null>(null);
+  const [editingRecord, setEditingRecord] = useState<Row | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Row | null>(null);
   const [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
@@ -3206,7 +3207,14 @@ function Records({ kind }: { kind: string }) {
           : [
               simple("name", ar.name),
               simple("email", ar.email, "email"),
-              simple("password", "كلمة المرور (٨ أحرف على الأقل)", "password"),
+              {
+                key: "password",
+                label: editingRecord
+                  ? "كلمة المرور الجديدة (اتركه فارغاً للإبقاء على الحالية)"
+                  : "كلمة المرور (٨ أحرف على الأقل)",
+                type: "password",
+                required: !editingRecord,
+              },
               {
                 key: "roleId",
                 label: "الدور",
@@ -3274,27 +3282,48 @@ function Records({ kind }: { kind: string }) {
                   },
                   {
                     label: ar.actions,
-                    render: (r: Row) =>
-                      !r.roles.some((v: Row) => v.role.name === "OWNER") && (
+                    render: (r: Row) => (
+                      <div
+                        className="inline-actions"
+                        style={{ display: "flex", gap: "0.5rem" }}
+                      >
                         <Button
                           variant="outline"
-                          disabled={action.busy}
                           onClick={() => {
-                            if (
-                              window.confirm(
-                                "تغيير حالة المستخدم وإلغاء جلساته؟",
-                              )
-                            )
-                              void action.run(() =>
-                                patch(`/users/${r.id}/status`, {
-                                  active: !r.active,
-                                }),
-                              );
+                            setEditingRecord({
+                              id: r.id,
+                              name: r.name,
+                              email: r.email,
+                              roleId: r.roles?.[0]?.role?.id ?? "",
+                              discountLimit: r.discountLimit,
+                            });
+                            setOpen(true);
                           }}
                         >
-                          {r.active ? "تعطيل" : "تفعيل"}
+                          تعديل
                         </Button>
-                      ),
+                        {!r.roles.some((v: Row) => v.role.name === "OWNER") && (
+                          <Button
+                            variant="outline"
+                            disabled={action.busy}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  "تغيير حالة المستخدم وإلغاء جلساته؟",
+                                )
+                              )
+                                void action.run(() =>
+                                  patch(`/users/${r.id}/status`, {
+                                    active: !r.active,
+                                  }),
+                                );
+                            }}
+                          >
+                            {r.active ? "تعطيل" : "تفعيل"}
+                          </Button>
+                        )}
+                      </div>
+                    ),
                   },
                 ]
               : [
@@ -3308,7 +3337,7 @@ function Records({ kind }: { kind: string }) {
                               <Button
                                 variant="outline"
                                 onClick={() => {
-                                  setEditingCustomer(r);
+                                  setEditingRecord(r);
                                   setOpen(true);
                                 }}
                               >
@@ -3342,7 +3371,7 @@ function Records({ kind }: { kind: string }) {
         {canCreate && (
           <Button
             onClick={() => {
-              setEditingCustomer(null);
+              setEditingRecord(null);
               setOpen(true);
             }}
           >
@@ -3392,37 +3421,54 @@ function Records({ kind }: { kind: string }) {
         </Modal>
       )}
       <Modal
-        title={editingCustomer ? "تعديل العميل" : ar.add}
+        title={
+          editingRecord
+            ? kind === "users"
+              ? `تعديل المستخدم: ${editingRecord.name}`
+              : kind === "customers"
+                ? "تعديل العميل"
+                : "تعديل"
+            : ar.add
+        }
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setEditingRecord(null);
+        }}
       >
         <EntryForm
-          key={editingCustomer?.id ?? "new"}
-          initial={editingCustomer ?? undefined}
+          key={editingRecord?.id ?? "new"}
+          initial={editingRecord ?? undefined}
           fields={fields}
           busy={action.busy}
           submit={(body) => {
             if (kind === "users") {
               body.roleIds = [body.roleId];
-              if (!body.employeeCode) delete body.employeeCode;
               delete body.roleId;
+              if (!body.password) {
+                delete body.password;
+              }
+              if (!body.employeeCode) delete body.employeeCode;
             }
             if (kind === "customers" && !body.email) {
-              if (editingCustomer) body.email = null;
+              if (editingRecord) body.email = null;
               else delete body.email;
             }
             if (kind === "expenses" && body.method === "CASH")
               body.shiftId = shift.data?.data?.id;
             void action.run(
               () =>
-                editingCustomer && kind === "customers"
-                  ? patch(`/customers/${editingCustomer.id}`, body)
+                editingRecord
+                  ? patch(`/${kind}/${editingRecord.id}`, body)
                   : post(
                       `/${kind}`,
                       body,
                       kind === "expenses" ? crypto.randomUUID() : undefined,
                     ),
-              () => setOpen(false),
+              () => {
+                setOpen(false);
+                setEditingRecord(null);
+              },
             );
           }}
         />
