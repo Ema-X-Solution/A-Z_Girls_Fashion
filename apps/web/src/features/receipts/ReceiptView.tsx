@@ -227,8 +227,7 @@ export function ReceiptView({
           </>
         )}
         <p>
-          <b>Cashier:</b> {snapshot.cashierName ?? sale.user?.name ?? ""}{" "}
-          <span className="receipt-meta-separator">|</span> <b>Seller code:</b>{" "}
+          <b>Seller code:</b>{" "}
           <span dir="ltr">{snapshot.sellerCode ?? ""}</span>
         </p>
         </div>

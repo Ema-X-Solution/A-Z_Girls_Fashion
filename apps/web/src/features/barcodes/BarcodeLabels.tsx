@@ -6,7 +6,6 @@ import { Printer, Search, ScanBarcode, RefreshCw } from "lucide-react";
 import JsBarcode from "jsbarcode";
 import { api, post } from "../../api";
 import { Button } from "../../components/ui/button";
-import { formatMoney } from "../../i18n";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 
 type Variant = {
@@ -59,15 +58,14 @@ function Label({
   price: boolean;
 }) {
   return (
-    <article className="retail-label" data-barcode={line.barcode}>
+    <article className="retail-label" data-barcode={line.barcode} dir="ltr" lang="en">
       <strong className="label-store">{storeName}</strong>
       <div className="label-name">{line.name}</div>
       <div className="label-options">
         {Object.values(line.options).join(" / ") || line.sku}
-        {price && <b>{formatMoney(line.price)}</b>}
       </div>
       <svg
-        aria-label={`باركود ${line.barcode}`}
+        aria-label={`Barcode ${line.barcode}`}
         role="img"
         ref={(svg) => {
           if (!svg) return;
@@ -93,6 +91,7 @@ function Label({
       <div className="label-number" dir="ltr">
         {line.barcode}
       </div>
+      {price && <b className="label-price">{new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(line.price))} EGP</b>}
     </article>
   );
 }
