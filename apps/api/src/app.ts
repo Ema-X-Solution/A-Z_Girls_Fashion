@@ -833,7 +833,10 @@ app.patch(
   route(async (req, res) => {
     const input = variantSchema
         .partial()
-        .extend({ active: z.boolean().optional() })
+        .extend({
+          active: z.boolean().optional(),
+          minStock: z.coerce.number().int().nonnegative().optional(),
+        })
         .parse(req.body),
       variantId = uuid(req.params.id);
     res.json({
@@ -1211,6 +1214,7 @@ app.post(
               quantity: z.number().int().positive(),
               unitCost: money,
               salePrice: money,
+              minStock: z.coerce.number().int().nonnegative().optional(),
             }),
           )
           .min(1)
@@ -1218,8 +1222,10 @@ app.post(
       })
       .parse(req.body);
     const p = await transaction(async (tx) => {
-      // Extract salePrice from items before inserting (not a DB column on PurchaseItem)
-      const itemsForCreate = input.items.map(({ salePrice: _sp, ...item }) => item);
+      // Extract salePrice and minStock from items before inserting (not DB columns on PurchaseItem)
+      const itemsForCreate = input.items.map(
+        ({ salePrice: _sp, minStock: _ms, ...item }) => item,
+      );
       const p = await tx.purchaseOrder.create({
         data: {
           supplierId: input.supplierId,
@@ -1229,12 +1235,15 @@ app.post(
         },
         include: { items: true },
       });
-      // Update variant sale prices where provided
+      // Update variant sale prices and dynamic minStock where provided
       for (const item of input.items) {
-        if (item.salePrice !== undefined) {
+        const updateData: Record<string, any> = {};
+        if (item.salePrice !== undefined) updateData.price = item.salePrice;
+        if (item.minStock !== undefined) updateData.minStock = item.minStock;
+        if (Object.keys(updateData).length > 0) {
           await tx.productVariant.update({
             where: { id: item.variantId },
-            data: { price: item.salePrice },
+            data: updateData,
           });
         }
       }

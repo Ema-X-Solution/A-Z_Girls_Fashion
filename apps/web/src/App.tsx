@@ -57,6 +57,7 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  Zap,
 } from "lucide-react";
 import { POS } from "./features/pos/POS";
 import { DiscountApprovals } from "./features/pos/DiscountApprovals";
@@ -71,7 +72,7 @@ import { Promotions } from "./features/pos/Promotions";
 import { ReceiptView } from "./features/receipts/ReceiptView";
 import { ExchangeDialog } from "./features/pos/ExchangeDialog";
 import { api, ApiError, patch, post, useCart, useSession } from "./api";
-import { ar, formatDate, formatMoney as fm, statuses } from "./i18n";
+import { ar, formatDate, formatMoney as fm, statuses, permissionLabels, roleLabels } from "./i18n";
 import { Button } from "./components/ui/button";
 import { BarcodeLabels } from "./features/barcodes/BarcodeLabels";
 import { Suppliers, SupplierDetails } from "./features/suppliers/Suppliers";
@@ -91,6 +92,12 @@ const nav = [
     title: ar.dashboard,
     permission: "dashboard.view",
     icon: LayoutDashboard,
+  },
+  {
+    path: "/quick-access",
+    title: "الوصول السريع",
+    permission: "dashboard.view",
+    icon: Zap,
   },
 
   {
@@ -266,7 +273,9 @@ function SidebarNavigation({ permissions }: { permissions: string[] }) {
   );
   return (
     <nav aria-label="القائمة الرئيسية">
-      {allowed.filter((n) => n.path === "/dashboard").map(link)}
+      {allowed
+        .filter((n) => n.path === "/dashboard" || n.path === "/quick-access")
+        .map(link)}
       {navGroups.map((group) => {
         const items = group.paths.flatMap((path) =>
           allowed.filter((n) => n.path === path),
@@ -509,9 +518,11 @@ function Badge({ value }: { value: string }) {
 function Table({
   rows,
   columns,
+  onRowClick,
 }: {
   rows: Row[];
   columns: { label: string; render: (r: Row) => ReactNode }[];
+  onRowClick?: (r: Row) => void;
 }) {
   if (!rows.length) return <Empty />;
   return (
@@ -526,9 +537,26 @@ function Table({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.id ?? i}>
+            <tr
+              key={r.id ?? i}
+              onClick={() => onRowClick?.(r)}
+              style={onRowClick ? { cursor: "pointer" } : undefined}
+            >
               {columns.map((c, j) => (
-                <td key={j}>{c.render(r)}</td>
+                <td
+                  key={j}
+                  onClick={(e) => {
+                    if (
+                      (e.target as HTMLElement).closest(
+                        "button, a, input, select, label",
+                      )
+                    ) {
+                      e.stopPropagation();
+                    }
+                  }}
+                >
+                  {c.render(r)}
+                </td>
               ))}
             </tr>
           ))}
@@ -684,6 +712,320 @@ export default function App() {
     </>
   );
 }
+
+function QuickAccess() {
+  const user = useSession((s) => s.user)!;
+  const groups = [
+    {
+      title: "المبيعات ونقطة البيع (الكاشير)",
+      desc: "إتمام عمليات البيع، الفواتير، وموافقات الخصومات",
+      actions: [
+        {
+          title: "بيع جديد (الكاشير)",
+          desc: "شاشة الكاشير لمسح الباركود وإتمام عمليات البيع فوراً",
+          to: "/pos",
+          icon: ScanBarcode,
+          color: "#059669",
+          bg: "#ecfdf5",
+          perm: "pos.access",
+          primary: true,
+        },
+        {
+          title: "فواتير المبيعات",
+          desc: "سجل الفواتير والمرتجعات والطباعة والاستبدال",
+          to: "/sales",
+          icon: Receipt,
+          color: "#2563eb",
+          bg: "#eff6ff",
+          perm: "sales.view_own",
+        },
+        {
+          title: "موافقات الخصومات",
+          desc: "مراجعة واعتماد طلبات الخصم الاستثنائية للكاشير",
+          to: "/discount-approvals",
+          icon: ShieldCheck,
+          color: "#7c3aed",
+          bg: "#f5f3ff",
+          perm: "sales.discount_approve",
+        },
+        {
+          title: "العروض التلقائية",
+          desc: "إدارة الخصومات والعروض الترويجية النشطة",
+          to: "/promotions",
+          icon: ShoppingBag,
+          color: "#db2777",
+          bg: "#fdf2f8",
+          perm: "promotions.manage",
+        },
+      ],
+    },
+    {
+      title: "المنتجات والمخزون",
+      desc: "إدارة الأصناف، الأرصدة، الجرد، والباركود",
+      actions: [
+        {
+          title: "كتالوج المنتجات",
+          desc: "عرض وتعديل المقاسات، الألوان، وأسعار البيع",
+          to: "/products",
+          icon: ShoppingBag,
+          color: "#d97706",
+          bg: "#fffbeb",
+          perm: "products.view",
+        },
+        {
+          title: "طباعة الباركود",
+          desc: "توليد وطباعة ملصقات الباركود للملابس",
+          to: "/products/barcodes",
+          icon: Printer,
+          color: "#0284c7",
+          bg: "#f0f9ff",
+          perm: "products.view",
+        },
+        {
+          title: "أرصدة المخزون",
+          desc: "متابعة الكميات المتوفرة وتفاصيل كل مخزن",
+          to: "/inventory",
+          icon: Boxes,
+          color: "#0d9488",
+          bg: "#f0fdfa",
+          perm: "inventory.view",
+        },
+        {
+          title: "الشحن وحجر المخزون",
+          desc: "التحويلات بين الفروع وحجز المخزون",
+          to: "/inventory/advanced",
+          icon: Truck,
+          color: "#4f46e5",
+          bg: "#eef2ff",
+          perm: "inventory.view",
+        },
+      ],
+    },
+    {
+      title: "المشتريات والموردون",
+      desc: "أوامر الشراء وإدارة حسابات الموردين",
+      actions: [
+        {
+          title: "أمر شراء جديد",
+          desc: "تسجيل بضاعة جديدة مع تحديد سعر الشراء وسعر البيع والحد الأدنى",
+          to: "/purchases",
+          icon: Plus,
+          color: "#059669",
+          bg: "#ecfdf5",
+          perm: "purchases.create",
+          primary: true,
+        },
+        {
+          title: "سجل المشتريات",
+          desc: "استلام وتدقيق فواتير الشراء من الموردين",
+          to: "/purchases",
+          icon: Truck,
+          color: "#2563eb",
+          bg: "#eff6ff",
+          perm: "purchases.view",
+        },
+        {
+          title: "دليل الموردين",
+          desc: "بيانات وحسابات الموردين والأرصدة والمدفوعات",
+          to: "/suppliers",
+          icon: Users,
+          color: "#ea580c",
+          bg: "#fff7ed",
+          perm: "suppliers.manage",
+        },
+      ],
+    },
+    {
+      title: "المالية والورديات والعملاء",
+      desc: "المصروفات، الورديات، والتقارير المالية",
+      actions: [
+        {
+          title: "تسجيل مصروف جديد",
+          desc: "تسجيل المصروفات النثرية والتشغيلية للمتجر",
+          to: "/expenses",
+          icon: Wallet,
+          color: "#dc2626",
+          bg: "#fef2f2",
+          perm: "expenses.create",
+        },
+        {
+          title: "ورديات الكاشير",
+          desc: "فتح وردية جديدة أو إغلاق ومراجعة خزن الكاشير",
+          to: "/shifts",
+          icon: Receipt,
+          color: "#6b7280",
+          bg: "#f9fafb",
+          perm: "cash.open_shift",
+        },
+        {
+          title: "دليل العملاء",
+          desc: "بيانات العملاء ونقاط الولاء وسجل المشتريات",
+          to: "/customers",
+          icon: Users,
+          color: "#0284c7",
+          bg: "#f0f9ff",
+          perm: "customers.manage",
+        },
+        {
+          title: "التقارير المالية",
+          desc: "تقرير الأرباح، حركة المبيعات، ومصروفات المتجر",
+          to: "/reports",
+          icon: ChartNoAxesCombined,
+          color: "#c5a24a",
+          bg: "#fdf8ee",
+          perm: "reports.sales",
+        },
+      ],
+    },
+    {
+      title: "إدارة النظام والإعدادات",
+      desc: "الموظفون، الصلاحيات، وإعدادات المتجر",
+      actions: [
+        {
+          title: "المستخدمون والموظفون",
+          desc: "إضافة وتعديل بيانات وحسابات الموظفين",
+          to: "/users",
+          icon: Users,
+          color: "#4b5563",
+          bg: "#f3f4f6",
+          perm: "users.manage",
+        },
+        {
+          title: "الأدوار والصلاحيات",
+          desc: "تخصيص الصلاحيات بالعربية لكل دور وظيفي",
+          to: "/roles",
+          icon: ShieldCheck,
+          color: "#7c3aed",
+          bg: "#f5f3ff",
+          perm: "roles.manage",
+        },
+        {
+          title: "إعدادات المتجر",
+          desc: "شعار المتجر، سياسات الإرجاع، وتفاصيل الفاتورة",
+          to: "/settings",
+          icon: Settings,
+          color: "#374151",
+          bg: "#f9fafb",
+          perm: "settings.manage",
+        },
+        {
+          title: "الفروع والأجهزة",
+          desc: "إدارة الفروع، الخزائن، وأجهزة الكاشير",
+          to: "/administration",
+          icon: Settings,
+          color: "#1f2937",
+          bg: "#f3f4f6",
+          perm: "settings.manage",
+        },
+      ],
+    },
+  ];
+
+  return (
+    <>
+      <Header
+        title="الوصول السريع"
+        subtitle="جميع مكونات وعمليات متجرك في أزرار وصول مباشر وسريع"
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+        {groups.map((group) => {
+          const visibleActions = group.actions.filter((a) =>
+            user.permissions.includes(a.perm),
+          );
+          if (!visibleActions.length) return null;
+          return (
+            <section
+              key={group.title}
+              className="panel"
+              style={{ padding: "1.25rem" }}
+            >
+              <div style={{ marginBottom: "1rem" }}>
+                <h2 style={{ fontSize: "1.15rem", margin: "0 0 0.25rem" }}>
+                  {group.title}
+                </h2>
+                <small className="muted-text">{group.desc}</small>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                  gap: "1rem",
+                }}
+              >
+                {visibleActions.map((action) => (
+                  <Link
+                    key={action.title}
+                    to={action.to}
+                    className="quick-card"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "1rem",
+                      padding: "1rem 1.25rem",
+                      border: action.primary
+                        ? `2px solid ${action.color}`
+                        : "1px solid var(--border)",
+                      borderRadius: "10px",
+                      background: "var(--card-bg, #fff)",
+                      textDecoration: "none",
+                      color: "inherit",
+                      transition:
+                        "transform 0.15s ease, box-shadow 0.15s ease",
+                      boxShadow: action.primary
+                        ? "0 4px 12px rgba(5,150,105,0.12)"
+                        : "0 2px 6px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "48px",
+                        height: "48px",
+                        borderRadius: "10px",
+                        background: action.bg,
+                        color: action.color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <action.icon size={24} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3
+                        style={{
+                          fontSize: "1rem",
+                          margin: "0 0 0.25rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {action.title}
+                      </h3>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.8rem",
+                          color: "var(--muted, #64748b)",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {action.desc}
+                      </p>
+                    </div>
+                    <ArrowUpLeft
+                      size={18}
+                      style={{ color: "var(--muted)", flexShrink: 0 }}
+                    />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </>
+  );
+}
 function Shell() {
   const user = useSession((s) => s.user)!,
     setUser = useSession((s) => s.setUser),
@@ -806,6 +1148,14 @@ function Shell() {
               element={
                 <Gate permission="dashboard.view">
                   <Dashboard />
+                </Gate>
+              }
+            />
+            <Route
+              path="/quick-access"
+              element={
+                <Gate permission="dashboard.view">
+                  <QuickAccess />
                 </Gate>
               }
             />
@@ -1588,21 +1938,24 @@ function Products() {
                     label: "المتغير",
                     options: selected.variants.map((v: Row) => ({
                       value: v.id,
-                      label: `${v.sku} ${Object.values(v.options).join(" / ")}`,
+                      label: `${v.sku} ${Object.values(v.options).join(" / ")} (الحد الأدنى الحالي: ${v.minStock})`,
                     })),
                   },
-                  simple("price", "سعر البيع الجديد", "number"),
+                  simple("price", "سعر البيع الجديد", "number", false),
+                  simple("minStock", "الحد الأدنى للمخزون الجديد (ديناميكي)", "number", false),
                 ]}
                 busy={action.busy}
-                submit={(body) =>
+                submit={(body) => {
+                  const data: Row = {};
+                  if (body.price) data.price = body.price;
+                  if (body.minStock !== "" && body.minStock !== undefined) {
+                    data.minStock = Number(body.minStock);
+                  }
                   void action.run(
-                    () =>
-                      patch(`/variants/${body.variantId}`, {
-                        price: body.price,
-                      }),
+                    () => patch(`/variants/${body.variantId}`, data),
                     () => setSelected(null),
-                  )
-                }
+                  );
+                }}
               />
             )}
           </>
@@ -1636,7 +1989,7 @@ function ProductForm({
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null),
     [imageBusy, setImageBusy] = useState(false);
   const [variants, setVariants] = useState([
-    { size: "", color: "" },
+    { size: "", color: "", minStock: "2" },
   ]);
   return (
     <form
@@ -1657,6 +2010,7 @@ function ProductForm({
               ...(v.size ? { المقاس: v.size } : {}),
               ...(v.color ? { اللون: v.color } : {}),
             },
+            ...(v.minStock !== "" ? { minStock: Number(v.minStock) } : {}),
           })),
         });
       }}
@@ -1731,6 +2085,21 @@ function ProductForm({
               </Field>
             ),
           )}
+          <Field label="الحد الأدنى">
+            <input
+              value={v.minStock ?? "2"}
+              type="number"
+              min="0"
+              placeholder="الحد الأدنى"
+              onChange={(e) =>
+                setVariants((rows) =>
+                  rows.map((r, j) =>
+                    j === i ? { ...r, minStock: e.target.value } : r,
+                  ),
+                )
+              }
+            />
+          </Field>
           {variants.length > 1 && (
             <Button
               type="button"
@@ -1751,7 +2120,7 @@ function ProductForm({
         onClick={() =>
           setVariants((v) => [
             ...v,
-            { size: "", color: "" },
+            { size: "", color: "", minStock: "2" },
           ])
         }
       >
@@ -2004,14 +2373,17 @@ function Inventory() {
                         { label: "عدد الأصناف", render: (r) => r.items.length },
                         {
                           label: ar.actions,
-                          render: (r) => (
-                            <Button
-                              variant="outline"
-                              onClick={() => setSelected(r)}
-                            >
-                              فتح الجرد
-                            </Button>
-                          ),
+                          render: (r) =>
+                            r.status === "OPEN" ? (
+                              <Button
+                                variant="outline"
+                                onClick={() => setSelected(r)}
+                              >
+                                فتح الجرد
+                              </Button>
+                            ) : (
+                              <span className="muted-text">تم إغلاق الجرد</span>
+                            ),
                         },
                       ]
               }
@@ -2322,9 +2694,60 @@ function Inventory() {
                   background: "var(--card-bg, #fff)",
                 }}
               >
-                <small className="muted-text">الحد الأدنى للطلب</small>
-                <div style={{ fontWeight: 600 }}>
-                  {detail.variant?.minStock} قطعة
+                <small className="muted-text">الحد الأدنى للطلب (ديناميكي)</small>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    marginTop: "0.3rem",
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="0"
+                    key={`min-${detail.variant?.id}-${detail.variant?.minStock}`}
+                    defaultValue={detail.variant?.minStock ?? 2}
+                    id={`min-stock-input-${detail.variant?.id}`}
+                    style={{
+                      width: "65px",
+                      padding: "0.2rem 0.4rem",
+                      borderRadius: "4px",
+                      border: "1px solid var(--border)",
+                      fontWeight: 600,
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={action.busy}
+                    onClick={() => {
+                      const el = document.getElementById(
+                        `min-stock-input-${detail.variant?.id}`,
+                      ) as HTMLInputElement;
+                      if (el && el.value !== "") {
+                        const val = Number(el.value);
+                        void action.run(
+                          () =>
+                            patch(`/variants/${detail.variant?.id}`, {
+                              minStock: val,
+                            }),
+                          () => {
+                            setDetail((curr) =>
+                              curr
+                                ? {
+                                    ...curr,
+                                    variant: { ...curr.variant, minStock: val },
+                                  }
+                                : null,
+                            );
+                          },
+                        );
+                      }
+                    }}
+                  >
+                    حفظ
+                  </Button>
                 </div>
               </div>
               <div
@@ -2594,6 +3017,7 @@ function PurchaseForm({
             quantity: Number(f.get(`q${i}`)),
             unitCost: f.get(`c${i}`),
             salePrice: f.get(`sp${i}`),
+            ...(f.get(`ms${i}`) ? { minStock: Number(f.get(`ms${i}`)) } : {}),
           })),
         });
       }}
@@ -2670,6 +3094,14 @@ function PurchaseForm({
               step="0.01"
             />
           </Field>
+          <Field label="الحد الأدنى">
+            <input
+              type="number"
+              name={`ms${i}`}
+              min="0"
+              placeholder="ديناميكي"
+            />
+          </Field>
         </div>
       ))}
       <p className="note">
@@ -2738,6 +3170,11 @@ function Sales() {
           <>
             <Table
               rows={query.data?.data ?? []}
+              onRowClick={(r) => {
+                setSelected(r);
+                setReturning(false);
+                setPrintOnOpen(false);
+              }}
               columns={[
                 {
                   label: "رقم الفاتورة",
@@ -3221,7 +3658,7 @@ function Records({ kind }: { kind: string }) {
                 options:
                   roles.data?.data.map((r: Row) => ({
                     value: r.id,
-                    label: r.name,
+                    label: roleLabels[r.name] ?? r.name,
                   })) ?? [],
               },
               simple("discountLimit", "حد الخصم (%)", "number"),
@@ -3272,7 +3709,12 @@ function Records({ kind }: { kind: string }) {
                   {
                     label: "الأدوار",
                     render: (r: Row) =>
-                      r.roles.map((v: Row) => v.role.name).join(" / "),
+                      r.roles
+                        .map(
+                          (v: Row) =>
+                            roleLabels[v.role.name] ?? v.role.name,
+                        )
+                        .join(" / "),
                   },
                   {
                     label: ar.status,
@@ -3592,7 +4034,10 @@ function Roles() {
           <Table
             rows={query.data?.data ?? []}
             columns={[
-              { label: "الدور", render: (r) => <strong>{r.name}</strong> },
+              {
+                label: "الدور",
+                render: (r) => <strong>{roleLabels[r.name] ?? r.name}</strong>,
+              },
               { label: "الصلاحيات", render: (r) => r.permissions.length },
               {
                 label: ar.actions,
@@ -3616,7 +4061,7 @@ function Roles() {
         )}
       </section>
       <Modal
-        title={selected?.name ?? "دور جديد"}
+        title={selected ? (roleLabels[selected.name] ?? selected.name) : "دور جديد"}
         open={open}
         onClose={() => setOpen(false)}
       >
@@ -3640,19 +4085,102 @@ function Roles() {
               <input required name="name" />
             </Field>
           )}
-          <div className="permissions-grid">
-            {perms.data?.data.map((p: string) => (
-              <label className="checkbox" key={p}>
-                <input
-                  type="checkbox"
-                  name="permission"
-                  value={p}
-                  defaultChecked={selected?.permissions.some(
-                    (v: Row) => v.permissionKey === p,
-                  )}
-                />
-                <code>{p}</code>
-              </label>
+          <div
+            className="permissions-grouped"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+              maxHeight: "60vh",
+              overflowY: "auto",
+              paddingLeft: "0.5rem",
+            }}
+          >
+            {Object.entries(
+              (perms.data?.data ?? []).reduce(
+                (acc: Record<string, string[]>, p: string) => {
+                  const group = permissionLabels[p]?.group ?? "أخرى";
+                  if (!acc[group]) acc[group] = [];
+                  acc[group].push(p);
+                  return acc;
+                },
+                {},
+              ),
+            ).map(([group, list]) => (
+              <div
+                key={group}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "0.75rem",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <h4
+                  style={{
+                    margin: "0 0 0.5rem",
+                    fontSize: "0.95rem",
+                    color: "var(--primary)",
+                  }}
+                >
+                  {group}
+                </h4>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {(list as string[]).map((p) => {
+                    const info = permissionLabels[p];
+                    return (
+                      <label
+                        className="checkbox"
+                        key={p}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: "0.5rem",
+                          cursor: "pointer",
+                          margin: 0,
+                          padding: "0.25rem 0",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          name="permission"
+                          value={p}
+                          defaultChecked={selected?.permissions.some(
+                            (v: Row) => v.permissionKey === p,
+                          )}
+                          style={{ marginTop: "0.2rem" }}
+                        />
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 500,
+                              fontSize: "0.9rem",
+                            }}
+                          >
+                            {info?.label ?? p}
+                          </div>
+                          <small
+                            style={{
+                              color: "var(--muted, #64748b)",
+                              fontSize: "0.75rem",
+                            }}
+                            dir="ltr"
+                          >
+                            {p}
+                          </small>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
           <Button disabled={action.busy}>{ar.save}</Button>

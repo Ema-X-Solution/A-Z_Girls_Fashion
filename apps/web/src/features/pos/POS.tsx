@@ -485,31 +485,70 @@ export function POS() {
                 {products.data?.data.flatMap((p: Row) =>
                   p.variants
                     .filter((v: Row) => v.active && p.status === "ACTIVE")
-                    .map((v: Row) => (
-                      <button
-                        disabled={busy}
-                        className="catalog-item"
-                        key={v.id}
-                        onClick={() =>
-                          cart.add({ ...v, product: { nameAr: p.nameAr } })
-                        }
-                      >
-                        <div className="catalog-art">
-                          <ProductImage url={p.imageUrl} name={p.nameAr} />
-                          <span>{p.category.name}</span>
-                        </div>
-                        <strong>{p.nameAr}</strong>
-                        <small>
-                          {Object.values(v.options).join(" / ") || v.sku}
-                        </small>
-                        <div>
-                          <b>{fm(v.price)}</b>
-                          <span className="add-circle">
-                            <Plus size={16} />
-                          </span>
-                        </div>
-                      </button>
-                    )),
+                    .map((v: Row) => {
+                      const stockQty = (v.balances ?? []).reduce(
+                        (n: number, b: Row) => n + (b.quantity ?? 0),
+                        0,
+                      );
+                      const isLow = stockQty <= (v.minStock ?? 2);
+                      const isOut = stockQty <= 0;
+                      return (
+                        <button
+                          disabled={busy}
+                          className="catalog-item"
+                          key={v.id}
+                          onClick={() =>
+                            cart.add({ ...v, product: { nameAr: p.nameAr } })
+                          }
+                        >
+                          <div className="catalog-art">
+                            <ProductImage url={p.imageUrl} name={p.nameAr} />
+                            <span>{p.category.name}</span>
+                          </div>
+                          <strong>{p.nameAr}</strong>
+                          <small>
+                            {Object.values(v.options).join(" / ") || v.sku}
+                          </small>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              margin: "0.2rem 0",
+                            }}
+                          >
+                            <span
+                              style={{
+                                padding: "0.15rem 0.45rem",
+                                borderRadius: "4px",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                background: isOut
+                                  ? "#fee2e2"
+                                  : isLow
+                                    ? "#fef3c7"
+                                    : "#ecfdf5",
+                                color: isOut
+                                  ? "#dc2626"
+                                  : isLow
+                                    ? "#d97706"
+                                    : "#059669",
+                              }}
+                            >
+                              {isOut
+                                ? "نفد المخزون"
+                                : `المتاح: ${stockQty} ق`}
+                            </span>
+                          </div>
+                          <div>
+                            <b>{fm(v.price)}</b>
+                            <span className="add-circle">
+                              <Plus size={16} />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }),
                 )}
               </div>
             )}
