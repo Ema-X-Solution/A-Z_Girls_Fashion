@@ -6,9 +6,22 @@ if (!process.env.DATABASE_URL || !process.env.APP_ORIGIN)
 const server = app.listen(Number(process.env.PORT ?? 3001), "0.0.0.0", () =>
   console.log("A&Z API listening"),
 );
-void db.permission
-  .createMany({ data: permissions.map((key) => ({ key })), skipDuplicates: true })
-  .catch((error) => console.error("Permission catalog sync failed", error));
+void db.$transaction(async (tx) => {
+    await tx.permission.createMany({
+      data: permissions.map((key) => ({ key })),
+      skipDuplicates: true,
+    });
+    const owner = await tx.role.findUnique({ where: { name: "OWNER" } });
+    if (owner)
+      await tx.rolePermission.createMany({
+        data: permissions.map((permissionKey) => ({
+          roleId: owner.id,
+          permissionKey,
+        })),
+        skipDuplicates: true,
+      });
+  })
+  .catch((error: unknown) => console.error("Permission catalog sync failed", error));
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
     server.close(() => {
