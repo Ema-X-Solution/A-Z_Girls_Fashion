@@ -1506,6 +1506,53 @@ function Products() {
                 },
                 { label: ar.barcode, render: (r) => <code>{r.barcode}</code> },
                 { label: ar.price, render: (r) => fm(r.price) },
+                {
+                  label: "المخزون",
+                  render: (r) => {
+                    const total = (r.balances ?? []).reduce(
+                      (s: number, b: Row) => s + b.quantity,
+                      0,
+                    );
+                    return (
+                      <span className={total <= r.minStock ? "low-stock" : ""}>
+                        {total} قطعة
+                      </span>
+                    );
+                  },
+                },
+              ]}
+            />
+            <h4 style={{ margin: "1.2rem 0 0.5rem" }}>تفاصيل المخزون حسب المخزن</h4>
+            <Table
+              rows={selected.variants.flatMap((v: Row) =>
+                (v.balances ?? []).map((b: Row) => ({ ...b, variant: v })),
+              )}
+              columns={[
+                {
+                  label: "المتغير",
+                  render: (r) =>
+                    Object.values(r.variant.options).join(" / ") || r.variant.sku,
+                },
+                {
+                  label: "المخزن",
+                  render: (r) => r.location?.name ?? "—",
+                },
+                {
+                  label: "الكمية",
+                  render: (r) => (
+                    <span
+                      className={
+                        r.quantity <= r.variant.minStock ? "low-stock" : ""
+                      }
+                    >
+                      {r.quantity}
+                    </span>
+                  ),
+                },
+                {
+                  label: "الحد الأدنى",
+                  render: (r) => r.variant.minStock,
+                },
               ]}
             />
             {edit && (
@@ -1725,13 +1772,21 @@ function Inventory() {
     [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
     [low, setLow] = useState(false),
+    [locationFilter, setLocationFilter] = useState(""),
+    [search, setSearch] = useState(""),
+    { debounced: debouncedSearch, searchPending } = useDebouncedSearch(search),
+    [detail, setDetail] = useState<Row | null>(null),
     path =
       tab === "balances"
-        ? "/inventory"
+        ? `/inventory?offset=${offset}${locationFilter ? `&locationId=${locationFilter}` : ""}${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`
         : tab === "movements"
-          ? "/inventory/movements"
-          : "/inventory/stock-counts",
-    query = useData(`${path}?offset=${offset}`, tab !== "documents"),
+          ? `/inventory/movements?offset=${offset}`
+          : `/inventory/stock-counts?offset=${offset}`,
+    query = useData(
+      path,
+      tab !== "documents",
+      tab === "balances" ? searchPending : false,
+    ),
     locations = useData("/locations"),
     products = useData("/products?limit=100"),
     action = useAction(),
@@ -1772,8 +1827,66 @@ function Inventory() {
               {label}
             </button>
           ))}
-          {tab === "balances" && (
-            <label className="checkbox">
+        </div>
+
+        {tab === "balances" && (
+          <div
+            className="toolbar"
+            style={{
+              display: "flex",
+              gap: "1rem",
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: "1rem",
+            }}
+          >
+            <div className="search" style={{ minWidth: "220px", flex: 1 }}>
+              <Search size={18} />
+              <input
+                placeholder="ابحث بالاسم أو الباركود أو الكود..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
+                المخزن:
+              </span>
+              <select
+                style={{
+                  padding: "0.45rem 0.8rem",
+                  borderRadius: "6px",
+                  border: "1px solid var(--border)",
+                  background: "var(--card-bg, inherit)",
+                  color: "inherit",
+                }}
+                value={locationFilter}
+                onChange={(e) => {
+                  setLocationFilter(e.target.value);
+                  setOffset(0);
+                }}
+              >
+                <option value="">كل المخازن</option>
+                {locations.data?.data?.map((l: Row) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name} {l.branch?.name ? `(${l.branch.name})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label
+              className="checkbox"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                cursor: "pointer",
+                margin: 0,
+              }}
+            >
               <input
                 type="checkbox"
                 checked={low}
@@ -1781,8 +1894,9 @@ function Inventory() {
               />
               منخفض المخزون فقط
             </label>
-          )}
-        </div>
+          </div>
+        )}
+
         {tab === "documents" ? (
           <StockDocuments />
         ) : query.isLoading ? (
@@ -1834,6 +1948,17 @@ function Inventory() {
                       {
                         label: "الحد الأدنى",
                         render: (r) => r.variant.minStock,
+                      },
+                      {
+                        label: ar.actions,
+                        render: (r) => (
+                          <Button
+                            variant="ghost"
+                            onClick={() => setDetail(r)}
+                          >
+                            التفاصيل
+                          </Button>
+                        ),
                       },
                     ]
                   : tab === "movements"
@@ -2083,6 +2208,177 @@ function Inventory() {
               )}
             </form>
           )
+        )}
+      </Modal>
+      <Modal
+        title={`تفاصيل الصنف بالمخزن: ${detail?.variant?.product?.nameAr ?? ""}`}
+        open={!!detail}
+        onClose={() => setDetail(null)}
+      >
+        {detail && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">اسم المنتج</small>
+                <div style={{ fontWeight: 600, fontSize: "1.05rem" }}>
+                  {detail.variant?.product?.nameAr}
+                </div>
+                <small dir="ltr" className="muted-text">
+                  {detail.variant?.sku}
+                </small>
+              </div>
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">المخزن</small>
+                <div style={{ fontWeight: 600, fontSize: "1.05rem" }}>
+                  {detail.location?.name}
+                </div>
+                {detail.location?.branch?.name && (
+                  <small className="muted-text">
+                    الفرع: {detail.location.branch.name}
+                  </small>
+                )}
+              </div>
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">المقاس / اللون</small>
+                <div style={{ fontWeight: 600 }}>
+                  {Object.values(detail.variant?.options ?? {}).join(" / ") ||
+                    "بدون خيارات"}
+                </div>
+              </div>
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">الباركود</small>
+                <div>
+                  <code>{detail.variant?.barcode}</code>
+                </div>
+              </div>
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">الكمية المتاحة</small>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "1.3rem",
+                    color:
+                      detail.quantity <= detail.variant?.minStock
+                        ? "#ef4444"
+                        : "#10b981",
+                  }}
+                >
+                  {detail.quantity} قطعة
+                </div>
+              </div>
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">الحد الأدنى للطلب</small>
+                <div style={{ fontWeight: 600 }}>
+                  {detail.variant?.minStock} قطعة
+                </div>
+              </div>
+              <div
+                className="card"
+                style={{
+                  padding: "0.85rem",
+                  border: "1px solid var(--border, #e2e8f0)",
+                  borderRadius: "8px",
+                  background: "var(--card-bg, #fff)",
+                }}
+              >
+                <small className="muted-text">سعر البيع</small>
+                <div style={{ fontWeight: 600 }}>
+                  {fm(detail.variant?.price)}
+                </div>
+              </div>
+              {detail.averageCost !== undefined && (
+                <div
+                  className="card"
+                  style={{
+                    padding: "0.85rem",
+                    border: "1px solid var(--border, #e2e8f0)",
+                    borderRadius: "8px",
+                    background: "var(--card-bg, #fff)",
+                  }}
+                >
+                  <small className="muted-text">متوسط التكلفة</small>
+                  <div style={{ fontWeight: 600 }}>
+                    {fm(detail.averageCost)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {adjust && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginTop: "0.5rem",
+                }}
+              >
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDetail(null);
+                    setOpen(true);
+                  }}
+                >
+                  <Plus size={16} />
+                  تسوية رصيد هذا المخزن
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </Modal>
     </>
