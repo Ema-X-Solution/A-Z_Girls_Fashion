@@ -96,7 +96,7 @@ const nav = [
   {
     path: "/quick-access",
     title: "الوصول السريع",
-    permission: "dashboard.view",
+    permission: "quick_access.view",
     icon: Zap,
   },
 
@@ -146,7 +146,7 @@ const nav = [
   {
     path: "/purchases",
     title: ar.purchases,
-    permission: "purchases.view",
+    permission: ["purchases.view", "purchases.preview"],
     icon: Truck,
   },
   {
@@ -1154,7 +1154,7 @@ function Shell() {
             <Route
               path="/quick-access"
               element={
-                <Gate permission="dashboard.view">
+                <Gate permission="quick_access.view">
                   <QuickAccess />
                 </Gate>
               }
@@ -1202,7 +1202,7 @@ function Shell() {
             <Route
               path="/purchases"
               element={
-                <Gate permission="purchases.view">
+                <Gate permission={["purchases.view", "purchases.preview"]}>
                   <Purchases />
                 </Gate>
               }

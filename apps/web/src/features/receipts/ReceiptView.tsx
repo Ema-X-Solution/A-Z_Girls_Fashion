@@ -30,11 +30,11 @@ function date(v: string) {
   }).format(new Date(v));
 }
 const methods: Record<string, string> = {
-  CASH: "نقدي",
-  CARD: "بطاقة بنكية",
-  BANK: "تحويل بنكي",
-  WALLET: "محفظة إلكترونية",
-  EXCHANGE_CREDIT: "رصيد من عملية الاستبدال",
+  CASH: "Cash",
+  CARD: "Card",
+  BANK: "Bank transfer",
+  WALLET: "Wallet",
+  EXCHANGE_CREDIT: "Exchange credit",
 };
 export function ReceiptView({
   sale,
@@ -111,19 +111,35 @@ export function ReceiptView({
   const receiptNumber = sale.receiptNumber ?? String(sale.number),
     policy = String(snapshot.returnPolicy ?? defaultReturnPolicy),
     count = printed.reduce((s: number, i: Row) => s + i.quantity, 0),
-    customer = snapshot.customer ?? sale.customer ?? null;
+    customer = snapshot.customer ?? sale.customer ?? null,
+    paymentTotals = sale.payments.reduce(
+      (totals: { cash: number; card: number; other: number }, payment: Row) => {
+        const amount = Number(payment.amount ?? 0);
+        if (payment.method === "CASH") totals.cash += amount;
+        else if (payment.method === "CARD") totals.card += amount;
+        else totals.other += amount;
+        return totals;
+      },
+      { cash: 0, card: 0, other: 0 },
+    ),
+    receiptTime = new Intl.DateTimeFormat("en", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    }).format(new Date(returned?.createdAt ?? exchange?.createdAt ?? sale.createdAt));
   const content = () => (
     <>
       <header className="fashion-receipt-head">
         <h1>{snapshot.name ?? "A&Z Girls Fashion"}</h1>
         {snapshot.promotion && (
           <p>
-            العرض: {snapshot.promotion.name} — خصم{" "}
-            {money(snapshot.promotion.discount)} ج.م
+            Promotion: {snapshot.promotion.name} — discount{" "}
+            {money(snapshot.promotion.discount)} EGP
           </p>
         )}
         {snapshot.promotion?.returnRule === "FULL_BUNDLE" && (
-          <p>تُرد أو تُستبدل جميع أصناف العرض معًا بقيمتها المدفوعة.</p>
+          <p>All promotion items must be returned or exchanged together at their paid value.</p>
         )}
         {snapshot.address && <p>{snapshot.address}</p>}
         {snapshot.phone && <p dir="ltr">TEL: {snapshot.phone}</p>}
@@ -131,7 +147,7 @@ export function ReceiptView({
       <div className="fashion-receipt-meta">
         <svg
           className="receipt-side-barcode"
-          aria-label="باركود الفاتورة"
+          aria-label="Receipt barcode"
           role="img"
           ref={(svg) => {
             if (!svg) return;
@@ -151,26 +167,26 @@ export function ReceiptView({
         />
         <div className="receipt-meta-lines">
         <p>
-          <b>الفرع:</b> {snapshot.branchName ?? "الفرع الرئيسي"}
+          <b>Branch:</b> {snapshot.branchName ?? "Main branch"}
         </p>
         {snapshot.taxNumber && (
           <p>
-            <b>الرقم الضريبي:</b> <span dir="ltr">{snapshot.taxNumber}</span>
+            <b>Tax number:</b> <span dir="ltr">{snapshot.taxNumber}</span>
           </p>
         )}
         {snapshot.commercialRegister && (
           <p>
-            <b>رقم السجل التجاري:</b>{" "}
+            <b>Commercial register:</b>{" "}
             <span dir="ltr">{snapshot.commercialRegister}</span>
           </p>
         )}
         <p>
           <b>
             {exchange
-              ? "إيصال استبدال"
+              ? "Exchange receipt"
               : returned
-                ? "إيصال مرتجع"
-                : "رقم الفاتورة (Receipt #)"}
+                ? "Return receipt"
+                : "Receipt #"}
             :
           </b>{" "}
           <span dir="ltr">
@@ -183,43 +199,43 @@ export function ReceiptView({
         </p>
         {(exchange || returned) && (
           <p>
-            <b>الفاتورة الأصلية:</b>{" "}
+            <b>Original receipt:</b>{" "}
             <span dir="ltr">
               {exchange?.returned?.originalSale?.receiptNumber ?? receiptNumber}
             </span>
           </p>
         )}
         <p>
-          <b>التاريخ والوقت:</b>{" "}
+          <b>Date & time:</b>{" "}
           {date(returned?.createdAt ?? exchange?.createdAt ?? sale.createdAt)}
         </p>
         {!returned && !exchange && customer && (
           <>
             <p>
-              <b>اسم العميل:</b> {customer.name || "عميل نقدي"}
+              <b>Customer:</b> {customer.name || "Cash customer"}
             </p>
             {customer.address && (
               <p>
-                <b>العنوان:</b> {customer.address}
+                <b>Address:</b> {customer.address}
               </p>
             )}
             {customer.phone && (
               <p>
-                <b>رقم الهاتف:</b> <span dir="ltr">{customer.phone}</span>
+                <b>Phone:</b> <span dir="ltr">{customer.phone}</span>
               </p>
             )}
           </>
         )}
         <p>
-          <b>اسم الكاشير:</b> {snapshot.cashierName ?? sale.user?.name ?? ""}{" "}
-          <span className="receipt-meta-separator">|</span> <b>كود البائع:</b>{" "}
+          <b>Cashier:</b> {snapshot.cashierName ?? sale.user?.name ?? ""}{" "}
+          <span className="receipt-meta-separator">|</span> <b>Seller code:</b>{" "}
           <span dir="ltr">{snapshot.sellerCode ?? ""}</span>
         </p>
         </div>
       </div>
       {exchange && (
         <section className="receipt-exchange-return">
-          <h3>الأصناف المرتجعة</h3>
+          <h3>Returned items</h3>
           {exchange.returned.items.map((r: Row) => {
             const original = exchange.returned.originalSale.items.find(
               (i: Row) => i.id === r.saleItemId,
@@ -229,11 +245,11 @@ export function ReceiptView({
                 <span>
                   {original?.name} × {r.quantity}
                 </span>
-                <b>{money(r.amount)} ج.م</b>
+                <b>{money(r.amount)} EGP</b>
               </p>
             );
           })}
-          <h3>الأصناف البديلة</h3>
+          <h3>Replacement items</h3>
         </section>
       )}
       <table className="fashion-receipt-items">
@@ -247,12 +263,12 @@ export function ReceiptView({
         </colgroup>
         <thead>
           <tr>
-            <th>م</th>
-            <th>الكود</th>
-            <th>الصنف</th>
-            <th>السعر</th>
-            <th>كمية</th>
-            <th>القيمة</th>
+            <th>#</th>
+            <th>Code</th>
+            <th>Item</th>
+            <th>Price</th>
+            <th>Qty</th>
+            <th>Amount</th>
           </tr>
         </thead>
         {printed.map((i: Row, index: number) => (
@@ -270,7 +286,7 @@ export function ReceiptView({
             </tr>
             {Number(i.discount) > 0 && (
               <tr className="receipt-item-saving">
-                <td colSpan={4}>قيمة التوفير</td>
+                <td colSpan={4}>Savings</td>
                 <td colSpan={2} className="receipt-numeric">-{money(i.discount)}</td>
               </tr>
             )}
@@ -278,99 +294,99 @@ export function ReceiptView({
         ))}
       </table>
       <section className="fashion-receipt-summary">
-        <h3>ملخص الحساب وطريقة الدفع</h3>
+        <h3>Account summary & payment</h3>
         {!returned && snapshot.loyalty && (
           <p>
-            نقاط مكتسبة: {snapshot.loyalty.earned} | نقاط مستخدمة:{" "}
-            {snapshot.loyalty.redeemed} | خصم النقاط:{" "}
-            {money(snapshot.loyalty.discount)} ج.م (ضمن إجمالي الخصومات)
+            Points earned: {snapshot.loyalty.earned} | Points redeemed:{" "}
+            {snapshot.loyalty.redeemed} | Points discount:{" "}
+            {money(snapshot.loyalty.discount)} EGP (included in total discounts)
           </p>
         )}
         {returned?.loyalty && (
           <p>
-            نقاط ملغاة: {returned.loyalty.reversed} | نقاط مستعادة:{" "}
+            Points reversed: {returned.loyalty.reversed} | Points restored:{" "}
             {returned.loyalty.restored}
           </p>
         )}
         <div className="receipt-summary-row">
-          <span>إجمالي عدد القطع</span>
+          <span>Total items</span>
           <b>
-            {count} {count === 1 ? "قطعة" : "قطع"}
+            {count} {count === 1 ? "item" : "items"}
           </b>
         </div>
         {returned ? (
           <>
             <div className="receipt-summary-row final">
-              <span>إجمالي المرتجع</span>
-              <b>{money(returned.total)} ج.م</b>
+              <span>Return total</span>
+              <b>{money(returned.total)} EGP</b>
             </div>
             <div className="receipt-summary-row">
-              <span>المبلغ المسترد</span>
-              <b>{money(returned.refundAmount ?? returned.total)} ج.م</b>
+              <span>Refunded amount</span>
+              <b>{money(returned.refundAmount ?? returned.total)} EGP</b>
             </div>
             <div className="receipt-summary-row">
-              <span>طريقة الاسترداد</span>
+              <span>Refund method</span>
               <b>{methods[returned.method] ?? returned.method}</b>
             </div>
           </>
         ) : (
           <>
             {[
-              ["الإجمالي قبل الخصم", sale.subtotal],
-              ["إجمالي الخصومات", sale.discount],
+              ["Subtotal before discount", sale.subtotal],
+              ["Total discounts", sale.discount],
               [
-                "الصافي قبل ضريبة القيمة المضافة",
+                "Net before VAT",
                 sale.netBeforeTax ?? Number(sale.total) - Number(sale.tax),
               ],
             ].map(([label, value]) => (
               <div className="receipt-summary-row" key={label}>
                 <span>{label}</span>
                 <b dir="ltr">
-                  {label === "إجمالي الخصومات" && Number(value) > 0 ? "-" : ""}
-                  {money(value)} ج.م
+                  {label === "Total discounts" && Number(value) > 0 ? "-" : ""}
+                  {money(value)} EGP
                 </b>
               </div>
             ))}
             <div className="receipt-summary-row">
               <span>
-                ضريبة القيمة المضافة
+                VAT
                 {!snapshot.legacyTaxRateUnknown
-                  ? ` (${Number(sale.taxRate ?? 0)}% ${sale.taxMode === "INCLUSIVE" ? "مشمولة بالسعر" : "تُضاف إلى السعر"})`
+                  ? ` (${Number(sale.taxRate ?? 0)}% ${sale.taxMode === "INCLUSIVE" ? "included" : "added"})`
                   : ""}
               </span>
-              <b dir="ltr">{money(sale.tax)} ج.م</b>
+              <b dir="ltr">{money(sale.tax)} EGP</b>
             </div>
             <div className="receipt-summary-row final">
-              <span>الإجمالي النهائي المستحق</span>
-              <b dir="ltr">{money(sale.total)} ج.م</b>
+              <span>Amount due</span>
+              <b dir="ltr">{money(sale.total)} EGP</b>
             </div>
             {sale.payments.map((p: Row, i: number) => (
               <div className="receipt-payment" key={p.id ?? i}>
                 <div className="receipt-summary-row">
                   <span>
-                    طريقة الدفع: {methods[p.method] ?? p.method}
+                    Payment: {methods[p.method] ?? p.method}
                     {p.method === "CARD" && p.cardBrand
                       ? ` (${p.cardBrand})`
                       : ""}
                   </span>
-                  <b dir="ltr">{money(p.amount)} ج.م</b>
+                  <b dir="ltr">{money(p.amount)} EGP</b>
                 </div>
                 {p.authorizationCode && (
                   <p>
-                    رقم التفويض: <span dir="ltr">{p.authorizationCode}</span>
+                    Authorization: <span dir="ltr">{p.authorizationCode}</span>
                   </p>
                 )}
                 {p.cardLast4 && (
                   <p>
-                    البطاقة: <span dir="ltr">**** **** **** {p.cardLast4}</span>
+                    Card: <span dir="ltr">**** **** **** {p.cardLast4}</span>
                   </p>
                 )}
               </div>
             ))}
             {Number(sale.change) > 0 && (
               <div className="receipt-summary-row">
-                <span>الباقي النقدي</span>
-                <b dir="ltr">{money(sale.change)} ج.م</b>
+                <span>Cash change</span>
+                <b dir="ltr">{money(sale.change)} EGP</b>
               </div>
             )}
           </>
@@ -378,24 +394,24 @@ export function ReceiptView({
         {exchange && (
           <div className="receipt-exchange-settlement">
             <div className="receipt-summary-row">
-              <span>قيمة الأصناف المرتجعة</span>
-              <b>{money(exchange.returned.total)} ج.م</b>
+                <span>Returned items value</span>
+              <b>{money(exchange.returned.total)} EGP</b>
             </div>
             <div className="receipt-summary-row final">
               <span>
                 {Number(exchange.difference) > 0
-                  ? "فرق السعر المحصل"
+                  ? "Price difference collected"
                   : Number(exchange.difference) < 0
-                    ? "فرق السعر المسترد"
-                    : "استبدال بنفس القيمة"}
+                    ? "Price difference refunded"
+                    : "Equal-value exchange"}
               </span>
-              <b>{money(Math.abs(Number(exchange.difference)))} ج.م</b>
+              <b>{money(Math.abs(Number(exchange.difference)))} EGP</b>
             </div>
           </div>
         )}
       </section>
       <section className="fashion-return-policy">
-        <h3>سياسة الاستبدال والاسترجاع</h3>
+        <h3>Exchange & return policy</h3>
         {policy
           .split("\n")
           .filter(Boolean)
@@ -404,7 +420,30 @@ export function ReceiptView({
           ))}
       </section>
       <footer className="fashion-receipt-footer">
-        <p>{snapshot.receiptFooter || "شكراً لزيارتكم"}</p>
+        {!returned && !exchange && (
+          <>
+            <section className="receipt-credit-details">
+              <h3>* Credit card details</h3>
+              {sale.payments.filter((p: Row) => p.method !== "CASH").map((p: Row, index: number) => (
+                <p key={p.id ?? index}>
+                  <span dir="ltr">{money(p.amount)} EGP</span>
+                  <b>{methods[p.method] ?? p.method}{p.cardBrand ? ` ${p.cardBrand}` : ""}</b>
+                </p>
+              ))}
+            </section>
+            <section className="receipt-pos-meta">
+              <div><span>POS #</span><span>cashier</span><span>Time</span></div>
+              <div><b dir="ltr">{snapshot.registerName ?? "POS"}</b><b>{snapshot.cashierName ?? sale.user?.name ?? ""}</b><b dir="ltr">{receiptTime}</b></div>
+            </section>
+            <p className="receipt-powered">{snapshot.receiptFooter || "A&Z Girls Fashion"}</p>
+            <section className="receipt-payment-boxes">
+              <div><span>Cash</span><strong dir="ltr">{money(paymentTotals.cash)}</strong></div>
+              <div><span>Visa</span><strong dir="ltr">{money(paymentTotals.card)}</strong></div>
+              <div><span>N/R</span><strong dir="ltr">{money(paymentTotals.other)}</strong></div>
+            </section>
+          </>
+        )}
+        {(returned || exchange) && <p>{snapshot.receiptFooter || "Thank you for visiting"}</p>}
       </footer>
     </>
   );
@@ -413,7 +452,7 @@ export function ReceiptView({
       <div
         className="receipt-actions no-print"
         role="group"
-        aria-label="إجراءات الفاتورة"
+        aria-label="Receipt actions"
       >
         <Button
           onClick={() => {
@@ -428,7 +467,7 @@ export function ReceiptView({
           }}
         >
           <Printer size={18} />
-          طباعة الفاتورة
+          Print receipt
         </Button>
         {actions && <div className="receipt-actions-secondary">{actions}</div>}
       </div>

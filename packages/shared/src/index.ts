@@ -9,6 +9,7 @@ export {
 export { defaultReturnPolicy } from "./receipt-settings.js";
 export const permissions = [
   "dashboard.view",
+  "quick_access.view",
   "pos.access",
   "sales.create",
   "sales.view_own",
@@ -26,6 +27,7 @@ export const permissions = [
   "inventory.adjust",
   "inventory.count",
   "purchases.view",
+  "purchases.preview",
   "purchases.create",
   "purchases.receive",
   "suppliers.manage",
@@ -59,6 +61,7 @@ export const roleDefaults: Record<string, readonly Permission[]> = {
   ),
   CASHIER: [
     "dashboard.view",
+    "quick_access.view",
     "pos.access",
     "sales.create",
     "sales.view_own",

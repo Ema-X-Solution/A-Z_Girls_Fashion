@@ -105,6 +105,7 @@ export const roleLabels: Record<string, string> = {
 
 export const permissionLabels: Record<string, { label: string; group: string }> = {
   "dashboard.view": { label: "عرض لوحة التحكم والنظرة العامة", group: "النظرة العامة" },
+  "quick_access.view": { label: "الوصول السريع", group: "النظرة العامة" },
   "pos.access": { label: "الوصول لنقطة البيع (الكاشير)", group: "نقطة البيع" },
   "sales.create": { label: "إنشاء فواتير المبيعات", group: "المبيعات" },
   "sales.view_own": { label: "عرض مبيعات المستخدم الخاصة فقط", group: "المبيعات" },
@@ -122,6 +123,7 @@ export const permissionLabels: Record<string, { label: string; group: string }> 
   "inventory.adjust": { label: "تسوية كميات المخزون يدويًا", group: "المخزون" },
   "inventory.count": { label: "إنشاء وإدارة جلسات الجرد", group: "المخزون" },
   "purchases.view": { label: "عرض فواتير وأوامر الشراء", group: "المشتريات" },
+  "purchases.preview": { label: "معاينة فواتير المشتريات قبل وبعد الاعتماد والاستلام", group: "المشتريات" },
   "purchases.create": { label: "إنشاء أوامر شراء جديدة", group: "المشتريات" },
   "purchases.receive": { label: "استلام بضاعة المشتريات بالمخزن", group: "المشتريات" },
   "suppliers.manage": { label: "إدارة بيانات وحسابات الموردين", group: "الموردون" },

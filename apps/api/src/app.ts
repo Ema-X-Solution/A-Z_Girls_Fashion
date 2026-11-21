@@ -1188,7 +1188,7 @@ app.post(
 );
 app.get(
   "/api/purchases",
-  can("purchases.view"),
+  can("purchases.view", "purchases.preview"),
   route(async (req, res) =>
     res.json({
       data: await db.purchaseOrder.findMany({
