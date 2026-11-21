@@ -19,7 +19,7 @@ const money = (v: unknown) =>
     maximumFractionDigits: 2,
   }).format(Number(v ?? 0));
 function date(v: string) {
-  return new Intl.DateTimeFormat("ar-EG-u-nu-latn", {
+  return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Africa/Cairo",
     day: "2-digit",
     month: "2-digit",
@@ -474,7 +474,7 @@ export function ReceiptView({
       <article
         ref={preview}
         className="receipt fashion-receipt receipt-preview"
-        dir="rtl"
+        dir="ltr"
         data-sequence={sale.number}
         data-sale-id={sale.id}
         style={{ width: `${width}mm` }}
@@ -486,7 +486,7 @@ export function ReceiptView({
           <style>{`@media print { @page { size: ${width}mm ${pageHeight}mm; margin: 0; } }`}</style>
           <article
             className="receipt fashion-receipt"
-            dir="rtl"
+            dir="ltr"
             style={{ width: `${width}mm` }}
           >
             {content()}
