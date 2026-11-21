@@ -11,6 +11,7 @@ import {
   supplierList,
   supplierPaymentSchema,
   paySupplier,
+  lockSupplier,
 } from "./supplier-accounts.js";
 export const supplierRoutes = Router();
 function publicDocument(value: any, financial: boolean): any {
@@ -76,6 +77,41 @@ supplierRoutes.post(
             openingBalance: input.openingBalance,
           });
           return s;
+        }),
+      });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+supplierRoutes.patch(
+  "/suppliers/:id",
+  can("suppliers.manage"),
+  async (req, res, next) => {
+    try {
+      const supplierId = id.parse(req.params.id);
+      const input = z
+        .object({
+          name: z.string().trim().min(1).max(200),
+          phone: z.string().max(40).default(""),
+          email: z.string().email().nullable().optional(),
+          address: z.string().max(1000).default(""),
+          notes: z.string().max(2000).default(""),
+        })
+        .parse(req.body);
+      res.json({
+        data: await transaction(async (tx) => {
+          await lockSupplier(tx, supplierId);
+          const supplier = await tx.supplier.update({
+            where: { id: supplierId },
+            data: { ...input, email: input.email || null },
+          });
+          await audit(tx, actor(req).id, "SUPPLIER_UPDATE", supplierId, {
+            name: supplier.name,
+            phone: supplier.phone,
+            address: supplier.address,
+          });
+          return supplier;
         }),
       });
     } catch (e) {

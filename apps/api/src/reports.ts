@@ -17,7 +17,11 @@ export async function dashboardData(
       createdAt: { gte: from, lte: to },
       ...(all ? {} : { userId: user.id }),
     },
-    include: { items: true, payments: true },
+    include: {
+      items: true,
+      payments: true,
+      user: { select: { id: true, name: true, employeeCode: true } },
+    },
   });
   const returned = await tx.saleReturn.findMany({
     where: {
@@ -58,9 +62,50 @@ export async function dashboardData(
   // Return tax is reversed proportionally from the original line snapshot.
   const returnItems = await tx.saleReturnItem.findMany({
     where: { returnId: { in: returned.map((r) => r.id) } },
-    include: { saleItem: true },
+    include: {
+      saleItem: {
+        include: {
+          sale: {
+            select: { userId: true, user: { select: { id: true, name: true, employeeCode: true } } },
+          },
+        },
+      },
+    },
   });
   const taxReturned = returnItems.reduce((s, v) => s.plus(v.tax), D(0));
+  const totalSalesWithTax = sales
+    .reduce((s, v) => s.plus(v.total), D(0))
+    .minus(refunds);
+  const cashierRows = new Map<
+    string,
+    { id: string; name: string; sellerCode: string; invoices: number; netSales: ReturnType<typeof D> }
+  >();
+  for (const sale of sales) {
+    const current = cashierRows.get(sale.userId) ?? {
+      id: sale.userId,
+      name: sale.user.name,
+      sellerCode: sale.user.employeeCode ?? sale.userId.slice(0, 8).toUpperCase(),
+      invoices: 0,
+      netSales: D(0),
+    };
+    current.invoices += 1;
+    current.netSales = current.netSales.plus(sale.netBeforeTax);
+    cashierRows.set(sale.userId, current);
+  }
+  // Keep each cashier's net sales aligned with the dashboard total: returns
+  // reduce the original seller's sales, while VAT is intentionally excluded.
+  for (const item of returnItems) {
+    const sale = item.saleItem.sale;
+    const current = cashierRows.get(sale.userId) ?? {
+      id: sale.userId,
+      name: sale.user.name,
+      sellerCode: sale.user.employeeCode ?? sale.userId.slice(0, 8).toUpperCase(),
+      invoices: 0,
+      netSales: D(0),
+    };
+    current.netSales = current.netSales.minus(D(item.amount).minus(item.tax));
+    cashierRows.set(sale.userId, current);
+  }
   const netSales = sales
     .reduce((s, v) => s.plus(v.netBeforeTax), D(0))
     .minus(refunds)
@@ -93,6 +138,7 @@ export async function dashboardData(
     receiptDiscounts: sales
       .reduce((s, v) => s.plus(v.discount), D(0))
       .toFixed(2),
+    totalSalesWithTax: round(totalSalesWithTax).toFixed(2),
     discounts: discounts.toFixed(2),
     returns: refunds.toFixed(2),
     netSales: round(netSales).toFixed(2),
@@ -100,6 +146,9 @@ export async function dashboardData(
     orders: sales.length,
     returnCount: returned.length,
     daily: Object.values(daily).sort((a, b) => a.date.localeCompare(b.date)),
+    cashiers: [...cashierRows.values()]
+      .map((row) => ({ ...row, netSales: round(row.netSales).toFixed(2) }))
+      .sort((a, b) => Number(b.netSales) - Number(a.netSales)),
   };
   const purchaseReturnItems = profit
     ? await tx.purchaseReturnItem.findMany({

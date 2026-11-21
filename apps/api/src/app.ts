@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
 import { hash, verify, argon2id } from "argon2";
 import { pinoHttp } from "pino-http";
+import { randomInt } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -13,7 +14,7 @@ import {
   permissions,
   defaultReturnPolicy,
 } from "@az/shared";
-import { db, assert, AppError, audit, json, transaction } from "./db.js";
+import { db, assert, AppError, audit, json, transaction, type Tx } from "./db.js";
 import {
   actor,
   authenticate,
@@ -111,8 +112,9 @@ function page(query: any) {
   };
 }
 const text = z.string().trim().min(1).max(200);
+const code = z.string().trim().min(1).max(200).optional();
 const variantSchema = z.object({
-  sku: text,
+  sku: code,
   barcode: z
     .string()
     .regex(/^[\x21-\x7E]{4,80}$/)
@@ -127,7 +129,7 @@ const productSchema = z.object({
   nameAr: text,
   nameEn: text.optional(),
   description: z.string().max(5000).default(""),
-  sku: text,
+  sku: code,
   categoryId: id,
   brandId: id.optional(),
   season: text.optional(),
@@ -136,6 +138,41 @@ const productSchema = z.object({
   variants: z.array(variantSchema).min(1).max(100),
 });
 const barcode = internalBarcode;
+async function automaticSku(
+  tx: Tx,
+  type: "product" | "variant",
+  reserved = new Set<string>(),
+) {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const prefix = type === "product" ? "PRD" : "VAR";
+    const value = `${prefix}-${Date.now().toString(36).toUpperCase()}-${randomInt(1000, 10000)}`;
+    if (reserved.has(value)) continue;
+    const exists =
+      type === "product"
+        ? await tx.product.findUnique({ where: { sku: value }, select: { id: true } })
+        : await tx.productVariant.findUnique({ where: { sku: value }, select: { id: true } });
+    if (!exists) {
+      reserved.add(value);
+      return value;
+    }
+  }
+  throw new AppError(503, "SKU_GENERATION", "تعذر إنشاء كود الصنف تلقائيًا");
+}
+async function automaticBarcode(tx: Tx, reserved = new Set<string>()) {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const value = barcode();
+    if (reserved.has(value)) continue;
+    const exists = await tx.productVariant.findUnique({
+      where: { barcode: value },
+      select: { id: true },
+    });
+    if (!exists) {
+      reserved.add(value);
+      return value;
+    }
+  }
+  throw new AppError(503, "BARCODE_GENERATION", "تعذر إنشاء الباركود تلقائيًا");
+}
 const safeProduct = (value: any, financial: boolean): any => {
   const out = json(value);
   if (out?.variants)
@@ -295,13 +332,9 @@ app.post(
           .string()
           .email()
           .transform((v) => v.toLowerCase()),
-        password: z.string().min(14).max(256),
+        password: z.string().min(8).max(256),
         roleIds: z.array(id).min(1),
         discountLimit: money.default("0"),
-        employeeCode: z
-          .string()
-          .regex(/^[A-Za-z0-9_-]{1,32}$/)
-          .optional(),
       })
       .parse(req.body);
     assert(
@@ -346,13 +379,18 @@ app.post(
           email: input.email,
           passwordHash,
           discountLimit: input.discountLimit,
-          employeeCode: input.employeeCode,
+          employeeCode: undefined,
           roles: { create: input.roleIds.map((roleId) => ({ roleId })) },
         },
         select: publicUser,
       });
-      await audit(tx, actor(req).id, "USER_CREATE", u.id);
-      return u;
+      const updated = await tx.user.update({
+        where: { id: u.id },
+        data: { employeeCode: u.id.slice(0, 8).toUpperCase() },
+        select: publicUser,
+      });
+      await audit(tx, actor(req).id, "USER_CREATE", updated.id);
+      return updated;
     });
     res.status(201).json({ data: user });
   }),
@@ -392,7 +430,7 @@ app.post(
   route(async (req, res) => {
     const userId = uuid(req.params.id),
       { password } = z
-        .object({ password: z.string().min(14).max(256) })
+        .object({ password: z.string().min(8).max(256) })
         .parse(req.body);
     const passwordHash = await hash(password, { type: argon2id });
     await transaction(async (tx) => {
@@ -574,16 +612,25 @@ app.post(
     const product = await transaction(async (tx) => {
       if (image)
         await tx.brandAsset.createMany({ data: [image], skipDuplicates: true });
+      const variantSkus = new Set<string>(),
+        variantBarcodes = new Set<string>(),
+        variants = [];
+      for (const variant of input.variants) {
+        const sku = variant.sku ?? (await automaticSku(tx, "variant", variantSkus));
+        variants.push({
+          ...variant,
+          sku,
+          barcode: variant.barcode ?? (await automaticBarcode(tx, variantBarcodes)),
+        });
+      }
       const p = await tx.product.create({
         data: {
           ...input,
+          sku: input.sku ?? (await automaticSku(tx, "product")),
           imageUrl: image ? `/api/brand-assets/${image.id}` : null,
           createdBy: actor(req).id,
           variants: {
-            create: input.variants.map((v) => ({
-              ...v,
-              barcode: v.barcode ?? barcode(),
-            })),
+            create: variants,
           },
         },
         include: { variants: true },
@@ -651,7 +698,8 @@ app.post(
       const v = await tx.productVariant.create({
         data: {
           ...input,
-          barcode: input.barcode ?? barcode(),
+          sku: input.sku ?? (await automaticSku(tx, "variant")),
+          barcode: input.barcode ?? (await automaticBarcode(tx)),
           productId: uuid(req.params.id),
         },
       });
@@ -1302,6 +1350,7 @@ app.get(
         items: true,
         payments: true,
         user: { select: { name: true } },
+        customer: { select: { name: true, phone: true, address: true } },
         returns: { include: { items: true } },
       },
     });

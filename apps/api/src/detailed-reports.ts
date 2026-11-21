@@ -14,6 +14,7 @@ const types = [
   "product",
   "variant",
   "cashier",
+  "cashier-invoices",
   "payments",
   "returns",
   "discounts",
@@ -40,6 +41,7 @@ export const reportTitles: Record<string, string> = {
   product: "المبيعات حسب المنتج",
   variant: "المبيعات حسب المقاس واللون",
   cashier: "المبيعات حسب الكاشير",
+  "cashier-invoices": "فواتير الكاشير خلال الفترة",
   payments: "تحصيل المبيعات حسب طريقة الدفع",
   returns: "المرتجعات",
   discounts: "الخصومات",
@@ -83,11 +85,28 @@ function queryFor(
   from: Date,
   to: Date,
   user: Actor,
+  cashierId?: string,
 ): { sql: Prisma.Sql; columns: Column[] } {
   const scope = user.permissions.includes("sales.view_all")
     ? Prisma.empty
     : Prisma.sql`AND s."userId"=${user.id}::uuid`;
   const profit = user.permissions.includes("reports.profit");
+  if (kind === "cashier-invoices") {
+    assert(cashierId, "CASHIER_REQUIRED", "اختر الكاشير أولاً", 400);
+    return {
+      sql: Prisma.sql`SELECT s."receiptNumber" label,s."createdAt" date,u.name cashier,s.subtotal::text gross,s.discount::text discount,s."netBeforeTax"::text net,s.tax::text tax,s.total::text total FROM "Sale" s JOIN "User" u ON u.id=s."userId" WHERE s."createdAt">=${from} AND s."createdAt"<=${to} AND s."userId"=${cashierId}::uuid ${scope}`,
+      columns: columns(
+        "label:رقم الفاتورة",
+        "date:التاريخ والوقت",
+        "cashier:الكاشير",
+        "gross:قبل الخصم",
+        "discount:الخصم",
+        "net:المبيعات بدون الضريبة",
+        "tax:الضريبة",
+        "total:شامل الضريبة",
+      ),
+    };
+  }
   if (
     ["daily", "monthly", "category", "product", "variant", "cashier"].includes(
       kind,
@@ -243,6 +262,30 @@ function queryFor(
   };
 }
 detailedReports.get(
+  "/reports/cashiers",
+  can("reports.sales"),
+  async (req, res, next) => {
+    try {
+      const user = actor(req);
+      const users = await db.user.findMany({
+        where: user.permissions.includes("sales.view_all")
+          ? { active: true }
+          : { id: user.id },
+        select: { id: true, name: true, employeeCode: true },
+        orderBy: { name: "asc" },
+      });
+      res.json({
+        data: users.map((u) => ({
+          ...u,
+          sellerCode: u.employeeCode ?? u.id.slice(0, 8).toUpperCase(),
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+detailedReports.get(
   "/reports/detail/:kind",
   can("reports.sales", "reports.inventory"),
   async (req, res, next) => {
@@ -251,6 +294,7 @@ detailedReports.get(
         from = z.coerce.date().parse(req.query.from),
         to = z.coerce.date().parse(req.query.to),
         q = z.string().max(100).default("").parse(req.query.q),
+        cashierId = z.string().uuid().optional().parse(req.query.cashierId),
         offset = z.coerce
           .number()
           .int()
@@ -299,7 +343,7 @@ detailedReports.get(
             );
             return { data: [d], total: 1, columns: cols };
           }
-          const report = queryFor(kind, from, to, actor(req));
+          const report = queryFor(kind, from, to, actor(req), cashierId);
           const filter = q
             ? Prisma.sql`WHERE row_to_json(t)::text ILIKE ${`%${q}%`}`
             : Prisma.empty;

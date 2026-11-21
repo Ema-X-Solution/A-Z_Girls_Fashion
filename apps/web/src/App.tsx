@@ -55,6 +55,7 @@ import {
   ArrowRightLeft,
   RotateCcw,
   Eye,
+  EyeOff,
   ChevronDown,
 } from "lucide-react";
 import { POS } from "./features/pos/POS";
@@ -250,7 +251,7 @@ function SidebarNavigation({ permissions }: { permissions: string[] }) {
     g.paths.includes(current?.path ?? ""),
   )?.id;
   useEffect(() => {
-    if (activeGroup) setOpened((old) => ({ ...old, [activeGroup]: true }));
+    setOpened(activeGroup ? { [activeGroup]: true } : {});
   }, [pathname, activeGroup]);
   const allowed = nav.filter((n) =>
     (Array.isArray(n.permission) ? n.permission : [n.permission]).some((key) =>
@@ -271,7 +272,7 @@ function SidebarNavigation({ permissions }: { permissions: string[] }) {
           allowed.filter((n) => n.path === path),
         );
         if (!items.length) return null;
-        const expanded = opened[group.id] ?? activeGroup === group.id;
+        const expanded = opened[group.id] ?? false;
         return (
           <div className="nav-group" data-nav-group={group.id} key={group.id}>
             <button
@@ -280,7 +281,9 @@ function SidebarNavigation({ permissions }: { permissions: string[] }) {
               aria-expanded={expanded}
               aria-controls={`nav-${group.id}`}
               onClick={() =>
-                setOpened((old) => ({ ...old, [group.id]: !expanded }))
+                setOpened(() =>
+                  expanded ? {} : { [group.id]: true },
+                )
               }
             >
               <group.icon size={18} />
@@ -316,6 +319,30 @@ function useAllowed(p: string | string[]) {
   );
 }
 let notify: (message: string, error?: boolean) => void = () => {};
+function readableError(error: unknown) {
+  if (!(error instanceof ApiError)) return ar.error;
+  const labels: Record<string, string> = {
+    password: "كلمة المرور",
+    email: "البريد الإلكتروني",
+    name: "الاسم",
+    roleIds: "الدور",
+    discountLimit: "حد الخصم",
+  };
+  const details = error.fields
+    ? Object.entries(error.fields)
+        .flatMap(([field, messages]) =>
+          messages.map((message) => {
+            if (field === "password" && message.includes("Too small"))
+              return "كلمة المرور يجب أن تكون ٨ أحرف على الأقل";
+            if (message.includes("Invalid email"))
+              return "البريد الإلكتروني غير صحيح";
+            return `${labels[field] ?? field}: ${message}`;
+          }),
+        )
+        .join(" • ")
+    : "";
+  return details ? `${ar.error}: ${details}` : `${ar.error}: ${error.message}`;
+}
 function Toasts() {
   const [toast, setToast] = useState<{
     message: string;
@@ -358,7 +385,7 @@ function useAction() {
         done?.();
       } catch (e) {
         notify(
-          e instanceof ApiError ? `${ar.error}: ${e.message}` : ar.error,
+          readableError(e),
           true,
         );
       } finally {
@@ -385,7 +412,7 @@ function ErrorState({ error, retry }: { error: unknown; retry: () => void }) {
           ? ar.forbidden
           : ar.error}
       </h3>
-      <p>{error instanceof Error ? error.message : ""}</p>
+      <p>{readableError(error)}</p>
       <Button variant="outline" onClick={retry}>
         {ar.retry}
       </Button>
@@ -567,6 +594,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 function Login() {
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const {
       register,
@@ -597,7 +625,7 @@ function Login() {
               setUser(data);
               navigate("/", { replace: true });
             } catch (e) {
-              notify(e instanceof Error ? e.message : ar.error, true);
+              notify(readableError(e), true);
             }
           })}
         >
@@ -611,12 +639,22 @@ function Login() {
             />
           </Field>
           <Field label={ar.password}>
-            <input
-              type="password"
-              autoComplete="current-password"
-              {...register("password")}
-              aria-invalid={!!errors.password}
-            />
+            <div className="password-field">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                {...register("password")}
+                aria-invalid={!!errors.password}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
           </Field>
           <Button disabled={isSubmitting} className="full">
             {isSubmitting ? ar.loading : "تسجيل الدخول"}
@@ -679,7 +717,7 @@ function Shell() {
                   client.clear();
                   useCart.getState().clear();
                 })
-                .catch((e) => notify(e.message, true));
+                .catch((e) => notify(readableError(e), true));
             }}
           >
             <LogOut size={18} />
@@ -964,8 +1002,8 @@ function Dashboard({ reports = false }: { reports?: boolean }) {
             <div className="stat-grid">
               {[
                 {
-                  label: "صافي المبيعات",
-                  value: fm(d.netSales),
+                  label: "إجمالي المبيعات شامل الضريبة",
+                  value: fm(d.totalSalesWithTax),
                   icon: Receipt,
                 },
                 {
@@ -1050,7 +1088,8 @@ function Dashboard({ reports = false }: { reports?: boolean }) {
                   <h2>ملخص الفترة</h2>
                 </div>
                 {[
-                  ["إجمالي المبيعات", d.grossSales],
+                  ["إجمالي المبيعات شامل الضريبة", d.totalSalesWithTax],
+                  ["صافي المبيعات قبل الضريبة", d.netSales],
                   ["الخصومات", d.discounts],
                   ["المرتجعات", d.returns],
                   ["الضريبة", d.tax],
@@ -1075,6 +1114,26 @@ function Dashboard({ reports = false }: { reports?: boolean }) {
                   التقارير تعتمد على أسعار وتكلفة كل عملية وقت تسجيلها.
                 </p>
               </section>
+              {d.cashiers?.length > 0 && (
+                <section className="panel summary cashier-performance">
+                  <div className="panel-title">
+                    <div>
+                      <h2>أداء الكاشير</h2>
+                      <p>الفواتير والمبيعات بدون الضريبة خلال الفترة</p>
+                    </div>
+                  </div>
+                  <div className="cashier-performance-head">
+                    <span>الكاشير</span><span>الفواتير</span><span>المبيعات بدون الضريبة</span>
+                  </div>
+                  {d.cashiers.map((cashier: any) => (
+                    <div className="cashier-performance-row" key={cashier.id}>
+                      <span>{cashier.name} <small dir="ltr">{cashier.sellerCode}</small></span>
+                      <strong>{cashier.invoices}</strong>
+                      <strong>{fm(cashier.netSales)}</strong>
+                    </div>
+                  ))}
+                </section>
+              )}
             </div>
             <section className="quick-grid">
               {[
@@ -1140,12 +1199,22 @@ function EntryForm({
   busy: boolean;
   initial?: Row;
 }) {
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [formError, setFormError] = useState("");
   return (
     <form
       className="entry-form"
       onSubmit={(e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(e.currentTarget));
+        if (
+          typeof data.password === "string" &&
+          data.password.length < 8
+        ) {
+          setFormError("كلمة المرور يجب أن تكون ٨ أحرف على الأقل");
+          return;
+        }
+        setFormError("");
         submit(data);
       }}
     >
@@ -1171,6 +1240,26 @@ function EntryForm({
                 required={f.required !== false}
                 defaultValue={initial[f.key] ?? f.default}
               />
+            ) : f.type === "password" ? (
+              <div className="password-field">
+                <input
+                  name={f.key}
+                  type={visiblePasswords[f.key] ? "text" : "password"}
+                  required={f.required !== false}
+                  defaultValue={initial[f.key] ?? f.default}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  aria-label={visiblePasswords[f.key] ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                  onClick={() =>
+                    setVisiblePasswords((old) => ({ ...old, [f.key]: !old[f.key] }))
+                  }
+                >
+                  {visiblePasswords[f.key] ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
             ) : (
               <input
                 name={f.key}
@@ -1189,6 +1278,12 @@ function EntryForm({
           </Field>
         ))}
       </div>
+      {formError && (
+        <p className="form-error" role="alert">
+          <CircleAlert size={16} />
+          {formError}
+        </p>
+      )}
       <Button className="form-submit" disabled={busy}>
         {busy ? ar.loading : ar.save}
       </Button>
@@ -1493,7 +1588,7 @@ function ProductForm({
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null),
     [imageBusy, setImageBusy] = useState(false);
   const [variants, setVariants] = useState([
-    { sku: "", size: "", color: "", price: "", cost: "0", barcode: "" },
+    { size: "", color: "", price: "" },
   ]);
   return (
     <form
@@ -1504,17 +1599,13 @@ function ProductForm({
         const f = Object.fromEntries(new FormData(e.currentTarget));
         submit({
           nameAr: f.nameAr,
-          sku: f.sku,
           categoryId: f.categoryId,
           ...(f.brandId ? { brandId: f.brandId } : {}),
           description: f.description ?? "",
           returnRule: f.returnRule,
           ...(imageDataUrl ? { imageDataUrl } : {}),
           variants: variants.map((v) => ({
-            sku: v.sku,
             price: v.price,
-            cost: v.cost,
-            ...(v.barcode ? { barcode: v.barcode } : {}),
             options: {
               ...(v.size ? { المقاس: v.size } : {}),
               ...(v.color ? { اللون: v.color } : {}),
@@ -1526,9 +1617,6 @@ function ProductForm({
       <div className="form-grid">
         <Field label="اسم المنتج بالعربية">
           <input name="nameAr" required />
-        </Field>
-        <Field label={ar.sku}>
-          <input name="sku" required dir="ltr" />
         </Field>
         <Field label={ar.category}>
           <select name="categoryId" required>
@@ -1551,6 +1639,9 @@ function ProductForm({
           </select>
         </Field>
       </div>
+      <p className="note">
+        كود المنتج وكود كل مقاس/لون والباركود تُنشأ تلقائيًا عند الحفظ.
+      </p>
       <ProductImagePicker
         value={imageDataUrl}
         onChange={setImageDataUrl}
@@ -1568,27 +1659,24 @@ function ProductForm({
       </Field>
       {variants.map((v, i) => (
         <div className="variant-row" key={i}>
-          {(["sku", "size", "color", "price", "cost", "barcode"] as const).map(
+          {(["size", "color", "price"] as const).map(
             (key) => (
               <Field
                 key={key}
                 label={
                   {
-                    sku: ar.sku,
                     size: ar.size,
                     color: ar.color,
-                    price: ar.price,
-                    cost: ar.cost,
-                    barcode: "باركود (تلقائي إن ترك فارغاً)",
+                    price: "السعر — سعر البيع",
                   }[key]
                 }
               >
                 <input
                   value={v[key]}
-                  type={["price", "cost"].includes(key) ? "number" : "text"}
+                  type={key === "price" ? "number" : "text"}
                   min="0"
                   step="0.01"
-                  required={["sku", "price", "cost"].includes(key)}
+                  required={key === "price"}
                   onChange={(e) =>
                     setVariants((rows) =>
                       rows.map((r, j) =>
@@ -1620,7 +1708,7 @@ function ProductForm({
         onClick={() =>
           setVariants((v) => [
             ...v,
-            { sku: "", size: "", color: "", price: "", cost: "0", barcode: "" },
+            { size: "", color: "", price: "" },
           ])
         }
       >
@@ -2232,7 +2320,7 @@ function PurchaseForm({
               {products.flatMap((p) =>
                 p.variants.map((v: Row) => (
                   <option key={v.id} value={v.id}>
-                    {p.nameAr} • {v.sku}
+                    {p.nameAr} • {Object.values(v.options ?? {}).join(" / ") || "بدون مقاس أو لون"}
                   </option>
                 )),
               )}
@@ -2248,11 +2336,14 @@ function PurchaseForm({
               defaultValue="1"
             />
           </Field>
-          <Field label={ar.cost}>
+          <Field label="التكلفة — سعر الشراء">
             <input required type="number" name={`c${i}`} min="0" step="0.01" />
           </Field>
         </div>
       ))}
+      <p className="note">
+        هذه هي التكلفة الفعلية من المورد، ومنها يُحسب متوسط تكلفة المخزون والربح.
+      </p>
       <Button
         type="button"
         variant="outline"
@@ -2785,7 +2876,7 @@ function Records({ kind }: { kind: string }) {
           : [
               simple("name", ar.name),
               simple("email", ar.email, "email"),
-              simple("password", "كلمة المرور (14 حرفاً على الأقل)", "password"),
+              simple("password", "كلمة المرور (٨ أحرف على الأقل)", "password"),
               {
                 key: "roleId",
                 label: "الدور",
@@ -2796,7 +2887,6 @@ function Records({ kind }: { kind: string }) {
                   })) ?? [],
               },
               simple("discountLimit", "حد الخصم (%)", "number"),
-              simple("employeeCode", "كود البائع (اختياري)", "text", false),
             ];
   const columns =
     kind === "audit-logs"

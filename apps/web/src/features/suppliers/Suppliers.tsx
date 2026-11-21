@@ -2,8 +2,8 @@ import { useId, useState, type ReactNode, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Plus, Search, X, Wallet, RotateCcw, Printer } from "lucide-react";
-import { api, ApiError, post, useSession } from "../../api";
+import { Plus, Search, X, Wallet, RotateCcw, Printer, Pencil } from "lucide-react";
+import { api, ApiError, patch, post, useSession } from "../../api";
 import { Button } from "../../components/ui/button";
 import { formatMoney as fm, formatDate } from "../../i18n";
 import "./suppliers.css";
@@ -183,6 +183,7 @@ export function Suppliers() {
   const [q, setQ] = useState(""),
     [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
+    [editing, setEditing] = useState<Row | null>(null),
     action = useAction();
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
   const query = useQuery({
@@ -200,6 +201,19 @@ export function Suppliers() {
       () =>
         post("/suppliers", { ...f, ...(!f.email ? { email: undefined } : {}) }),
       () => setOpen(false),
+    );
+  }
+  function update(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    const f = Object.fromEntries(new FormData(e.currentTarget));
+    void action.run(
+      () =>
+        patch(`/suppliers/${editing.id}`, {
+          ...f,
+          ...(!f.email ? { email: undefined } : {}),
+        }),
+      () => setEditing(null),
     );
   }
   return (
@@ -275,12 +289,18 @@ export function Suppliers() {
                         </small>
                       </td>
                       <td>
-                        <Link
-                          className="btn btn-outline"
-                          to={`/suppliers/${s.id}`}
-                        >
-                          كشف الحساب والفواتير
-                        </Link>
+                        <div className="inline-actions">
+                          <Button variant="outline" onClick={() => setEditing(s)}>
+                            <Pencil size={15} />
+                            تعديل البيانات
+                          </Button>
+                          <Link
+                            className="btn btn-outline"
+                            to={`/suppliers/${s.id}`}
+                          >
+                            كشف الحساب والفواتير
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -334,6 +354,38 @@ export function Suppliers() {
           <Status busy={action.busy} error={action.error} />
           <Button disabled={action.busy}>حفظ المورد</Button>
         </form>
+      </Modal>
+      <Modal
+        title="تعديل بيانات المورد"
+        open={!!editing}
+        close={() => setEditing(null)}
+      >
+        {editing && (
+          <form onSubmit={update}>
+            <p className="note">
+              تعديل بيانات التواصل فقط؛ الرصيد الافتتاحي وحركات الحساب لا تتغير من هنا.
+            </p>
+            <div className="form-grid">
+              <Field label="اسم المورد">
+                {(id) => <input id={id} name="name" required maxLength={200} defaultValue={editing.name} />}
+              </Field>
+              <Field label="الهاتف">
+                {(id) => <input id={id} name="phone" maxLength={40} defaultValue={editing.phone} />}
+              </Field>
+              <Field label="البريد الإلكتروني (اختياري)">
+                {(id) => <input id={id} name="email" type="email" defaultValue={editing.email ?? ""} />}
+              </Field>
+            </div>
+            <Field label="العنوان">
+              {(id) => <input id={id} name="address" maxLength={1000} defaultValue={editing.address} />}
+            </Field>
+            <Field label="ملاحظات">
+              {(id) => <textarea id={id} name="notes" maxLength={2000} defaultValue={editing.notes} />}
+            </Field>
+            <Status busy={action.busy} error={action.error} />
+            <Button disabled={action.busy}>حفظ التعديلات</Button>
+          </form>
+        )}
       </Modal>
     </>
   );

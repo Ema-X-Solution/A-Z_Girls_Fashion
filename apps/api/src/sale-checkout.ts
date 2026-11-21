@@ -33,6 +33,12 @@ export async function checkout(
     });
   }
   if (input.customerId) await lockLoyalty(tx, input.customerId);
+  const customer = input.customerId
+    ? await tx.customer.findUnique({
+        where: { id: input.customerId },
+        select: { name: true, phone: true, address: true },
+      })
+    : null;
   const pricing = await quoteSale(tx, actor, input);
   const { lines, weights, discounts, taxes, sum, setting, taxMode, taxRate } =
       pricing,
@@ -118,6 +124,9 @@ export async function checkout(
       taxRate,
       receiptSnapshot: {
         ...snapshot,
+        customer: customer
+          ? { name: customer.name, phone: customer.phone, address: customer.address }
+          : null,
         promotion: pricing.promotion,
         customerDiscount: pricing.customerDiscount.toFixed(2),
       },
@@ -143,7 +152,12 @@ export async function checkout(
         ],
       },
     },
-    include: { items: true, payments: true, user: { select: { name: true } } },
+    include: {
+      items: true,
+      payments: true,
+      user: { select: { name: true } },
+      customer: { select: { name: true, phone: true, address: true } },
+    },
   });
   const year = new Intl.DateTimeFormat("en", {
       year: "numeric",
@@ -159,6 +173,9 @@ export async function checkout(
   );
   const receiptSnapshot = {
     ...snapshot,
+    customer: customer
+      ? { name: customer.name, phone: customer.phone, address: customer.address }
+      : null,
     promotion: pricing.promotion,
     customerDiscount: pricing.customerDiscount.toFixed(2),
     loyalty:

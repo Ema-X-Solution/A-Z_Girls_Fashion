@@ -88,9 +88,9 @@
 }
 .fashion-receipt-head {
   text-align: center;
-  border-bottom: 1px dashed #000;
-  padding-bottom: 3mm;
-  margin-bottom: 3mm;
+  border-bottom: 1px solid #000;
+  padding: 1mm 0 3mm;
+  margin-bottom: 2.5mm;
 }
 .receipt-store-logo {
   display: block;
@@ -111,13 +111,10 @@
   font-size: 31px;
   letter-spacing: -3px;
 }
-.fashion-receipt-head h2 {
-  font-size: 12px;
-  font-family: Arial, sans-serif;
-  letter-spacing: 0.5px;
-  font-weight: bold;
-  line-height: 1.3;
-  margin-bottom: 2mm;
+.fashion-receipt-head h1 {
+  font: 700 18px/1.25 Arial, Tahoma, sans-serif;
+  letter-spacing: 0.2px;
+  margin: 0 0 2mm;
 }
 .fashion-receipt-head p {
   font-size: 9px;
@@ -126,12 +123,22 @@
   overflow-wrap: anywhere;
 }
 .fashion-receipt-meta {
+  display: grid;
+  grid-template-columns: 16mm minmax(0, 1fr);
+  gap: 3mm;
+  align-items: start;
   padding-bottom: 3mm;
-  border-bottom: 1px dashed #000;
+  border-bottom: 1px solid #000;
 }
+.receipt-side-barcode {
+  display: block;
+  width: 100%;
+  min-height: 32mm;
+}
+.receipt-meta-lines { min-width: 0; }
 .fashion-receipt-meta p {
   margin: 0 0 1mm;
-  font-size: 9px;
+  font-size: 9.2px;
   overflow-wrap: anywhere;
 }
 .receipt-meta-separator {
@@ -144,7 +151,7 @@
   table-layout: fixed;
   font-size: 8px;
   margin: 2mm 0;
-  border-bottom: 1px dashed #000;
+  border-bottom: 1px solid #000;
 }
 .fashion-receipt-items thead {
   display: table-header-group;
@@ -163,13 +170,25 @@
 .fashion-receipt .fashion-receipt-items td {
   color: #000;
   padding: 2mm 0.4mm;
-  border-bottom: 1px dotted #999;
+  border-bottom: 0;
   vertical-align: top;
   overflow-wrap: anywhere;
   line-height: 1.5;
 }
 .fashion-receipt-items tr {
   break-inside: avoid;
+}
+.fashion-receipt-items .receipt-item-group {
+  border-bottom: 1px solid #aaa;
+}
+.fashion-receipt-items .receipt-item-saving td {
+  padding-top: 0;
+  padding-bottom: 1.6mm;
+  font-weight: 700;
+  border-top: 0;
+}
+.fashion-receipt-items .receipt-item-saving td:first-child {
+  text-align: center;
 }
 .fashion-receipt-items small {
   font-size: 7px;
@@ -189,10 +208,10 @@
 }
 .fashion-receipt-summary {
   padding: 2mm 0;
-  border-bottom: 1px dashed #000;
+  border-bottom: 1px solid #000;
 }
 .fashion-receipt h3 {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
   margin-bottom: 2mm;
 }
@@ -202,7 +221,7 @@
   align-items: baseline;
   gap: 2mm;
   padding: 1mm 0;
-  font-size: 9px;
+  font-size: 9.5px;
 }
 .receipt-summary-row > span {
   max-width: 69%;
@@ -214,7 +233,7 @@
   font-weight: 600;
 }
 .receipt-summary-row.final {
-  border-top: 1px dashed #000;
+  border-top: 1px solid #000;
   margin-top: 1.5mm;
   padding-top: 2mm;
   font-weight: bold;
@@ -234,7 +253,7 @@
 }
 .fashion-return-policy {
   padding: 3mm 0;
-  border-bottom: 1px dashed #000;
+  border-bottom: 1px solid #000;
   font-size: 8.5px;
   line-height: 1.65;
   break-inside: avoid;
@@ -254,7 +273,7 @@
   max-height: 21mm;
 }
 .fashion-receipt-footer p {
-  margin-top: 2mm;
+  margin: 0;
   font-size: 10px;
   font-weight: bold;
 }

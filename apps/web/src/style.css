@@ -197,6 +197,26 @@ textarea:focus {
   outline: 2px solid #c3a04b55;
   border-color: var(--gold);
 }
+.password-field {
+  position: relative;
+  width: 100%;
+}
+.password-field input {
+  padding-inline-end: 42px;
+}
+.password-toggle {
+  position: absolute;
+  inset-inline-end: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  color: #777;
+  padding: 4px;
+}
+.password-toggle:hover {
+  color: var(--gold);
+}
 textarea {
   min-height: 90px;
   resize: vertical;
@@ -937,6 +957,41 @@ tr:last-child td {
 }
 .form-submit {
   margin-top: 18px;
+}
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #a52f2f;
+  background: #fff3f3;
+  border: 1px solid #efcccc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.cashier-performance {
+  grid-column: 1 / -1;
+}
+.cashier-performance-head,
+.cashier-performance-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(170px, 180px);
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 12px;
+}
+.cashier-performance-head {
+  color: #747880;
+  font-size: 11px;
+}
+.cashier-performance-row:last-child { border-bottom: 0; }
+.cashier-performance-row small { color: #92763a; margin-inline-start: 6px; }
+@media (max-width: 640px) {
+  .cashier-performance-head,
+  .cashier-performance-row { grid-template-columns: 1fr 70px 120px; }
 }
 .variant-row {
   display: grid;

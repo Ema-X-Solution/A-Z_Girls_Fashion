@@ -110,23 +110,12 @@ export function ReceiptView({
     : sale.items;
   const receiptNumber = sale.receiptNumber ?? String(sale.number),
     policy = String(snapshot.returnPolicy ?? defaultReturnPolicy),
-    count = printed.reduce((s: number, i: Row) => s + i.quantity, 0);
+    count = printed.reduce((s: number, i: Row) => s + i.quantity, 0),
+    customer = snapshot.customer ?? sale.customer ?? null;
   const content = () => (
     <>
       <header className="fashion-receipt-head">
-        <img
-          className="receipt-store-logo"
-          src={
-            !snapshot.logoUrl ||
-            snapshot.logoUrl === "/brand/az-logo.jpg" ||
-            snapshot.logoUrl ===
-              "/api/brand-assets/f50d2dbd2d769a26e08cba4894de300c741fd8e6a0ffdf2c4d3e1cbd19785bb1"
-              ? "/brand/az-logo-receipt-transparent.png"
-              : snapshot.logoUrl
-          }
-          alt="A&Z"
-        />
-        <h2>{snapshot.name ?? "A&Z Girls Fashion"}</h2>
+        <h1>{snapshot.name ?? "A&Z Girls Fashion"}</h1>
         {snapshot.promotion && (
           <p>
             العرض: {snapshot.promotion.name} — خصم{" "}
@@ -140,6 +129,27 @@ export function ReceiptView({
         {snapshot.phone && <p dir="ltr">TEL: {snapshot.phone}</p>}
       </header>
       <div className="fashion-receipt-meta">
+        <svg
+          className="receipt-side-barcode"
+          aria-label="باركود الفاتورة"
+          role="img"
+          ref={(svg) => {
+            if (!svg) return;
+            JsBarcode(svg, receiptNumber, {
+              format: "CODE128",
+              height: 82,
+              width: 1.2,
+              margin: 0,
+              displayValue: false,
+            });
+            const w = svg.getAttribute("width"),
+              h = svg.getAttribute("height");
+            svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
+          }}
+        />
+        <div className="receipt-meta-lines">
         <p>
           <b>الفرع:</b> {snapshot.branchName ?? "الفرع الرئيسي"}
         </p>
@@ -183,11 +193,29 @@ export function ReceiptView({
           <b>التاريخ والوقت:</b>{" "}
           {date(returned?.createdAt ?? exchange?.createdAt ?? sale.createdAt)}
         </p>
+        {!returned && !exchange && customer && (
+          <>
+            <p>
+              <b>اسم العميل:</b> {customer.name || "عميل نقدي"}
+            </p>
+            {customer.address && (
+              <p>
+                <b>العنوان:</b> {customer.address}
+              </p>
+            )}
+            {customer.phone && (
+              <p>
+                <b>رقم الهاتف:</b> <span dir="ltr">{customer.phone}</span>
+              </p>
+            )}
+          </>
+        )}
         <p>
           <b>اسم الكاشير:</b> {snapshot.cashierName ?? sale.user?.name ?? ""}{" "}
           <span className="receipt-meta-separator">|</span> <b>كود البائع:</b>{" "}
           <span dir="ltr">{snapshot.sellerCode ?? ""}</span>
         </p>
+        </div>
       </div>
       {exchange && (
         <section className="receipt-exchange-return">
@@ -210,42 +238,44 @@ export function ReceiptView({
       )}
       <table className="fashion-receipt-items">
         <colgroup>
-          <col style={{ width: "17%" }} />
-          <col style={{ width: "27%" }} />
-          <col style={{ width: "7%" }} />
+          <col style={{ width: "6%" }} />
+          <col style={{ width: "15%" }} />
+          <col style={{ width: "34%" }} />
           <col style={{ width: "16%" }} />
-          <col style={{ width: "13%" }} />
-          <col style={{ width: "20%" }} />
+          <col style={{ width: "11%" }} />
+          <col style={{ width: "18%" }} />
         </colgroup>
         <thead>
           <tr>
-            <th>SKU</th>
-            <th>وصف الصنف</th>
-            <th>ك</th>
-            <th>سعر القطعة</th>
-            <th>الخصم</th>
-            <th>الإجمالي</th>
+            <th>م</th>
+            <th>الكود</th>
+            <th>الصنف</th>
+            <th>السعر</th>
+            <th>كمية</th>
+            <th>القيمة</th>
           </tr>
         </thead>
-        <tbody>
-          {printed.map((i: Row, index: number) => (
-            <tr key={i.id ?? index}>
-              <td className="receipt-sku" dir="ltr">
-                {i.sku || i.barcode}
-              </td>
+        {printed.map((i: Row, index: number) => (
+          <tbody key={i.id ?? index} className="receipt-item-group">
+            <tr>
+              <td>{index + 1}</td>
+              <td className="receipt-sku" dir="ltr">{i.sku || i.barcode}</td>
               <td>
-                {i.name}
+                <b>{i.name}</b>
                 <small>{Object.values(i.options ?? {}).join(" / ")}</small>
               </td>
-              <td>{i.quantity}</td>
               <td className="receipt-numeric">{money(i.unitPrice)}</td>
-              <td className="receipt-numeric">{money(i.discount)}</td>
-              <td className="receipt-numeric">
-                <b>{money(i.total)}</b>
-              </td>
+              <td>{i.quantity}</td>
+              <td className="receipt-numeric"><b>{money(i.total)}</b></td>
             </tr>
-          ))}
-        </tbody>
+            {Number(i.discount) > 0 && (
+              <tr className="receipt-item-saving">
+                <td colSpan={4}>قيمة التوفير</td>
+                <td colSpan={2} className="receipt-numeric">-{money(i.discount)}</td>
+              </tr>
+            )}
+          </tbody>
+        ))}
       </table>
       <section className="fashion-receipt-summary">
         <h3>ملخص الحساب وطريقة الدفع</h3>
@@ -374,27 +404,6 @@ export function ReceiptView({
           ))}
       </section>
       <footer className="fashion-receipt-footer">
-        <svg
-          aria-label="باركود الفاتورة"
-          role="img"
-          ref={(svg) => {
-            if (!svg) return;
-            JsBarcode(svg, receiptNumber, {
-              format: "CODE128",
-              height: 42,
-              width: 1.5,
-              margin: 0,
-              marginLeft: 15,
-              marginRight: 15,
-              fontSize: 10,
-            });
-            const w = svg.getAttribute("width"),
-              h = svg.getAttribute("height");
-            svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-            svg.removeAttribute("width");
-            svg.removeAttribute("height");
-          }}
-        />
         <p>{snapshot.receiptFooter || "شكراً لزيارتكم"}</p>
       </footer>
     </>

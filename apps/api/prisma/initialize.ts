@@ -5,9 +5,9 @@ const db = new PrismaClient();
 try {
   const email = process.env.INITIAL_OWNER_EMAIL?.trim().toLowerCase(),
     password = process.env.INITIAL_OWNER_PASSWORD;
-  if (!email || !password || password.length < 14)
+  if (!email || !password || password.length < 8)
     throw new Error(
-      "Set INITIAL_OWNER_EMAIL and a unique INITIAL_OWNER_PASSWORD of at least 14 characters",
+      "Set INITIAL_OWNER_EMAIL and a unique INITIAL_OWNER_PASSWORD of at least 8 characters",
     );
   const passwordHash = await hash(password, { type: argon2id });
   await db.$transaction(async (tx) => {

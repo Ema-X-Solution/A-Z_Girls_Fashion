@@ -17,6 +17,7 @@ const types = [
   ["product", "حسب المنتج"],
   ["variant", "حسب المقاس واللون"],
   ["cashier", "حسب الكاشير"],
+  ["cashier-invoices", "فواتير كاشير محدد"],
   ["payments", "طرق الدفع"],
   ["returns", "المرتجعات"],
   ["discounts", "الخصومات"],
@@ -41,6 +42,7 @@ export function Reports() {
   const [kind, setKind] = useState("daily"),
     [offset, setOffset] = useState(0),
     [q, setQ] = useState(""),
+    [cashierId, setCashierId] = useState(""),
     [from, setFrom] = useState(localDate(new Date(Date.now() - 30 * 86400000))),
     [to, setTo] = useState(localDate(new Date()));
   const { debounced, searchPending } = useDebouncedSearch(q);
@@ -71,8 +73,12 @@ export function Reports() {
     to: valid ? boundary(to, true) : "",
     q: debounced,
   });
-  const path = `/reports/detail/${kind}?${params}`,
-    query = useRows(`${path}&offset=${offset}`, valid && !searchPending);
+  const cashiers = useRows("/reports/cashiers", kind === "cashier-invoices"),
+    path = `/reports/detail/${kind}?${params}${cashierId ? `&cashierId=${cashierId}` : ""}`,
+    query = useRows(
+      `${path}&offset=${offset}`,
+      valid && !searchPending && (kind !== "cashier-invoices" || !!cashierId),
+    );
   const visibleTypes = types.filter(
     (t) =>
       !["purchases", "suppliers", "gross-profit", "net-profit"].includes(
@@ -132,12 +138,30 @@ export function Reports() {
               }}
             />
           </FormField>
+          {kind === "cashier-invoices" && (
+            <FormField label="الكاشير">
+              <select
+                value={cashierId}
+                onChange={(e) => {
+                  setCashierId(e.target.value);
+                  setOffset(0);
+                }}
+              >
+                <option value="">اختر الكاشير...</option>
+                {(cashiers.data?.data ?? []).map((cashier: { id: string; name: string; sellerCode: string }) => (
+                  <option key={cashier.id} value={cashier.id}>
+                    {cashier.name} ({cashier.sellerCode})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          )}
         </div>
         <ErrorMessage
           message={!valid ? "اختار فترة صحيحة لا تتجاوز 366 يومًا" : ""}
         />
         <div className="inline-actions report-controls">
-          {valid && !searchPending && (
+          {valid && !searchPending && (kind !== "cashier-invoices" || cashierId) && (
             <>
               <a className="btn btn-outline" href={`/api${path}&format=xlsx`}>
                 تصدير Excel
