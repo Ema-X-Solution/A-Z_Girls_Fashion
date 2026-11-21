@@ -26,7 +26,6 @@ import {
 } from "./PaymentEditor";
 import { cents, previewTotals, decimal } from "./money";
 import { usePosWorkspace } from "./usePosWorkspace";
-import { CloudCarts } from "./CloudCarts";
 import { emptyDraft, type CartDraft } from "./workspace";
 import { approvalError } from "./approval-messages";
 import { CustomerPicker } from "../customers/CustomerPicker";
@@ -38,14 +37,11 @@ export function POS() {
     user = useSession((s) => s.user),
     [code, setCode] = useState(""),
     [q, setQ] = useState(""),
-    [resumeId, setResumeId] = useState(""),
     [approvalReason, setApprovalReason] = useState(""),
     [receipt, setReceipt] = useState<Row | null>(null),
     [scanning, setScanning] = useState(false),
     [busy, setBusy] = useState(false),
     [customerBusy, setCustomerBusy] = useState(false),
-    [cloudBusy, setCloudBusy] = useState(false),
-    [cloudReady, setCloudReady] = useState(true),
     [error, setError] = useState("");
   const { workspace, commit, ready, storageError } = usePosWorkspace(user!.id);
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
@@ -53,12 +49,10 @@ export function POS() {
   const scanInput = useRef<HTMLInputElement>(null);
   const { discount, discountType, itemDiscounts, payments, customer, notes } =
     workspace.active;
-  const suspended = workspace.suspended,
-    pending = workspace.pending;
+  const pending = workspace.pending;
   const frozen =
     busy ||
     customerBusy ||
-    cloudBusy ||
     scanning ||
     !ready ||
     !!pending ||
@@ -227,12 +221,6 @@ export function POS() {
     };
   }, [ready, workspace.receiptId]);
   function clear() {
-    if (workspace.active.sharedCart) {
-      setError(
-        "حرّر السلة للخادم أولًا أو أتم بيعها؛ لا تُمسح سلة مشتركة مستخدمة محليًا.",
-      );
-      return;
-    }
     commit((w) => ({ ...w, active: emptyDraft() }));
     setError("");
   }
@@ -255,7 +243,7 @@ export function POS() {
     }
   }
   async function complete() {
-    if (frozen || !cloudReady || inFlight.current) return;
+    if (frozen || inFlight.current) return;
     if (!customer) {
       setError("حدد رقم العميل قبل إتمام البيع، حتى مع الدفع النقدي");
       return;
@@ -264,9 +252,6 @@ export function POS() {
       key: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       body: {
-        ...(workspace.active.sharedCart
-          ? { sharedCart: workspace.active.sharedCart }
-          : {}),
         requireCustomer: true as const,
         ...(workspace.active.loyaltyPoints
           ? { loyaltyPoints: workspace.active.loyaltyPoints }
@@ -874,100 +859,6 @@ export function POS() {
                     />
                   )}
                 </Field>
-                {suspended.length > 1 && (
-                  <Field label="اختر سلة معلّقة">
-                    {(id) => (
-                      <select
-                        id={id}
-                        value={resumeId}
-                        onChange={(e) => setResumeId(e.target.value)}
-                      >
-                        <option value="">آخر سلة معلّقة</option>
-                        {suspended.map((saved) => (
-                          <option key={saved.id} value={saved.id}>
-                            {new Date(saved.savedAt).toLocaleString("ar-EG")} —{" "}
-                            {saved.items.reduce((n, i) => n + i.quantity, 0)}{" "}
-                            قطع
-                            {saved.notes
-                              ? ` — ${saved.notes.slice(0, 40)}`
-                              : ""}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </Field>
-                )}
-                <div className="suspend">
-                  <Button
-                    variant="outline"
-                    disabled={
-                      !cart.items.length ||
-                      busy ||
-                      suspended.length >= 50 ||
-                      !!workspace.active.sharedCart
-                    }
-                    onClick={() => {
-                      commit((w) => ({
-                        ...w,
-                        suspended: [
-                          ...w.suspended,
-                          {
-                            ...w.active,
-                            id: crypto.randomUUID(),
-                            savedAt: new Date().toISOString(),
-                          },
-                        ],
-                        active: emptyDraft(),
-                      }));
-                    }}
-                  >
-                    تعليق السلة
-                  </Button>
-                  {suspended.length > 0 && (
-                    <Button
-                      variant="outline"
-                      disabled={!!cart.items.length || busy}
-                      onClick={() => {
-                        commit((w) => {
-                          const saved =
-                            w.suspended.find((s) => s.id === resumeId) ??
-                            w.suspended.at(-1)!;
-                          return {
-                            ...w,
-                            active: saved,
-                            suspended: w.suspended.filter(
-                              (s) => s.id !== saved.id,
-                            ),
-                          };
-                        });
-                        setResumeId("");
-                      }}
-                    >
-                      استئناف ({suspended.length})
-                    </Button>
-                  )}
-                </div>
-                <small className="note">
-                  السلال المعلقة محفوظة على هذا الجهاز، ولا تحجز الكميات.
-                </small>
-                <CloudCarts
-                  draft={workspace.active}
-                  locationId={shift.data?.data?.register?.locationId}
-                  disabled={
-                    busy ||
-                    customerBusy ||
-                    scanning ||
-                    !ready ||
-                    !!pending ||
-                    !!workspace.receiptId
-                  }
-                  onBusyChange={setCloudBusy}
-                  onReadyChange={setCloudReady}
-                  onLoad={(draft) => commit((w) => ({ ...w, active: draft }))}
-                  onClear={() => {
-                    commit((w) => ({ ...w, active: emptyDraft() }));
-                  }}
-                />
               </div>
             </div>
             <div className="pos-checkout">
@@ -985,7 +876,6 @@ export function POS() {
                 className="full"
                 disabled={
                   frozen ||
-                  !cloudReady ||
                   !customer ||
                   !cart.items.length ||
                   !shift.data?.data ||

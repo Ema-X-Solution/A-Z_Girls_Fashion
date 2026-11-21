@@ -3153,7 +3153,7 @@ function Sales() {
           <div className="search">
             <Search size={18} />
             <input
-              placeholder="ابحث برقم الفاتورة"
+              placeholder="ابحث برقم الفاتورة أو باركود المنتج..."
               value={number}
               onChange={(e) => {
                 setNumber(e.target.value.trim());
@@ -3183,6 +3183,32 @@ function Sales() {
                   ),
                 },
                 { label: ar.date, render: (r) => formatDate(r.createdAt) },
+                {
+                  label: "الأصناف والباركود",
+                  render: (r) => (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", maxWidth: "240px" }}>
+                      {r.items?.map((it: Row) => (
+                        <div key={it.id} style={{ fontSize: "0.82rem", lineHeight: 1.3 }}>
+                          <span>{it.name}</span>
+                          {it.barcode && (
+                            <code
+                              style={{
+                                fontSize: "0.75rem",
+                                background: "var(--bg-subtle, #f1f5f9)",
+                                padding: "1px 5px",
+                                borderRadius: "4px",
+                                marginInlineStart: "5px",
+                              }}
+                            >
+                              {it.barcode}
+                            </code>
+                          )}
+                          <span className="muted-text"> × {it.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ),
+                },
                 { label: "الكاشير", render: (r) => r.user.name },
                 {
                   label: ar.total,

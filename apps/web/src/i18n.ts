@@ -8,7 +8,7 @@ export const ar = {
   movements: "حركة المخزون",
   purchases: "المشتريات",
   suppliers: "الموردون",
-  sales: "المبيعات",
+  sales: "فواتير المبيعات",
   customers: "العملاء",
   expenses: "المصروفات",
   shifts: "ورديات الكاشير",

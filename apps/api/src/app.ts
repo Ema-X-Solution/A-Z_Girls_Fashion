@@ -1485,10 +1485,25 @@ app.get(
     )
       ? {}
       : { userId: actor(req).id };
-    if (req.query.number) {
-      const value = z.string().max(64).parse(req.query.number);
-      if (/^\d{1,18}$/.test(value)) where.number = BigInt(value);
-      else where.receiptNumber = { equals: value, mode: "insensitive" };
+    const searchVal = (req.query.barcode || req.query.number || req.query.search)?.toString().trim();
+    if (searchVal) {
+      const value = z.string().max(64).parse(searchVal);
+      const orConditions: Prisma.SaleWhereInput[] = [
+        { receiptNumber: { contains: value, mode: "insensitive" } },
+        { items: { some: { barcode: { contains: value, mode: "insensitive" } } } },
+        { items: { some: { sku: { contains: value, mode: "insensitive" } } } },
+      ];
+      if (/^\d{1,18}$/.test(value)) {
+        try {
+          orConditions.push({ number: BigInt(value) });
+        } catch {
+          // Values outside JavaScript's safe BigInt parsing range are still searched by text.
+        }
+      }
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { OR: orConditions },
+      ];
     }
     const [data, total] = await Promise.all([
       db.sale.findMany({
