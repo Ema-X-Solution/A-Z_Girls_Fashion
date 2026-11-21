@@ -1,4 +1,4 @@
-﻿import {
+import {
   useEffect,
   useState,
   useId,
@@ -1588,7 +1588,7 @@ function ProductForm({
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null),
     [imageBusy, setImageBusy] = useState(false);
   const [variants, setVariants] = useState([
-    { size: "", color: "", price: "" },
+    { size: "", color: "" },
   ]);
   return (
     <form
@@ -1605,7 +1605,6 @@ function ProductForm({
           returnRule: f.returnRule,
           ...(imageDataUrl ? { imageDataUrl } : {}),
           variants: variants.map((v) => ({
-            price: v.price,
             options: {
               ...(v.size ? { المقاس: v.size } : {}),
               ...(v.color ? { اللون: v.color } : {}),
@@ -1659,7 +1658,7 @@ function ProductForm({
       </Field>
       {variants.map((v, i) => (
         <div className="variant-row" key={i}>
-          {(["size", "color", "price"] as const).map(
+          {(["size", "color"] as const).map(
             (key) => (
               <Field
                 key={key}
@@ -1667,16 +1666,12 @@ function ProductForm({
                   {
                     size: ar.size,
                     color: ar.color,
-                    price: "السعر — سعر البيع",
                   }[key]
                 }
               >
                 <input
                   value={v[key]}
-                  type={key === "price" ? "number" : "text"}
-                  min="0"
-                  step="0.01"
-                  required={key === "price"}
+                  type="text"
                   onChange={(e) =>
                     setVariants((rows) =>
                       rows.map((r, j) =>
@@ -1708,7 +1703,7 @@ function ProductForm({
         onClick={() =>
           setVariants((v) => [
             ...v,
-            { size: "", color: "", price: "" },
+            { size: "", color: "" },
           ])
         }
       >
@@ -2273,6 +2268,21 @@ function PurchaseForm({
   submit: (v: Row) => void;
 }) {
   const [lines, setLines] = useState(1);
+  const [linePrices, setLinePrices] = useState<Record<number, string>>({});
+
+  const allVariants = products.flatMap((p: Row) =>
+    p.variants.map((v: Row) => ({ ...v, productNameAr: p.nameAr })),
+  );
+
+  const handleVariantChange = (lineIndex: number, variantId: string) => {
+    const variant = allVariants.find((v) => v.id === variantId);
+    if (variant?.price) {
+      setLinePrices((prev) => ({ ...prev, [lineIndex]: String(variant.price) }));
+    } else {
+      setLinePrices((prev) => ({ ...prev, [lineIndex]: "" }));
+    }
+  };
+
   return (
     <form
       className="entry-form"
@@ -2286,6 +2296,7 @@ function PurchaseForm({
             variantId: f.get(`v${i}`),
             quantity: Number(f.get(`q${i}`)),
             unitCost: f.get(`c${i}`),
+            salePrice: f.get(`sp${i}`),
           })),
         });
       }}
@@ -2315,7 +2326,11 @@ function PurchaseForm({
       {Array.from({ length: lines }, (_, i) => (
         <div className="purchase-line" key={i}>
           <Field label="الصنف">
-            <select name={`v${i}`} required>
+            <select
+              name={`v${i}`}
+              required
+              onChange={(e) => handleVariantChange(i, e.target.value)}
+            >
               <option value="">اختر...</option>
               {products.flatMap((p) =>
                 p.variants.map((v: Row) => (
@@ -2337,12 +2352,31 @@ function PurchaseForm({
             />
           </Field>
           <Field label="التكلفة — سعر الشراء">
-            <input required type="number" name={`c${i}`} min="0" step="0.01" />
+            <input
+              required
+              type="number"
+              name={`c${i}`}
+              min="0"
+              step="0.01"
+              value={linePrices[i] ?? ""}
+              onChange={(e) =>
+                setLinePrices((prev) => ({ ...prev, [i]: e.target.value }))
+              }
+            />
+          </Field>
+          <Field label="سعر البيع">
+            <input
+              required
+              type="number"
+              name={`sp${i}`}
+              min="0"
+              step="0.01"
+            />
           </Field>
         </div>
       ))}
       <p className="note">
-        هذه هي التكلفة الفعلية من المورد، ومنها يُحسب متوسط تكلفة المخزون والربح.
+        التكلفة هي سعر الشراء من المورد. سعر البيع إن حُدِّد سيُحدَّث على المنتج فوراً.
       </p>
       <Button
         type="button"

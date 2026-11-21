@@ -120,7 +120,7 @@ const variantSchema = z.object({
     .regex(/^[\x21-\x7E]{4,80}$/)
     .optional(),
   options: z.record(z.string(), z.string().max(100)).default({}),
-  price: money,
+  price: money.default("0"),
   cost: money.default("0"),
   minStock: z.number().int().nonnegative().default(2),
   reorderQuantity: z.number().int().positive().default(5),
@@ -1066,6 +1066,7 @@ app.post(
               variantId: id,
               quantity: z.number().int().positive(),
               unitCost: money,
+              salePrice: money,
             }),
           )
           .min(1)
@@ -1073,14 +1074,26 @@ app.post(
       })
       .parse(req.body);
     const p = await transaction(async (tx) => {
+      // Extract salePrice from items before inserting (not a DB column on PurchaseItem)
+      const itemsForCreate = input.items.map(({ salePrice: _sp, ...item }) => item);
       const p = await tx.purchaseOrder.create({
         data: {
-          ...input,
+          supplierId: input.supplierId,
+          locationId: input.locationId,
           createdBy: actor(req).id,
-          items: { create: input.items },
+          items: { create: itemsForCreate },
         },
         include: { items: true },
       });
+      // Update variant sale prices where provided
+      for (const item of input.items) {
+        if (item.salePrice !== undefined) {
+          await tx.productVariant.update({
+            where: { id: item.variantId },
+            data: { price: item.salePrice },
+          });
+        }
+      }
       await audit(tx, actor(req).id, "PURCHASE_CREATE", p.id);
       return p;
     });
