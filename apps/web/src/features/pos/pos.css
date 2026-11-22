@@ -24,11 +24,18 @@
     min-height: 0;
     min-width: 0;
   }
-  .workspace-pos .pos-page > :not(.pos-grid) {
+  .workspace-pos .pos-page > :not(.pos-workspace) {
     flex-shrink: 0;
   }
-  .workspace-pos .pos-page > .pos-grid {
+  .workspace-pos .pos-workspace {
+    display: flex;
     flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+  .workspace-pos .pos-workspace > .pos-grid {
+    flex: 1;
+    width: 100%;
     height: auto;
     min-height: 0;
   }
@@ -277,6 +284,26 @@
   color: #81848d;
   margin: 0;
 }
+.pos-page .pos-remove-line {
+  flex-shrink: 0;
+  min-height: 30px;
+  width: 30px;
+  padding: 5px;
+  color: #a53b36;
+}
+.pos-page .catalog-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+.pos-checkout-status {
+  margin: 8px 0 0;
+  color: #ded4ba;
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
 .pos-page .line-discount-fields input {
   width: 76px;
   margin-inline-start: auto;
@@ -400,6 +427,7 @@
   margin-top: 8px;
 }
 .pos-page .payment-row {
+  position: relative;
   margin: 0 0 8px;
   padding: 0;
   border: 0;
@@ -534,9 +562,7 @@
     overflow: visible;
   }
   .pos-checkout {
-    position: sticky;
-    bottom: 0;
-    z-index: 3;
+    position: static;
     border-radius: 0 0 13px 13px;
   }
 }
