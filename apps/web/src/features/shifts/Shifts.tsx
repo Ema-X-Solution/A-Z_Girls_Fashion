@@ -4,9 +4,18 @@ import { Plus, ArrowUpLeft } from "lucide-react";
 import { post } from "../../api";
 import { ar, formatDate, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
-import { useAction } from "../../app/notifications";
+import { useAction, readableError } from "../../app/notifications";
+import { ErrorMessage } from "../shared/Controls";
 import { useData } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import {
+  Loading,
+  ErrorState,
+  Modal,
+  Header,
+  Badge,
+  Table,
+  Pager,
+} from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 import { type Row } from "../../app/types";
 
@@ -16,6 +25,7 @@ export function Shifts() {
     current = useData("/shifts/current"),
     registers = useData("/registers"),
     [open, setOpen] = useState(false),
+    [openError, setOpenError] = useState(""),
     [closing, setClosing] = useState<Row | null>(null),
     action = useAction();
   return (
@@ -25,7 +35,12 @@ export function Shifts() {
         subtitle="رصيد افتتاحي واضح، وإغلاق قابل للمراجعة"
       >
         {!current.data?.data && (
-          <Button onClick={() => setOpen(true)}>
+          <Button
+            onClick={() => {
+              setOpenError("");
+              setOpen(true);
+            }}
+          >
             <Plus size={18} />
             فتح وردية
           </Button>
@@ -99,6 +114,7 @@ export function Shifts() {
         )}
       </section>
       <Modal title="فتح وردية" open={open} onClose={() => setOpen(false)}>
+        <ErrorMessage message={openError} />
         <EntryForm
           fields={[
             {
@@ -115,7 +131,15 @@ export function Shifts() {
           busy={action.busy}
           submit={(body) =>
             void action.run(
-              () => post("/shifts/open", body, crypto.randomUUID()),
+              async () => {
+                setOpenError("");
+                try {
+                  return await post("/shifts/open", body, crypto.randomUUID());
+                } catch (error) {
+                  setOpenError(readableError(error));
+                  throw error;
+                }
+              },
               () => setOpen(false),
             )
           }
