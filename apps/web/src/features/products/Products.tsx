@@ -267,12 +267,13 @@ export function Products() {
             ) : (
               <ul className="list">
                 {(archivedCategories.data?.data ?? []).map((c: Row) => (
-                  <li key={c.id}>
-                    <span>{c.name}</span>
+                  <li key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 16, paddingBlock: 12 }}>
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{c.name}</span>
                     {archive && (
                       <Button
                         variant="outline"
                         title="استعادة القسم من الأرشيف"
+                        style={{ width: 96, minHeight: 44 }}
                         disabled={action.busy}
                         onClick={() =>
                           void action.run(async () => {
@@ -296,16 +297,18 @@ export function Products() {
           <>
         <ul className="list">
           {categories.data?.data.map((c: Row) => (
-            <li key={c.id}>
+            <li key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 16, paddingBlock: 12 }}>
               {editingCat === c.id ? (
-                <div className="cat-edit-row">
+                <div className="cat-edit-row" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "minmax(0, 1fr) 72px 64px", gap: 8 }}>
                   <input
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
                     aria-label={`اسم القسم ${c.name}`}
+                    style={{ width: "100%", minWidth: 0, minHeight: 44 }}
                   />
                   <Button
                     variant="outline"
+                    style={{ minHeight: 44, paddingInline: 8 }}
                     disabled={action.busy || !editingName.trim()}
                     onClick={() =>
                       void action.run(
@@ -321,7 +324,8 @@ export function Products() {
                     حفظ
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="outline"
+                    style={{ minHeight: 44, paddingInline: 8 }}
                     onClick={() => setEditingCat(null)}
                   >
                     إلغاء
@@ -329,10 +333,12 @@ export function Products() {
                 </div>
               ) : (
                 <>
-                  <span>{c.name}</span>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{c.name}</span>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", minWidth: 96 }}>
                   {edit && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
+                      style={{ width: 44, height: 44, padding: 0 }}
                       title="تعديل اسم القسم"
                       onClick={() => {
                         setEditingCat(c.id);
@@ -345,7 +351,8 @@ export function Products() {
                   )}
                   {archive && (
                     <Button
-                      variant="ghost"
+                      variant={confirmRemoveCat === c.id ? "destructive" : "outline"}
+                      style={{ width: 44, height: 44, padding: 0 }}
                       title={
                         confirmRemoveCat === c.id
                           ? "اضغط مرة أخرى للتأكيد"
@@ -368,10 +375,10 @@ export function Products() {
                         );
                       }}
                     >
-                      <Trash2 size={16} />
-                      {confirmRemoveCat === c.id ? "تأكيد؟" : ""}
+                      {confirmRemoveCat === c.id ? "تأكيد؟" : <Trash2 size={16} />}
                     </Button>
                   )}
+                  </div>
                 </>
               )}
             </li>
@@ -722,4 +729,4 @@ export function ProductForm({
       </Button>
     </form>
   );
-                }
+}
