@@ -1,3 +1,4 @@
+import { validationMessage } from "./arabicFormValidation";
 import { useState } from "react";
 import { CircleAlert, Eye, EyeOff } from "lucide-react";
 import { ar } from "../../i18n";
@@ -37,13 +38,7 @@ export function EntryForm({
         const input = e.target as HTMLInputElement;
         const label =
           fields.find((field) => field.key === input.name)?.label ?? "الحقل";
-        setFormError(
-          input.validity.valueMissing
-            ? `أكمل حقل ${label}.`
-            : input.validity.rangeUnderflow
-              ? `${label} لا يمكن أن يكون سالبًا.`
-              : `راجع قيمة ${label}.`,
-        );
+        setFormError(validationMessage(input, label));
         input.focus();
       }}
       onSubmit={(e) => {
