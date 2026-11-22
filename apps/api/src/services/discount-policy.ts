@@ -66,7 +66,7 @@ export async function validateDiscountApproval(
   assert(
     input.discountApprovalId,
     "DISCOUNT_LIMIT",
-    "Discount exceeds your authorized limit",
+    "الخصم يتجاوز الحد المسموح لحسابك. اطلب موافقة المدير.",
     403,
   );
   const approval = await tx.discountApproval.findUnique({

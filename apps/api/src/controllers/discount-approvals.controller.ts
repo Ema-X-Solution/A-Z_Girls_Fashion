@@ -195,7 +195,7 @@ export const handlePostDiscountApprovalsByIdDecision: RequestHandler = async (re
           assert(
             pricing.percent.lte(actor(req).discountLimit),
             "APPROVER_LIMIT",
-            "Requested discount exceeds your approval limit",
+            "الخصم المطلوب يتجاوز حد الموافقة المسموح لك به.",
             403,
           );
         }

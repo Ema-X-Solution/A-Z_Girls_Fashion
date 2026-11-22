@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Header, Modal, ErrorMessage } from "../shared/Controls";
+import { statuses } from "../../i18n";
 import {
   allowed,
   Grid,
@@ -112,7 +113,7 @@ export function Expenses() {
             { label: "التصنيف", render: (r) => r.category },
             { label: "الوصف", render: (r) => r.description },
             { label: "القيمة", render: (r) => `${r.amount} ج.م` },
-            { label: "الدفع", render: (r) => r.method },
+            { label: "الدفع", render: (r) => statuses[r.method] ?? r.method },
             { label: "الحالة", render: (r) => labels[r.status] },
             {
               label: "الإجراءات",

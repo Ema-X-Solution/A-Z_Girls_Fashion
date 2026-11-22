@@ -32,6 +32,7 @@ export function Products() {
     create = useAllowed("products.create"),
     edit = useAllowed("products.update"),
     changePrice = useAllowed("products.change_price");
+  const [catFormKey, setCatFormKey] = useState(0);
   return (
     <>
       <Header title={ar.products} subtitle="منتجاتك، بكل مقاس ولون وتفصيلة">
@@ -163,6 +164,7 @@ export function Products() {
         </ul>
         {create && (
           <EntryForm
+            key={catFormKey}
             fields={[
               simple("name", ar.name),
               {
@@ -178,11 +180,13 @@ export function Products() {
             ]}
             busy={action.busy}
             submit={(body) =>
-              void action.run(() =>
-                post("/categories", {
-                  name: body.name,
-                  ...(body.parentId ? { parentId: body.parentId } : {}),
-                }),
+              void action.run(
+                () =>
+                  post("/categories", {
+                    name: body.name,
+                    ...(body.parentId ? { parentId: body.parentId } : {}),
+                  }),
+                () => setCatFormKey((k) => k + 1),
               )
             }
           />

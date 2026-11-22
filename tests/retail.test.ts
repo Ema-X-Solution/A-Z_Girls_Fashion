@@ -209,6 +209,27 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .status,
     ).toBe(403);
   });
+  it("rejects a duplicate category name with an Arabic message", async () => {
+    const first = await send(owner, "/categories", {
+      name: "Duplicate check",
+    });
+    expect(first.status).toBe(201);
+    const again = await send(owner, "/categories", {
+      name: "Duplicate check",
+    });
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("CATEGORY_NAME_EXISTS");
+    expect(again.body.error.message).toContain("بنفس الاسم");
+    const other = await send(owner, "/categories", {
+      name: "Duplicate check other",
+    });
+    expect(other.status).toBe(201);
+    const sameNameOtherParent = await send(owner, "/categories", {
+      name: "Duplicate check",
+      parentId: other.body.data.id,
+    });
+    expect(sameNameOtherParent.status).toBe(201);
+  });
   it("owner creates a manager and cashier with database roles", async () => {
     const roles = await db.role.findMany();
     for (const [name, email, role] of [

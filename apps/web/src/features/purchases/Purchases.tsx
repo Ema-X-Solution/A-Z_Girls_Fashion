@@ -7,6 +7,7 @@ import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
 import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
 import { type Row } from "../../app/types";
+import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 
 export function Purchases() {
   const [offset, setOffset] = useState(0),
@@ -127,6 +128,7 @@ export function Purchases() {
       >
         {selected && (
           <form
+          {...arabicFormValidation()}
             className="entry-form"
             onSubmit={(e) => {
               e.preventDefault();
@@ -205,6 +207,7 @@ export function PurchaseForm({
 
   return (
     <form
+          {...arabicFormValidation()}
       className="entry-form"
       onSubmit={(e) => {
         e.preventDefault();
@@ -305,7 +308,7 @@ export function PurchaseForm({
         </div>
       ))}
       <p className="note">
-        التكلفة هي سعر الشراء من المورد. سعر البيع إن حُدِّد سيُحدَّث على المنتج فوراً.
+        التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُحدَّث به سعر المنتج فوراً.
       </p>
       <Button
         type="button"
@@ -318,4 +321,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-}
+            }

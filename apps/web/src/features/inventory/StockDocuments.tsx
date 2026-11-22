@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Field, Modal, ErrorMessage } from "../shared/Controls";
 import { formatDate, formatMoney } from "../../i18n";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 const labels: Record<string, string> = {
   TRANSFER: "تحويل مباشر",
   DAMAGE: "شطب تالف",
@@ -206,6 +207,7 @@ export function StockDocuments() {
       >
         {draft && (
           <form
+          {...arabicFormValidation()}
             className="entry-form"
             onSubmit={(e) => {
               e.preventDefault();
@@ -447,6 +449,7 @@ export function StockDocuments() {
         }}
       >
         <form
+          {...arabicFormValidation()}
           className="entry-form"
           onSubmit={async (e) => {
             e.preventDefault();
@@ -500,4 +503,4 @@ export function StockDocuments() {
       </Modal>
     </div>
   );
-}
+            }
