@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { patch, post } from "../../api";
-import { ar, formatDate, formatMoney as fm } from "../../i18n";
+import { formatDigits, ar, formatDate, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { StockDocuments } from "./StockDocuments";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
@@ -165,7 +165,7 @@ export function Inventory() {
                           <div>
                             <strong>{r.variant.product.nameAr}</strong>
                             <small>
-                              {Object.values(r.variant.options).join(" / ")}
+                              {formatDigits(Object.values(r.variant.options).join(" / "))}
                             </small>
                           </div>
                         ),
@@ -518,7 +518,7 @@ export function Inventory() {
               >
                 <small className="muted-text">المقاس / اللون</small>
                 <div style={{ fontWeight: 600 }}>
-                  {Object.values(detail.variant?.options ?? {}).join(" / ") ||
+                  {formatDigits(Object.values(detail.variant?.options ?? {}).join(" / ")) ||
                     "بدون خيارات"}
                 </div>
               </div>
@@ -681,4 +681,4 @@ export function Inventory() {
       </Modal>
     </>
   );
-}
+              }
