@@ -28,6 +28,12 @@ catalogRouter.post(
   controllers.handlePostCategoriesByIdRemove,
 );
 
+catalogRouter.post(
+  "/categories/:id/restore",
+  can("products.archive"),
+  controllers.handlePostCategoriesByIdRestore,
+);
+
 catalogRouter.get(
   "/brands",
   can("products.view"),
