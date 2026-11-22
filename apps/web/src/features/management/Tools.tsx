@@ -1,3 +1,5 @@
+import { readableError } from "../../app/notifications";
+import { ApiError } from "../../api";
 import { displayLocale } from "../../i18n";
 import {
   useState,
@@ -33,13 +35,19 @@ export function useTask() {
       await client.invalidateQueries();
       return result;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذر تنفيذ العملية");
+      setError(
+        e instanceof ApiError
+          ? readableError(e)
+          : e instanceof Error
+            ? e.message
+            : "تعذر تنفيذ العملية",
+      );
       return undefined;
     } finally {
       setBusy(false);
     }
   }
-  return { busy, error, run };
+  return { busy, error, run, clearError: () => setError("") };
 }
 export const save = (path: string, body: unknown) =>
   post(path, body, crypto.randomUUID());
