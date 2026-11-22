@@ -79,7 +79,7 @@ export async function dashboardData(
     .minus(refunds);
   const cashierRows = new Map<
     string,
-    { id: string; name: string; sellerCode: string; invoices: number; netSales: ReturnType<typeof D> }
+    { id: string; name: string; sellerCode: string; invoices: number; netSales: ReturnType<typeof D>; grossSales: ReturnType<typeof D>; salesWithTax: ReturnType<typeof D>; returnsWithTax: ReturnType<typeof D> }
   >();
   for (const sale of sales) {
     const current = cashierRows.get(sale.userId) ?? {
@@ -88,13 +88,18 @@ export async function dashboardData(
       sellerCode: sale.user.employeeCode ?? sale.userId.slice(0, 8).toUpperCase(),
       invoices: 0,
       netSales: D(0),
+      grossSales: D(0),
+      salesWithTax: D(0),
+      returnsWithTax: D(0),
     };
     current.invoices += 1;
     current.netSales = current.netSales.plus(sale.netBeforeTax);
+    current.grossSales = current.grossSales.plus(sale.total);
+    current.salesWithTax = current.salesWithTax.plus(sale.total);
     cashierRows.set(sale.userId, current);
   }
-  // Keep each cashier's net sales aligned with the dashboard total: returns
-  // reduce the original seller's sales, while VAT is intentionally excluded.
+  // Keep each cashier's figures aligned with the dashboard totals: returns
+  // reduce the original seller's sales. Net excludes VAT, gross includes it.
   for (const item of returnItems) {
     const sale = item.saleItem.sale;
     const current = cashierRows.get(sale.userId) ?? {
@@ -103,8 +108,13 @@ export async function dashboardData(
       sellerCode: sale.user.employeeCode ?? sale.userId.slice(0, 8).toUpperCase(),
       invoices: 0,
       netSales: D(0),
+      grossSales: D(0),
+      salesWithTax: D(0),
+      returnsWithTax: D(0),
     };
     current.netSales = current.netSales.minus(D(item.amount).minus(item.tax));
+    current.grossSales = current.grossSales.minus(item.amount);
+    current.returnsWithTax = current.returnsWithTax.plus(item.amount);
     cashierRows.set(sale.userId, current);
   }
   const netSales = sales
@@ -148,8 +158,14 @@ export async function dashboardData(
     returnCount: returned.length,
     daily: Object.values(daily).sort((a, b) => a.date.localeCompare(b.date)),
     cashiers: [...cashierRows.values()]
-      .map((row) => ({ ...row, netSales: round(row.netSales).toFixed(2) }))
-      .sort((a, b) => Number(b.netSales) - Number(a.netSales)),
+      .map((row) => ({
+        ...row,
+        netSales: round(row.netSales).toFixed(2),
+        grossSales: round(row.grossSales).toFixed(2),
+        salesWithTax: round(row.salesWithTax).toFixed(2),
+        returnsWithTax: round(row.returnsWithTax).toFixed(2),
+      }))
+      .sort((a, b) => Number(b.grossSales) - Number(a.grossSales)),
   };
   const purchaseReturnItems = profit
     ? await tx.purchaseReturnItem.findMany({
