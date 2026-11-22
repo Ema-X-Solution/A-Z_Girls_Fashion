@@ -69,7 +69,7 @@ export function Shell() {
           </button>
         </div>
       </aside>
-      <div className="workspace">
+      <div className={location.pathname === "/pos" ? "workspace workspace-pos" : "workspace"}>
         <header className="topbar">
           <Button
             variant="ghost"

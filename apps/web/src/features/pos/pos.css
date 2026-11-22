@@ -1,6 +1,38 @@
 .pos-page > .page-head {
   margin-bottom: 20px;
 }
+@media (min-width: 951px) {
+  .workspace.workspace-pos {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .workspace-pos > .topbar,
+  .workspace-pos > .footer {
+    flex-shrink: 0;
+  }
+  .workspace-pos > .content {
+    display: flex;
+    min-height: 0;
+    margin: 0 auto;
+    padding-block: 16px;
+  }
+  .workspace-pos .pos-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+  .workspace-pos .pos-page > :not(.pos-grid) {
+    flex-shrink: 0;
+  }
+  .workspace-pos .pos-page > .pos-grid {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+}
 .pos-page input,
 .pos-page select {
   min-height: 0;
