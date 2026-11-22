@@ -725,16 +725,25 @@ export function POS() {
                     }
                   />
                 )}
-                {quote.data?.data.promotion && (
-                  <div className="notice" role="status">
+                {(quote.data?.data.promotion ||
+                  cents(quote.data?.data.customerDiscount) > 0n) && (
+                  <div className="notice" role="status" aria-label="تفاصيل الخصومات التلقائية">
                     <div>
-                      <b>{quote.data.data.promotion.name}</b>
-                      <p>
-                        خصم العرض التلقائي:{" "}
-                        {fm(quote.data.data.automaticDiscount)}. الخصومات
-                        اليدوية تُحسب بعد العرض.
-                      </p>
-                      {quote.data.data.promotion.returnRule ===
+                      {quote.data.data.promotion && (
+                        <>
+                          <b>{quote.data.data.promotion.name}</b>
+                          <p data-testid="promotion-discount">
+                            خصم العرض التلقائي:{" "}
+                            {fm(quote.data.data.promotionDiscount)}
+                          </p>
+                        </>
+                      )}
+                      {cents(quote.data.data.customerDiscount) > 0n && (
+                        <p data-testid="customer-discount">
+                          خصم العميل الدائم: {fm(quote.data.data.customerDiscount)}
+                        </p>
+                      )}
+                      {quote.data.data.promotion?.returnRule ===
                         "FULL_BUNDLE" && (
                         <small>
                           إرجاع أو استبدال العرض يتطلب جميع أصنافه معًا بالقيمة
