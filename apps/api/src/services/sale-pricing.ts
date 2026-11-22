@@ -157,6 +157,7 @@ export async function quoteSale(
     percent,
     approved,
     promotion: promotion?.snapshot ?? null,
+    promotionDiscount: promotion?.discount ?? D(0),
     automaticDiscount: (promotion?.discount ?? D(0)).plus(customerDiscount),
     customerDiscount,
     manualDiscount: combinedDiscount,
