@@ -91,7 +91,10 @@ const safeProduct = (value: any, financial: boolean): any => {
 
 export const handleGetCategories: RequestHandler = route(async (_req, res) =>
     res.json({
-      data: await db.category.findMany({ orderBy: { name: "asc" } }),
+      data: await db.category.findMany({
+        where: { archivedAt: null },
+        orderBy: { name: "asc" },
+      }),
     }),
   );
 
@@ -110,6 +113,74 @@ export const handlePostCategories: RequestHandler = route(async (req, res) => {
     );
     res.status(201).json({ data: await db.category.create({ data: input }) });
   });
+
+export const handlePatchCategoriesById: RequestHandler = route(async (req, res) => {
+    const { name } = z.object({ name: text }).parse(req.body),
+      category = await db.category.findUnique({
+        where: { id: uuid(req.params.id) },
+      });
+    assert(category, "CATEGORY_NOT_FOUND", "القسم غير موجود.", 404);
+    const duplicate = await db.category.findFirst({
+      where: {
+        name,
+        parentId: category.parentId ?? null,
+        id: { not: category.id },
+      },
+    });
+    assert(
+      !duplicate,
+      "CATEGORY_NAME_EXISTS",
+      "يوجد قسم بنفس الاسم بالفعل. اختر اسمًا مختلفًا.",
+      409,
+    );
+    await transaction(async (tx) => {
+      await tx.category.update({ where: { id: category.id }, data: { name } });
+      await audit(tx, actor(req).id, "CATEGORY_RENAME", category.id, { name });
+    });
+    res.json({ data: { ok: true } });
+  });
+
+export const handlePostCategoriesByIdRemove: RequestHandler = route(
+  async (req, res) => {
+    const category = await db.category.findUnique({
+      where: { id: uuid(req.params.id) },
+      include: { _count: { select: { products: true, children: true } } },
+    });
+    assert(category, "CATEGORY_NOT_FOUND", "القسم غير موجود.", 404);
+    if (category._count.products > 0 || category._count.children > 0) {
+      // Anything with products (and their sales history) or sub-categories is
+      // archived and hidden, never truly deleted.
+      assert(
+        !category.archivedAt,
+        "CATEGORY_ALREADY_ARCHIVED",
+        "القسم مؤرشف بالفعل.",
+        409,
+      );
+      await transaction(async (tx) => {
+        await tx.category.update({
+          where: { id: category.id },
+          data: { archivedAt: new Date() },
+        });
+        await audit(tx, actor(req).id, "CATEGORY_ARCHIVE", category.id);
+      });
+      res.json({
+        data: {
+          archived: true,
+          message:
+            "القسم مرتبط بمنتجات أو أقسام فرعية، فتمت أرشفته وإخفاؤه بدلًا من حذفه حفاظًا على سجلات المبيعات.",
+        },
+      });
+      return;
+    }
+    await transaction(async (tx) => {
+      await tx.category.delete({ where: { id: category.id } });
+      await audit(tx, actor(req).id, "CATEGORY_DELETE", category.id);
+    });
+    res.json({
+      data: { deleted: true, message: "تم حذف القسم الفارغ نهائيًا." },
+    });
+  },
+);
 
 export const handleGetBrands: RequestHandler = route(async (_req, res) => res.json({ data: await db.brand.findMany() }));
 

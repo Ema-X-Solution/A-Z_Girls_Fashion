@@ -118,6 +118,7 @@ model CashMovement {
 model Category {
   id String @id @default(uuid()) @db.Uuid
   name String
+  archivedAt DateTime?
   parentId String? @db.Uuid
   parent Category? @relation("CategoryTree",fields:[parentId], references:[id])
   children Category[] @relation("CategoryTree")

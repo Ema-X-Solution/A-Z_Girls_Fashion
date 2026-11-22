@@ -98,6 +98,13 @@ async function send(
     .set("Idempotency-Key", key)
     .send(body);
 }
+async function patchSend(who: any, path: string, body: any) {
+  return who.agent
+    .patch(`/api${path}`)
+    .set("Origin", process.env.APP_ORIGIN ?? origin)
+    .set("X-CSRF-Token", who.csrf)
+    .send(body);
+}
 async function resetFixtureQuota() {
   const { apiRateLimiter } = await import("../apps/api/src/app.js");
   apiRateLimiter.resetKey("127.0.0.1");
@@ -229,6 +236,63 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       parentId: other.body.data.id,
     });
     expect(sameNameOtherParent.status).toBe(201);
+  });
+  it("renames, archives and deletes categories safely", async () => {
+    const created = await send(owner, "/categories", {
+      name: "Lifecycle check",
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id;
+    const renamed = await patchSend(owner, `/categories/${id}`, {
+      name: "Lifecycle check renamed",
+    });
+    expect(renamed.status).toBe(200);
+    const dup = await send(owner, "/categories", {
+      name: "Lifecycle other",
+    });
+    expect(dup.status).toBe(201);
+    const clash = await patchSend(owner, `/categories/${id}`, {
+      name: "Lifecycle other",
+    });
+    expect(clash.status).toBe(409);
+    const empty = await send(owner, `/categories/${id}/remove`, {});
+    expect(empty.status).toBe(200);
+    expect(empty.body.data.deleted).toBe(true);
+    const withProduct = await send(owner, "/categories", {
+      name: "Lifecycle with product",
+    });
+    expect(withProduct.status).toBe(201);
+    const product = await send(owner, "/products", {
+      nameAr: "Lifecycle product",
+      sku: "LIFECYCLE-PRD",
+      categoryId: withProduct.body.data.id,
+      variants: [{ sku: "LIFECYCLE-VAR", price: "10.00" }],
+    });
+    expect(product.status).toBe(201);
+    const archived = await send(
+      owner,
+      `/categories/${withProduct.body.data.id}/remove`,
+      {},
+    );
+    expect(archived.status).toBe(200);
+    expect(archived.body.data.archived).toBe(true);
+    expect(archived.body.data.message).toContain("أرشفته");
+    const again = await send(
+      owner,
+      `/categories/${withProduct.body.data.id}/remove`,
+      {},
+    );
+    expect(again.status).toBe(409);
+    const list = await owner.agent.get("/api/categories");
+    const names = list.body.data.map((c: any) => c.name);
+    expect(names).not.toContain("Lifecycle with product");
+    await db.productVariant.deleteMany({
+      where: { productId: product.body.data.id },
+    });
+    await db.product.delete({ where: { id: product.body.data.id } });
+    await db.category.deleteMany({
+      where: { name: { startsWith: "Lifecycle" } },
+    });
   });
   it("owner creates a manager and cashier with database roles", async () => {
     const roles = await db.role.findMany();
