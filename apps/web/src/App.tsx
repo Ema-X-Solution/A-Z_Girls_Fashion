@@ -1,3 +1,4 @@
+import { validationMessage } from "./components/application/arabicFormValidation";
 import { useEffect, useState } from "react";
 import { api, useSession } from "./api";
 import { LoginPage } from "./features/auth/LoginPage";
@@ -16,21 +17,10 @@ export default function App() {
       .finally(() => setReady(true));
   }, [setUser]);
   useEffect(() => {
-    const arabicMessage = (
-      el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
-    ) => {
-      const v = el.validity;
-      if (v.valueMissing)
-        return el.tagName === "SELECT" ? "اختر من القائمة." : "أكمل هذا الحقل.";
-      if (v.tooShort) return "النص أقصر من الحد الأدنى المطلوب.";
-      if (v.rangeUnderflow) return "القيمة لا يمكن أن تكون سالبة.";
-      if (v.rangeOverflow) return "القيمة أكبر من الحد المسموح.";
-      return "راجع قيمة الحقل.";
-    };
     const onInvalid = (e: Event) => {
       const el = e.target as HTMLInputElement;
       if (el && "validity" in el && !el.validity.valid)
-        el.setCustomValidity(arabicMessage(el));
+        el.setCustomValidity(validationMessage(el));
     };
     const clearMessage = (e: Event) => {
       const el = e.target as HTMLInputElement;
@@ -48,7 +38,11 @@ export default function App() {
   return (
     <>
       <Toasts />
-      {!ready ? <Loading /> : user ? <Shell /> : (
+      {!ready ? (
+        <Loading />
+      ) : user ? (
+        <Shell />
+      ) : (
         <LoginPage onError={(error) => notify(readableError(error), true)} />
       )}
     </>
