@@ -59,13 +59,14 @@ export const ar = {
   register: "جهاز الكاشير",
   actions: "الإجراءات",
 };
-export const formatMoney = (v: unknown) =>
-  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP" }).format(
+export const formatMoney = (v: unknown, numberingSystem?: "latn") =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", numberingSystem }).format(
     Number(v ?? 0),
   );
-export const formatDate = (v: unknown) =>
+export const formatDate = (v: unknown, numberingSystem?: "latn") =>
   v
     ? new Intl.DateTimeFormat("ar-EG", {
+        numberingSystem,
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "Africa/Cairo",
