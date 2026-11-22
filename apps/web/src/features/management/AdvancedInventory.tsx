@@ -1,3 +1,4 @@
+import { formatDigits } from "../../i18n";
 import { useState } from "react";
 import { Header, Modal, ErrorMessage } from "../shared/Controls";
 import {
@@ -33,7 +34,7 @@ export function AdvancedInventory() {
     products.data?.data.flatMap((p: Row) =>
       p.variants.map((v: Row) => ({
         ...v,
-        label: `${p.nameAr} • ${v.sku} • ${Object.values(v.options).join(" / ")}`,
+        label: `${p.nameAr} • ${v.sku} • ${formatDigits(Object.values(v.options).join(" / "))}`,
       })),
     ) ?? [];
   const location = (id: string) =>
@@ -119,7 +120,7 @@ export function AdvancedInventory() {
                   {
                     label: "الصنف",
                     render: (r) =>
-                      r.variantLabel ?? `صنف غير متاح (${r.variantId})`,
+                      formatDigits(r.variantLabel ?? `صنف غير متاح (${r.variantId})`),
                   },
                   { label: "السبب", render: (r) => r.reason },
                   {
@@ -319,7 +320,7 @@ export function AdvancedInventory() {
                 {selected.items.map((i: Row) => (
                   <FormField
                     key={i.id}
-                    label={`${i.variantLabel ?? `صنف غير متاح (${i.variantId})`} • المشحون ${i.quantity} • المستلم ${i.received}`}
+                    label={`${formatDigits(i.variantLabel ?? `صنف غير متاح (${i.variantId})`)} • المشحون ${i.quantity} • المستلم ${i.received}`}
                   >
                     <input
                       name={i.id}
@@ -392,4 +393,4 @@ export function AdvancedInventory() {
       </Modal>
     </>
   );
-                               }
+                  }
