@@ -6,6 +6,7 @@ import { actor, type Actor } from "../middleware/auth.js";
 import { db, assert } from "../lib/db.js";
 import { dashboardData } from "../routes/reports.js";
 import { reportPdf } from "../utils/report-pdf.js";
+import { reportDate } from "../utils/report-date.js";
 
 const types = [
   "daily",
@@ -406,7 +407,7 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
           reportTitles[kind]!,
           result.columns,
           data,
-          `${from.toISOString().slice(0, 10)} — ${to.toISOString().slice(0, 10)} | ${["inventory", "low-stock", "suppliers"].includes(kind) ? "أرصدة حالية وقت إصدار التقرير" : "حركات الفترة المحددة"}`,
+          `${reportDate(from)} — ${reportDate(to)} | ${["inventory", "low-stock", "suppliers"].includes(kind) ? "أرصدة حالية وقت إصدار التقرير" : "حركات الفترة المحددة"}`,
         );
         return;
       }
