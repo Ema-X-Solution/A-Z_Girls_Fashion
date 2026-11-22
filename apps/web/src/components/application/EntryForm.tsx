@@ -54,7 +54,7 @@ export function EntryForm({
           data.password.length > 0 &&
           data.password.length < 8
         ) {
-          setFormError("كلمة المرور يجب أن تكون ٨ أحرف على الأقل");
+          setFormError("كلمة المرور يجب أن تكون 8 أحرف على الأقل");
           return;
         }
         setFormError("");

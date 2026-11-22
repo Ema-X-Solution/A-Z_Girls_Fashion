@@ -1,3 +1,4 @@
+import { formatDigits } from "../../i18n";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -62,7 +63,7 @@ function Label({
       <strong className="label-store">{storeName}</strong>
       <div className="label-name">{line.name}</div>
       <div className="label-options">
-        {Object.values(line.options).join(" / ") || line.sku}
+        {formatDigits(Object.values(line.options).join(" / ")) || line.sku}
       </div>
       <svg
         aria-label={`Barcode ${line.barcode}`}
@@ -311,7 +312,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                         <td>
                           <strong>{p.nameAr}</strong>
                           <small>
-                            {Object.values(v.options).join(" / ") || v.sku}
+                            {formatDigits(Object.values(v.options).join(" / ")) || v.sku}
                           </small>
                         </td>
                         <td>
@@ -578,4 +579,4 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         )}
     </div>
   );
-}
+      }

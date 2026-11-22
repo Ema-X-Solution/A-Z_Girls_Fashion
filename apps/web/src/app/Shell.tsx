@@ -7,7 +7,7 @@ import { DiscountApprovals } from "../features/pos/DiscountApprovals";
 import { BrandLogo } from "../features/shared/BrandLogo";
 import { Promotions } from "../features/pos/Promotions";
 import { post, useCart, useSession } from "../api";
-import { ar } from "../i18n";
+import { ar, displayLocale } from "../i18n";
 import { QuickAccess } from "../features/quick-access/QuickAccess";
 import { Button } from "../components/ui/button";
 import { BarcodeLabels } from "../features/barcodes/BarcodeLabels";
@@ -87,7 +87,7 @@ export function Shell() {
           <div className="topbar-end">
             <span className="status-dot" />
             الفرع الرئيسي <span className="divider" />{" "}
-            {new Intl.DateTimeFormat("ar-EG", {
+            {new Intl.DateTimeFormat(displayLocale, {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -299,4 +299,4 @@ export function Shell() {
       </div>
     </div>
   );
-}
+              }

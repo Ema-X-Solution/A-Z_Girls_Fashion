@@ -59,13 +59,23 @@ export const ar = {
   register: "جهاز الكاشير",
   actions: "الإجراءات",
 };
-export const formatMoney = (v: unknown, numberingSystem?: "latn") =>
-  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", numberingSystem }).format(
-    Number(v ?? 0),
+// Display normalization only. Keep stored names, size values and identifiers intact.
+export const formatDigits = (value: string) =>
+  value.replace(/[\u0660-\u0669\u06f0-\u06f9]/g, (digit) =>
+    String(digit.charCodeAt(0) - (digit <= "\u0669" ? 0x660 : 0x6f0)),
   );
-export const formatDate = (v: unknown, numberingSystem?: "latn") =>
+
+export const displayLocale = "ar-EG-u-nu-latn";
+
+export const formatMoney = (v: unknown, numberingSystem: "latn" = "latn") =>
+  new Intl.NumberFormat(displayLocale, {
+    style: "currency",
+    currency: "EGP",
+    numberingSystem,
+  }).format(Number(v ?? 0));
+export const formatDate = (v: unknown, numberingSystem: "latn" = "latn") =>
   v
-    ? new Intl.DateTimeFormat("ar-EG", {
+    ? new Intl.DateTimeFormat(displayLocale, {
         numberingSystem,
         dateStyle: "medium",
         timeStyle: "short",

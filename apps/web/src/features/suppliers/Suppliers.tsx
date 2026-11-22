@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Plus, Search, X, Wallet, RotateCcw, Printer, Pencil } from "lucide-react";
 import { api, ApiError, patch, post, useSession } from "../../api";
 import { Button } from "../../components/ui/button";
-import { formatMoney as fm, formatDate } from "../../i18n";
+import { formatDigits, formatMoney as fm, formatDate } from "../../i18n";
 import "./suppliers.css";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 type Row = Record<string, any>;
@@ -796,9 +796,9 @@ export function SupplierDetails() {
                               {i.purchaseItem.variant.product.nameAr}
                             </strong>
                             <small>
-                              {Object.values(
+                              {formatDigits(Object.values(
                                 i.purchaseItem.variant.options,
-                              ).join(" / ") || i.purchaseItem.variant.sku}
+                              ).join(" / ")) || i.purchaseItem.variant.sku}
                             </small>
                           </td>
                           <td>{i.quantity}</td>
@@ -826,7 +826,7 @@ export function SupplierDetails() {
                   .map((i: Row) => (
                     <Field
                       key={i.id}
-                      label={`${i.purchaseItem.variant.product.nameAr} • ${Object.values(i.purchaseItem.variant.options).join(" / ")} • المتبقي ${i.quantity - i.returned}`}
+                      label={`${i.purchaseItem.variant.product.nameAr} • ${formatDigits(Object.values(i.purchaseItem.variant.options).join(" / "))} • المتبقي ${i.quantity - i.returned}`}
                     >
                       {(id) => (
                         <input
@@ -861,4 +861,4 @@ export function SupplierDetails() {
       </Modal>
     </>
   );
-}
+            }

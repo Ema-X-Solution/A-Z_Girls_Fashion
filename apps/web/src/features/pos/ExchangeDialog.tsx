@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../../api";
 import { Button } from "../../components/ui/button";
-import { formatMoney as fm } from "../../i18n";
+import { formatDigits, formatMoney as fm } from "../../i18n";
 import { Modal, Field, ErrorMessage } from "../shared/Controls";
 import { ReceiptView } from "../receipts/ReceiptView";
 import { PaymentEditor, emptyPayment, resolvedPayments } from "./PaymentEditor";
@@ -156,7 +156,7 @@ export function ExchangeDialog({
             .map((item: Row) => (
               <div className="exchange-original" key={item.id}>
                 <Field
-                  label={`${item.name} • ${Object.values(item.options ?? {}).join(" / ")} • المتاح ${item.quantity - item.returned}`}
+                  label={`${item.name} • ${formatDigits(Object.values(item.options ?? {}).join(" / "))} • المتاح ${item.quantity - item.returned}`}
                 >
                   {(id) => (
                     <input
@@ -271,7 +271,7 @@ export function ExchangeDialog({
                       {options.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.name} •{" "}
-                          {Object.values(v.options ?? {}).join(" / ")} • {v.sku}{" "}
+                          {formatDigits(Object.values(v.options ?? {}).join(" / "))} • {v.sku}{" "}
                           • {fm(v.price)}
                         </option>
                       ))}
@@ -421,4 +421,3 @@ export function ExchangeDialog({
     </Modal>
   );
 }
-

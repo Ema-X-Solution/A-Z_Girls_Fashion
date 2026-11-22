@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Eye, Printer } from "lucide-react";
 import { post } from "../../api";
-import { ar, formatDate as baseDate, formatMoney as baseMoney } from "../../i18n";
+import { formatDigits, ar, formatDate as baseDate, formatMoney as baseMoney } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
@@ -15,7 +15,7 @@ const formatDate = (v: unknown) => baseDate(v, "latn");
 const itemName = (i: Row) => {
   const v = i.variant;
   if (!v) return i.variantId;
-  const options = Object.values(v.options ?? {}).join(" / ");
+  const options = formatDigits(Object.values(v.options ?? {}).join(" / "));
   return `${v.product?.nameAr ?? v.sku ?? "صنف"}${options ? ` • ${options}` : ""}`;
 };
 
@@ -503,7 +503,7 @@ export function PurchaseForm({
                   p.variants.map((v: Row) => (
                     <option key={v.id} value={v.id}>
                       {p.nameAr} •{" "}
-                      {Object.values(v.options ?? {}).join(" / ") ||
+                      {formatDigits(Object.values(v.options ?? {}).join(" / ")) ||
                         "بدون مقاس أو لون"}
                     </option>
                   )),
@@ -608,4 +608,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-          }
+            }

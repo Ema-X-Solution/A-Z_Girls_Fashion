@@ -156,7 +156,7 @@ export function Records({ kind }: { kind: string }) {
                 key: "password",
                 label: editingRecord
                   ? "كلمة المرور الجديدة (اتركه فارغاً للإبقاء على الحالية)"
-                  : "كلمة المرور (٨ أحرف على الأقل)",
+                  : "كلمة المرور (8 أحرف على الأقل)",
                 type: "password",
                 required: !editingRecord,
               },
@@ -426,4 +426,3 @@ export function Records({ kind }: { kind: string }) {
     </>
   );
                       }
-
