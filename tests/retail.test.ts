@@ -177,7 +177,7 @@ beforeAll(async () => {
     },
   );
   app = (await import("../apps/api/src/app.js")).default;
-  db = (await import("../apps/api/src/db.js")).db;
+  db = (await import("../apps/api/src/lib/db.js")).db;
   const settings = await db.systemSetting.findUniqueOrThrow({
     where: { key: "store" },
   });

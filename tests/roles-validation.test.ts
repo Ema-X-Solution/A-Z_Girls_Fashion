@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRoleSchema, updateRoleSchema } from "../apps/api/src/modules/roles/roles.validation";
+import { createRoleSchema, updateRoleSchema } from "../apps/api/src/validators/roles.validation";
 
 describe("role request validation compatibility", () => {
   it("trims names and preserves permission order and duplicates", () => {

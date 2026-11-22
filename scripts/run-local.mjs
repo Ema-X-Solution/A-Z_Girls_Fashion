@@ -103,7 +103,7 @@ try {
     !existsSync("apps/web/dist/index.html")
   )
     throw new Error("Run npm run build before starting the local application");
-  db = (await import("../apps/api/dist/db.js")).db;
+  db = (await import("../apps/api/dist/lib/db.js")).db;
   if ((await db.user.count()) === 0)
     execFileSync(
       process.execPath,

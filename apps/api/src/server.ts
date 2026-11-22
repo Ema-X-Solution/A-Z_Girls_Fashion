@@ -1,5 +1,5 @@
 import app from "./app.js";
-import { db } from "./db.js";
+import { db } from "./lib/db.js";
 import { permissions } from "@az/shared";
 if (!process.env.DATABASE_URL || !process.env.APP_ORIGIN)
   throw new Error("DATABASE_URL and APP_ORIGIN are required");

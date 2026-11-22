@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { choosePromotion } from "../apps/api/src/promotion-pricing";
+import { choosePromotion } from "../apps/api/src/services/promotion-pricing";
 const row = (id: string, price: string, quantity: number) => ({
   variantId: id,
   quantity,

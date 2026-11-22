@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isAllowedOrigin } from "../apps/api/src/origins.js";
+import { isAllowedOrigin } from "../apps/api/src/config/origins.js";
 afterEach(() => vi.unstubAllEnvs());
 describe("CSRF origin policy", () => {
   function local() {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { D, totals, allocate, returnAmount } from "../apps/api/src/money.js";
+import { D, totals, allocate, returnAmount } from "../apps/api/src/utils/money.js";
 import {
   checkoutSchema,
   roleDefaults,

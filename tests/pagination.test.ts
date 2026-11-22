@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Pagination is pure; keep the unrelated authentication/database graph out of this test.
-vi.mock("../apps/api/src/auth.js", () => ({ actor: vi.fn() }));
+vi.mock("../apps/api/src/middleware/auth.js", () => ({ actor: vi.fn() }));
 
-import { page } from "../apps/api/src/modules/http/support";
+import { page } from "../apps/api/src/utils/http";
 
 describe("pagination request compatibility", () => {
   it("preserves defaults and coerces query strings", () => {
