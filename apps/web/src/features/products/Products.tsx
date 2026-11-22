@@ -7,7 +7,7 @@ import { ar, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { BarcodeLabels } from "../barcodes/BarcodeLabels";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
-import { useAction, notify } from "../../app/notifications";
+import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
 import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
@@ -36,7 +36,12 @@ export function Products() {
   const [catFormKey, setCatFormKey] = useState(0);
   const [editingCat, setEditingCat] = useState<string | null>(null),
     [editingName, setEditingName] = useState(""),
-    [confirmRemoveCat, setConfirmRemoveCat] = useState<string | null>(null);
+    [confirmRemoveCat, setConfirmRemoveCat] = useState<string | null>(null),
+    [catTab, setCatTab] = useState<"active" | "archived">("active"),
+    archivedCategories = useData(
+      "/categories?archived=1",
+      categoryOpen && catTab === "archived",
+    );
   return (
     <>
       <Header title={ar.products} subtitle="منتجاتك، بكل مقاس ولون وتفصيلة">
@@ -161,11 +166,70 @@ export function Products() {
         open={categoryOpen}
         onClose={() => setCategoryOpen(false)}
       >
+        <div className="cat-tabs">
+          <Button
+            variant={catTab === "active" ? "default" : "outline"}
+            onClick={() => setCatTab("active")}
+          >
+            الأقسام
+          </Button>
+          <Button
+            variant={catTab === "archived" ? "default" : "outline"}
+            onClick={() => setCatTab("archived")}
+          >
+            الأرشيف
+          </Button>
+        </div>
+        {catTab === "archived" ? (
+          <>
+            <p className="note">
+              الأقسام المؤرشفة مخفية من القوائم، ومنتجاتها تبقى ظاهرة في
+              المنتجات كما هي.
+            </p>
+            {archivedCategories.isLoading ? (
+              <Loading />
+            ) : archivedCategories.error ? (
+              <ErrorState
+                error={archivedCategories.error}
+                retry={() => void archivedCategories.refetch()}
+              />
+            ) : (archivedCategories.data?.data ?? []).length === 0 ? (
+              <p className="note">لا توجد أقسام مؤرشفة.</p>
+            ) : (
+              <ul className="list">
+                {(archivedCategories.data?.data ?? []).map((c: Row) => (
+                  <li key={c.id}>
+                    <span>{c.name}</span>
+                    {archive && (
+                      <Button
+                        variant="outline"
+                        title="استعادة القسم من الأرشيف"
+                        disabled={action.busy}
+                        onClick={() =>
+                          void action.run(async () => {
+                            const r = await post(
+                              `/categories/${c.id}/restore`,
+                              {},
+                            );
+                            return r?.data?.message;
+                          })
+                        }
+                      >
+                        استعادة
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <>
         <ul className="list">
           {categories.data?.data.map((c: Row) => (
             <li key={c.id}>
               {editingCat === c.id ? (
-                <>
+                <div className="cat-edit-row">
                   <input
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
@@ -193,7 +257,7 @@ export function Products() {
                   >
                     إلغاء
                   </Button>
-                </>
+                </div>
               ) : (
                 <>
                   <span>{c.name}</span>
@@ -229,7 +293,7 @@ export function Products() {
                               `/categories/${c.id}/remove`,
                               {},
                             );
-                            if (r?.data?.message) notify(r.data.message);
+                            return r?.data?.message;
                           },
                           () => setConfirmRemoveCat(null),
                         );
@@ -272,6 +336,8 @@ export function Products() {
               )
             }
           />
+        )}
+          </>
         )}
       </Modal>
       <Modal
