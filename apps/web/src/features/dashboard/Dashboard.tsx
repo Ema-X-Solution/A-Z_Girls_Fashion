@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ShoppingBag, ScanBarcode, Boxes, Receipt, ChartNoAxesCombined, Plus, ArrowUpLeft } from "lucide-react";
@@ -7,15 +7,25 @@ import { ar, formatMoney as fm } from "../../i18n";
 import { useData, useAllowed } from "../../hooks/useData";
 import { Loading, ErrorState, Empty, Header } from "../../components/application/Primitives";
 
+import { dashboardInterval, defaultDashboardDays } from "./dashboard-period";
+import "./dashboard.css";
+
 export function Dashboard({ reports = false }: { reports?: boolean }) {
   const posAllowed = useAllowed("pos.access");
-  const [days, setDays] = useState("30"),
-    [range] = useState(() => new Date()),
-    from = new Date(range.getTime() - Number(days) * 86400000).toISOString(),
-    to = range.toISOString(),
-    query = useData(`/reports/dashboard?from=${from}&to=${to}`),
+  const [range, setRange] = useState(() => defaultDashboardDays()),
+    [draft, setDraft] = useState(range),
+    interval = useMemo(() => dashboardInterval(range)!, [range]),
+    validDraft = useMemo(() => dashboardInterval(draft), [draft]),
+    from = interval.from,
+    to = interval.to,
+    query = useData(`/reports/dashboard?${new URLSearchParams(interval)}`),
     d = query.data?.data,
     user = useSession((s) => s.user)!;
+  const unapplied = draft.from !== range.from || draft.to !== range.to;
+  function applyPeriod(event: FormEvent) {
+    event.preventDefault();
+    if (validDraft) setRange({ ...draft });
+  }
   return (
     <>
       <Header
@@ -26,16 +36,49 @@ export function Dashboard({ reports = false }: { reports?: boolean }) {
             : "كل ما تحتاجه لمتابعة متجرك، في مكان واحد."
         }
       >
-        <select
-          aria-label="الفترة"
-          value={days}
-          onChange={(e) => setDays(e.target.value)}
-        >
-          <option value="1">آخر 24 ساعة</option>
-          <option value="7">آخر 7 أيام</option>
-          <option value="30">آخر 30 يوماً</option>
-          <option value="365">آخر سنة</option>
-        </select>
+        <form className="dashboard-period" onSubmit={applyPeriod}>
+          <div className="dashboard-period-fields">
+            <label>
+              من تاريخ
+              <input
+                type="date"
+                lang="en-GB"
+                dir="ltr"
+                required
+                value={draft.from}
+                onChange={(event) => {
+                  setDraft({ ...draft, from: event.target.value });
+                }}
+              />
+            </label>
+            <label>
+              إلى تاريخ
+              <input
+                type="date"
+                lang="en-GB"
+                dir="ltr"
+                required
+                value={draft.to}
+                onChange={(event) => {
+                  setDraft({ ...draft, to: event.target.value });
+                }}
+              />
+            </label>
+            <button className="btn btn-primary" disabled={!validDraft || !unapplied}>
+              تطبيق
+            </button>
+          </div>
+          <p className="dashboard-period-summary" aria-live="polite">
+            الفترة المعروضة: <bdi dir="ltr">{range.from}</bdi> إلى{" "}
+            <bdi dir="ltr">{range.to}</bdi> · بتوقيت القاهرة
+            {validDraft && unapplied && " · اضغط تطبيق لعرض الفترة الجديدة"}
+          </p>
+          {!validDraft && (
+            <p className="dashboard-period-error" role="alert">
+              اختار تاريخ بداية ونهاية صحيحين، والنهاية لا تسبق البداية، بحد أقصى 366 يومًا.
+            </p>
+          )}
+        </form>
         {reports ? (
           <a
             className="btn btn-outline"
