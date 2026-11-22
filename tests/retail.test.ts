@@ -851,9 +851,12 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await browserExpect(page.locator(".receipt-preview")).toContainText(
         "Cashier",
       );
-      const invoice = (await page
+      const invoiceSaleId = (await page
         .locator(".receipt-preview")
-        .getAttribute("data-sequence"))!;
+        .getAttribute("data-sale-id"))!;
+      const invoice = (await db.sale.findUniqueOrThrow({
+        where: { id: invoiceSaleId },
+      })).receiptNumber!;
       await page
         .getByRole("dialog")
         .getByRole("button", { name: "إلغاء", exact: true })
@@ -871,7 +874,10 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       ).toBeVisible();
       await openSidebarPage(page, "فواتير المبيعات");
       await page.getByPlaceholder("ابحث برقم الفاتورة أو باركود المنتج...").fill(invoice);
-      await page.getByRole("button", { name: "عرض الفاتورة" }).click();
+      await page
+        .getByRole("group", { name: `إجراءات فاتورة ${invoice}`, exact: true })
+        .getByRole("button", { name: "عرض الفاتورة", exact: true })
+        .click();
       await page.getByRole("button", { name: "إرجاع منتجات" }).click();
       await page.locator(".return-line input[type=number]").fill("1");
       await page.getByLabel("السبب", { exact: true }).fill("المقاس غير مناسب");
@@ -2891,11 +2897,12 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByRole("dialog")
         .getByRole("button", { name: "إلغاء", exact: true })
         .click();
-      await openSidebarPage(page, "المبيعات");
+      await openSidebarPage(page, "فواتير المبيعات");
       await page
         .getByPlaceholder("ابحث برقم الفاتورة أو باركود المنتج...")
         .fill(mixed.receiptNumber!);
       await page
+        .getByRole("group", { name: `إجراءات فاتورة ${mixed.receiptNumber}`, exact: true })
         .getByRole("button", { name: "عرض الفاتورة", exact: true })
         .click();
       await page
