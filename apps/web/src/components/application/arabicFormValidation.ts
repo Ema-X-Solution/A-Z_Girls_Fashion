@@ -35,6 +35,10 @@ export function validationMessage(
     return el.getAttribute("step") === "1"
       ? `${label} يجب أن يكون عددًا صحيحًا.`
       : `راجع الدقة العشرية في ${label}.`;
+  if (v.patternMismatch)
+    return el.getAttribute("title")
+      ? `${label}: ${el.getAttribute("title")}`
+      : `راجع صيغة ${label}.`;
   if (v.tooShort) return `${label} أقصر من الحد الأدنى المطلوب.`;
   return `راجع قيمة ${label}.`;
 }
