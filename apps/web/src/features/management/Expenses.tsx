@@ -138,7 +138,12 @@ export function Expenses() {
           }
         />
       </section>
-      <Modal title="طلب مصروف جديد" open={open} close={() => setOpen(false)}>
+      <Modal
+        error={task.error}
+        title="طلب مصروف جديد"
+        open={open}
+        close={() => setOpen(false)}
+      >
         <form onSubmit={submit} className="entry-form">
           <FormField label="التصنيف">
             <select name="category" required>
@@ -196,6 +201,7 @@ export function Expenses() {
         </form>
       </Modal>
       <Modal
+        error={task.error}
         title="تصنيفات المصروفات"
         open={categoryOpen}
         close={() => setCategoryOpen(false)}
@@ -247,6 +253,7 @@ export function Expenses() {
         </form>
       </Modal>
       <Modal
+        error={task.error}
         title="تفاصيل المصروف"
         open={!!selected}
         close={() => setSelected(null)}
