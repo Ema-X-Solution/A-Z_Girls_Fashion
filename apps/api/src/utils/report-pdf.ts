@@ -3,12 +3,31 @@ import bidiFactory from "bidi-js";
 import { fileURLToPath } from "node:url";
 import type { Response } from "express";
 const bidi = bidiFactory();
-function runsFor(text: string) {
+function normalizeReportText(text: string) {
   // Arabic-Indic digits trigger RTL shaping even in an even-level number run.
   // Use one unambiguous digit set in exported numeric values.
   text = text.replace(/[٠-٩۰-۹]/g, (digit) =>
     String(digit.charCodeAt(0) - (digit <= "٩" ? 0x660 : 0x6f0)),
   );
+  // Locale date separators contain direction marks, which must not survive
+  // wrapping. Keep a date token and its time independently readable in narrow cells.
+  return text
+    .replace(/[\u200e\u200f\u061c]/g, "")
+    .replace(
+      /(\d{1,2})\/(\d{1,2})\/(\d{4})،?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*([صم])/g,
+      (
+        _match,
+        day: string,
+        month: string,
+        year: string,
+        time: string,
+        meridiem: string,
+      ) =>
+        `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")} ${time} ${meridiem === "ص" ? "AM" : "PM"}`,
+    );
+}
+function runsFor(text: string) {
+  text = normalizeReportText(text);
   // Numeric cells and ISO dates are LTR, even inside an Arabic report.
   const direction = /[\u0621-\u064a\u066e-\u06d3]/.test(text) ? "rtl" : "ltr";
   const levels = bidi.getEmbeddingLevels(text, direction).levels as Uint8Array;
@@ -116,7 +135,7 @@ export async function reportPdf(
     y += height + 4;
   }
   function wrap(value: unknown) {
-    const words = String(value ?? "—").split(/\s+/),
+    const words = normalizeReportText(String(value ?? "—")).split(/\s+/),
       lines: string[] = [];
     let line = "";
     for (const word of words) {
