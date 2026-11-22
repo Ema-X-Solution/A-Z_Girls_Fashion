@@ -1,3 +1,4 @@
+import { displayLocale } from "../../i18n";
 import {
   useState,
   useId,
@@ -140,4 +141,4 @@ export function FormField({
 }
 export const fmt = (v: unknown) => (v == null ? "—" : String(v));
 export const when = (v: unknown) =>
-  v ? new Date(String(v)).toLocaleString("ar-EG") : "—";
+  v ? new Date(String(v)).toLocaleString(displayLocale) : "—";
