@@ -511,5 +511,5 @@ export function registerRound2Tests(get: () => any) {
       }, 60000);
     },
   );
+  registerPosStockTests(get);
 }
-registerPosStockTests(get);
