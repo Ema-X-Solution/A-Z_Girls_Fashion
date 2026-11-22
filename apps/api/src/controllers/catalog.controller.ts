@@ -89,14 +89,15 @@ const safeProduct = (value: any, financial: boolean): any => {
   return out;
 };
 
-export const handleGetCategories: RequestHandler = route(async (_req, res) =>
+export const handleGetCategories: RequestHandler = route(async (req, res) => {
+    const archived = z.enum(["1", "true"]).optional().parse(req.query.archived);
     res.json({
       data: await db.category.findMany({
-        where: { archivedAt: null },
-        orderBy: { name: "asc" },
+        where: archived ? { archivedAt: { not: null } } : { archivedAt: null },
+        orderBy: archived ? { archivedAt: "desc" } : { name: "asc" },
       }),
-    }),
-  );
+    });
+  });
 
 export const handlePostCategories: RequestHandler = route(async (req, res) => {
     const input = z
@@ -178,6 +179,31 @@ export const handlePostCategoriesByIdRemove: RequestHandler = route(
     });
     res.json({
       data: { deleted: true, message: "تم حذف القسم الفارغ نهائيًا." },
+    });
+  },
+);
+
+export const handlePostCategoriesByIdRestore: RequestHandler = route(
+  async (req, res) => {
+    const category = await db.category.findUnique({
+      where: { id: uuid(req.params.id) },
+    });
+    assert(category, "CATEGORY_NOT_FOUND", "القسم غير موجود.", 404);
+    assert(
+      category.archivedAt,
+      "CATEGORY_NOT_ARCHIVED",
+      "القسم غير مؤرشف.",
+      409,
+    );
+    await transaction(async (tx) => {
+      await tx.category.update({
+        where: { id: category.id },
+        data: { archivedAt: null },
+      });
+      await audit(tx, actor(req).id, "CATEGORY_RESTORE", category.id);
+    });
+    res.json({
+      data: { restored: true, message: "تمت استعادة القسم من الأرشيف." },
     });
   },
 );
