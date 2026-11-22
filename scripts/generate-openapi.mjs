@@ -723,7 +723,7 @@ writeFileSync(
       },
     },
     null,
-    2,
+    0,
   ) + "\n",
 );
 console.log(`Documented ${Object.keys(paths).length} API paths.`);
