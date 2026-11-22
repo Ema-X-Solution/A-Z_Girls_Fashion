@@ -29,9 +29,18 @@ async function mock(context: BrowserContext, mayArchive = true) {
     const req = route.request(), requestUrl = new URL(req.url()), path = requestUrl.pathname;
     let data: unknown = [];
     if (path === "/api/auth/me") data = {
-      id: "test-owner", name: "TEST Owner", roles: ["OWNER"], permissions: ["products.view", ...(mayArchive ? ["products.archive"] : [])], csrf: "test-csrf",
+      id: "test-owner", name: "TEST Owner", roles: ["OWNER"], permissions: ["products.view", ...(mayArchive ? ["products.archive", "products.update", "products.create"] : [])], csrf: "test-csrf",
     };
     else if (["/api/branding", "/api/public/store", "/api/store"].includes(path)) data = { name: "TEST Store", currency: "EGP" };
+    else if (path === "/api/categories") data = requestUrl.searchParams.get("archived") === "1" ? [
+      { id: "test-category-1", name: "TEST QA 2041 Renamed" },
+      { id: "test-category-2", name: "TEST T7 Archive Cat" },
+      { id: "test-category-3", name: "TEST قسم مؤرشف باسم طويل لاختبار ترتيب الأزرار على شاشة الهاتف الصغيرة" },
+    ] : [
+      { id: "test-category-active-1", name: "TEST Category" },
+      { id: "test-category-active-2", name: "TEST Dresses Collection" },
+      { id: "test-category-active-3", name: "TEST قسم باسم طويل لاختبار ترتيب أزرار تعديل وأرشفة الأقسام على الهاتف" },
+    ];
     else if (path === "/api/products") {
       const archived = requestUrl.searchParams.get("archived") === "1", q = requestUrl.searchParams.get("q") ?? "";
       const rows = products.filter((product) => (product.status === "ARCHIVED") === archived && product.nameAr.includes(q));
@@ -120,6 +129,55 @@ describe("product archive and restore in the built UI", () => {
       await page.goto(`${url}/products`);
       await ui(page.getByRole("row").filter({ hasText: "TEST Zero Product" })).toBeVisible();
       for (const name of ["أرشفة", "استعادة", "أرشيف المنتجات"]) await ui(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+    } finally { await context.close(); }
+  });
+  it.each([1440, 390])("aligns archived category restore buttons at %spx", async (width) => {
+    const context = await browser.newContext({ viewport: { width, height: 1000 } });
+    try {
+      await mock(context);
+      const page = await context.newPage();
+      await page.goto(`${url}/products`);
+      await ui(page.getByRole("row").filter({ hasText: "TEST Zero Product" })).toBeVisible();
+      await page.getByRole("button", { name: "التصنيف", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "التصنيفات", exact: true });
+      const editButtons = dialog.getByTitle("تعديل اسم القسم", { exact: true });
+      await ui(editButtons).toHaveCount(3);
+      const activeBoxes = await editButtons.evaluateAll((elements) => elements.map((element) => {
+        const rect = element.parentElement!.getBoundingClientRect();
+        return { x: rect.x, width: rect.width, rowRight: element.closest("li")!.getBoundingClientRect().right };
+      }));
+      for (const box of activeBoxes) {
+        expect(Math.abs(box.x - activeBoxes[0].x)).toBeLessThan(1);
+        expect(box.width).toBe(96);
+      }
+      await page.screenshot({ animations: "disabled", path: `test-results/product-archive/sections-${width}.png` });
+      await editButtons.first().click();
+      await ui(dialog.getByRole("textbox", { name: "اسم القسم TEST Category", exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ animations: "disabled", path: `test-results/product-archive/category-edit-${width}.png` });
+      await dialog.getByRole("button", { name: "إلغاء", exact: true }).last().click();
+      await dialog.getByTitle("حذف أو أرشفة القسم", { exact: true }).first().click();
+      await ui(dialog.getByRole("button", { name: "تأكيد؟", exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await dialog.getByRole("button", { name: "الأرشيف", exact: true }).click();
+      const buttons = dialog.getByRole("button", { name: "استعادة", exact: true });
+      await ui(buttons).toHaveCount(3);
+      const boxes = await buttons.evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        const row = element.closest("li")!.getBoundingClientRect();
+        const name = element.closest("li")!.querySelector("span")!.getBoundingClientRect();
+        return { x: rect.x, width: rect.width, height: rect.height, right: rect.right, rowLeft: row.left, rowRight: row.right, nameLeft: name.left, nameRight: name.right };
+      }));
+      for (const box of boxes) {
+        expect(Math.abs(box.x - boxes[0].x)).toBeLessThan(1);
+        expect(box.width).toBe(96);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.nameLeft - box.right).toBeGreaterThanOrEqual(15);
+        expect(box.x).toBeGreaterThanOrEqual(box.rowLeft);
+        expect(box.nameRight).toBeLessThanOrEqual(box.rowRight + 1);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ animations: "disabled", path: `test-results/product-archive/categories-${width}.png` });
     } finally { await context.close(); }
   });
 });
