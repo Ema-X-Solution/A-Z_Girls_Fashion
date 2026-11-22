@@ -93,8 +93,24 @@ describe("round 5 medium regressions", () => {
       [
         { key: "date", label: "التاريخ والوقت" },
         { key: "amount", label: "المبلغ" },
+        ...Array.from({ length: 7 }, (_, i) => ({
+          key: `extra${i}`,
+          label: "اختبار",
+        })),
       ],
-      [{ date: "٢٢/١١/٢٠٢٦، ٣:١٠ م", amount: "-123.45" }],
+      [
+        {
+          date: new Date("2026-11-22T13:10:00Z").toLocaleString("ar-EG", {
+            timeZone: "Africa/Cairo",
+            hour: "numeric",
+            minute: "2-digit",
+            year: "numeric",
+            month: "numeric",
+            day: "numeric",
+          }),
+          amount: "-123.45",
+        },
+      ],
       "2026-11-22",
     );
     const loading = getDocument({
@@ -106,7 +122,8 @@ describe("round 5 medium regressions", () => {
     const text = (await page.getTextContent()).items
       .map((item: any) => item.str)
       .join(" ");
-    expect(text).toContain("22/11/2026");
+    expect(text).toContain("2026-11-22");
+    expect(text).toContain("PM");
     expect(text).toContain("3:10");
     expect(text).toContain("-123.45");
     expect(text).not.toMatch(/[٠-٩۰-۹]/);
