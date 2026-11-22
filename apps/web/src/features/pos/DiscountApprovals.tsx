@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, useSession } from "../../api";
 import { Button } from "../../components/ui/button";
 import { Header, ErrorMessage, Field, Modal } from "../shared/Controls";
-import { formatMoney, displayLocale } from "../../i18n";
+import { displayLocale, formatDigits, formatMoney } from "../../i18n";
 import { approvalError } from "./approval-messages";
 const labels: Record<string, string> = {
   PENDING: "قيد المراجعة",
@@ -158,7 +158,7 @@ export function DiscountApprovals() {
                           <br />
                           <small>
                             {display?.sku} —{" "}
-                            {Object.values(display?.options ?? {}).join(" / ")}
+                            {formatDigits(Object.values(display?.options ?? {}).join(" / "))}
                           </small>
                         </td>
                         <td>{i.quantity}</td>
@@ -213,4 +213,4 @@ export function DiscountApprovals() {
       </Modal>
     </>
   );
-}
+          }
