@@ -9,7 +9,15 @@ import { route, uuid, page } from "../utils/http.js";
 export const handleGetPurchases: RequestHandler = route(async (req, res) =>
     res.json({
       data: await db.purchaseOrder.findMany({
-        include: { supplier: true, items: true, receipts: true },
+        include: {
+          supplier: true,
+          location: true,
+          items: { include: { variant: { select: { sku: true, options: true, product: { select: { nameAr: true } } } } } },
+          receipts: {
+            include: { items: true },
+            orderBy: { createdAt: "asc" as const },
+          },
+        },
         orderBy: { createdAt: "desc" },
         ...page(req.query),
       }),
