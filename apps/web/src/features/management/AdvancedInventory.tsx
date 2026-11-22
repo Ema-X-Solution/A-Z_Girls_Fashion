@@ -116,7 +116,7 @@ export function AdvancedInventory() {
               : [
                   { label: "التاريخ", render: (r) => when(r.createdAt) },
                   { label: "المخزن", render: (r) => location(r.locationId) },
-                  { label: "مرجع الصنف", render: (r) => r.variantId },
+                  { label: "الصنف", render: (r) => r.variantLabel ?? `صنف غير متاح (${r.variantId})` },
                   { label: "السبب", render: (r) => r.reason },
                   {
                     label: "المتبقي",
@@ -313,7 +313,7 @@ export function AdvancedInventory() {
                 {selected.items.map((i: Row) => (
                   <FormField
                     key={i.id}
-                    label={`${i.variantId} • المشحون ${i.quantity} • المستلم ${i.received}`}
+                    label={`${i.variantLabel ?? `صنف غير متاح (${i.variantId})`} • المشحون ${i.quantity} • المستلم ${i.received}`}
                   >
                     <input
                       name={i.id}
@@ -386,4 +386,4 @@ export function AdvancedInventory() {
       </Modal>
     </>
   );
-}
+              }
