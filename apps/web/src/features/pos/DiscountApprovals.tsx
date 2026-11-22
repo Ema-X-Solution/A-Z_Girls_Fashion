@@ -52,7 +52,7 @@ export function DiscountApprovals() {
       />
       <ErrorMessage
         message={
-          error || (query.error instanceof Error ? query.error.message : "")
+          !selected ? error || (query.error instanceof Error ? query.error.message : "") : ""
         }
       />
       <section className="panel table-wrap">
@@ -93,6 +93,7 @@ export function DiscountApprovals() {
                   <Button
                     variant="outline"
                     onClick={() => {
+                      setError("");
                       setSelected(r);
                       setNote("");
                     }}
@@ -113,6 +114,7 @@ export function DiscountApprovals() {
       <Modal
         title="مراجعة الخصم"
         open={!!selected}
+        error={error}
         close={() => {
           if (!busy) setSelected(null);
         }}
@@ -213,4 +215,4 @@ export function DiscountApprovals() {
       </Modal>
     </>
   );
-          }
+}

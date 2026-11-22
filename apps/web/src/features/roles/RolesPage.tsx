@@ -19,6 +19,7 @@ export function RolesPage() {
       <Header title={ar.roles} subtitle="الصلاحيات تُطبّق على كل طلب في الخادم">
         <Button
           onClick={() => {
+            action.clearError();
             setSelected(null);
             setOpen(true);
           }}
@@ -50,6 +51,7 @@ export function RolesPage() {
                     <Button
                       variant="outline"
                       onClick={() => {
+                        action.clearError();
                         setSelected(r);
                         setOpen(true);
                       }}
@@ -65,6 +67,7 @@ export function RolesPage() {
       <Modal
         title={selected ? (roleLabels[selected.name] ?? selected.name) : "دور جديد"}
         open={open}
+        error={action.error}
         onClose={() => setOpen(false)}
       >
         <form
@@ -79,6 +82,7 @@ export function RolesPage() {
                   ? patch(`/roles/${selected.id}`, { permissions })
                   : post("/roles", { name: f.get("name"), permissions }),
               () => setOpen(false),
+              true,
             );
           }}
         >
@@ -191,4 +195,3 @@ export function RolesPage() {
     </>
   );
 }
-
