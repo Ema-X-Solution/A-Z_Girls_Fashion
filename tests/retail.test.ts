@@ -2688,23 +2688,12 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await browserExpect(
         page.getByLabel("رقم التفويض", { exact: true }),
       ).toHaveValue("492810");
-      await page
-        .getByRole("button", { name: "تعليق السلة", exact: true })
-        .click();
-      await browserExpect(page.locator(".cart-line")).toHaveCount(0);
-      await page.getByRole("textbox", { name: "مسح الباركود" }).fill(b.barcode);
-      await page.getByRole("textbox", { name: "مسح الباركود" }).press("Enter");
-      await browserExpect(page.locator(".cart-line")).toHaveCount(1);
-      await page
-        .getByRole("button", { name: "تعليق السلة", exact: true })
-        .click();
-      await page.reload();
-      await page
-        .getByLabel("اختر سلة معلّقة", { exact: true })
-        .selectOption({ index: 1 });
-      await page
-        .getByRole("button", { name: "استئناف (2)", exact: true })
-        .click();
+      await browserExpect(
+        page.getByRole("button", { name: "تعليق السلة", exact: true }),
+      ).toHaveCount(0);
+      await browserExpect(
+        page.getByLabel("اختر سلة معلّقة", { exact: true }),
+      ).toHaveCount(0);
       await browserExpect(page.locator(".cart-line")).toHaveCount(2);
       await browserExpect(
         page.getByLabel("ملاحظات", { exact: true }),
