@@ -8,6 +8,7 @@ import { actor } from "../middleware/auth.js";
 import { internalBarcode } from "../routes/barcodes.js";
 import { productImageAsset } from "../routes/product-images.js";
 import { route, uuid, page, text, hasCosts } from "../utils/http.js";
+import { updateVariantSchema } from "../validators/variant-update.validation.js";
 
 const code = z.string().trim().min(1).max(200).optional();
 
@@ -234,13 +235,7 @@ export const handlePostProductsByIdVariants: RequestHandler = route(async (req, 
   });
 
 export const handlePatchVariantsById: RequestHandler = route(async (req, res) => {
-    const input = variantSchema
-        .partial()
-        .extend({
-          active: z.boolean().optional(),
-          minStock: z.coerce.number().int().nonnegative().optional(),
-        })
-        .parse(req.body),
+    const input = updateVariantSchema.parse(req.body),
       variantId = uuid(req.params.id);
     res.json({
       data: safeProduct(
@@ -253,8 +248,12 @@ export const handlePatchVariantsById: RequestHandler = route(async (req, res) =>
             data: input,
           });
           await audit(tx, actor(req).id, "VARIANT_UPDATE", variantId, {
-            oldBarcode: before.barcode,
-            newBarcode: v.barcode,
+            ...(input.price !== undefined
+              ? { price: { before: before.price.toFixed(2), after: v.price.toFixed(2) } }
+              : {}),
+            ...(input.minStock !== undefined
+              ? { minStock: { before: before.minStock, after: v.minStock } }
+              : {}),
           });
           return v;
         }),
