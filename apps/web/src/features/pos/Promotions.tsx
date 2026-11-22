@@ -1,3 +1,5 @@
+import { readableError } from "../../app/notifications";
+import { ApiError } from "../../api";
 import { displayLocale } from "../../i18n";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,6 +66,15 @@ export function Promotions() {
     try {
       if (scope === "selected" && !draft.productIds.length)
         throw new Error("اختار منتجًا واحدًا على الأقل أو حدد كل المنتجات.");
+      if (
+        !draft.startsAt ||
+        !draft.endsAt ||
+        !Number.isFinite(Date.parse(draft.startsAt)) ||
+        !Number.isFinite(Date.parse(draft.endsAt))
+      )
+        throw new Error("حدد تاريخ بداية ونهاية صحيحين للعرض.");
+      if (new Date(draft.endsAt) <= new Date(draft.startsAt))
+        throw new Error("تاريخ نهاية العرض يجب أن يكون بعد تاريخ البداية.");
       const body = {
         ...draft,
         productIds: scope === "all" ? [] : draft.productIds,
@@ -78,7 +89,13 @@ export function Promotions() {
       await client.invalidateQueries();
       setDraft(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذر حفظ العرض");
+      setError(
+        e instanceof ApiError
+          ? readableError(e)
+          : e instanceof Error
+            ? e.message
+            : "تعذر حفظ العرض",
+      );
     } finally {
       setBusy(false);
     }
@@ -346,4 +363,4 @@ export function Promotions() {
       </Modal>
     </>
   );
-}
+                  }
