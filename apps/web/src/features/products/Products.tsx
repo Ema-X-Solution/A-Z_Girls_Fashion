@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, X, Printer, Pencil, Trash2, Check } from "lucide-react";
+import { Plus, Search, X, Printer, Pencil, Trash2, Check, Archive, RotateCcw } from "lucide-react";
 import { ProductImage, ProductImageEditor, ProductImagePicker } from "../shared/ProductImage";
 import { patch, post } from "../../api";
 import { formatDigits, ar, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { BarcodeLabels } from "../barcodes/BarcodeLabels";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
-import { useAction } from "../../app/notifications";
+import { useAction, readableError } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
 import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
@@ -21,8 +21,11 @@ export function Products() {
     [label, setLabel] = useState<Row | null>(null),
     [categoryOpen, setCategoryOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
+    [productTab, setProductTab] = useState<"active" | "archived">("active"),
+    [statusChange, setStatusChange] = useState<{ product: Row; restore: boolean } | null>(null),
+    [statusError, setStatusError] = useState(""),
     query = useData(
-      `/products?q=${encodeURIComponent(debouncedQ)}&offset=${offset}`,
+      `/products?q=${encodeURIComponent(debouncedQ)}&offset=${offset}${productTab === "archived" ? "&archived=1" : ""}`,
       true,
       searchPending,
     ),
@@ -60,6 +63,22 @@ export function Products() {
         )}
       </Header>
       <section className="panel">
+        {archive && (
+          <div className="cat-tabs" style={{ padding: "18px 22px 0" }} role="group" aria-label="عرض المنتجات">
+            <Button
+              variant={productTab === "active" ? "default" : "outline"}
+              onClick={() => { setProductTab("active"); setOffset(0); }}
+            >
+              المنتجات الحالية
+            </Button>
+            <Button
+              variant={productTab === "archived" ? "default" : "outline"}
+              onClick={() => { setProductTab("archived"); setOffset(0); }}
+            >
+              أرشيف المنتجات
+            </Button>
+          </div>
+        )}
         <div className="toolbar">
           <div className="search">
             <Search size={18} />
@@ -134,6 +153,16 @@ export function Products() {
                         <Printer size={16} />
                         باركود
                       </Button>
+                      {archive && (
+                        <Button
+                          variant="ghost"
+                          disabled={action.busy}
+                          onClick={() => { setStatusError(""); setStatusChange({ product: r, restore: productTab === "archived" }); }}
+                        >
+                          {productTab === "archived" ? <RotateCcw size={16} /> : <Archive size={16} />}
+                          {productTab === "archived" ? "استعادة" : "أرشفة"}
+                        </Button>
+                      )}
                     </div>
                   ),
                 },
@@ -148,6 +177,46 @@ export function Products() {
           </>
         )}
       </section>
+      <Modal
+        title={statusChange?.restore ? "استعادة المنتج" : "أرشفة المنتج"}
+        open={!!statusChange}
+        onClose={() => { if (!action.busy) setStatusChange(null); }}
+      >
+        {statusChange && (
+          <>
+            <p><strong>{statusChange.product.nameAr}</strong></p>
+            <p className="note">
+              {statusChange.restore
+                ? "سيظهر المنتج في قائمة المنتجات والبيع من جديد، مع الاحتفاظ بسجلاته السابقة."
+                : "يمكن أرشفة المنتج فقط إذا كانت كمية كل مقاس ولون في كل المخازن صفرًا، ولا توجد كميات قيد التحويل أو محجورة. لن تُحذف الفواتير أو المشتريات السابقة."}
+            </p>
+            {statusError && <p role="alert" className="form-error">{statusError}</p>}
+            <div className="inline-actions" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, maxWidth: 320, marginTop: 18 }}>
+              <Button
+                disabled={action.busy}
+                onClick={() => void action.run(
+                  async () => {
+                    setStatusError("");
+                    try {
+                      const result = await post(`/products/${statusChange.product.id}/${statusChange.restore ? "restore" : "archive"}`, {});
+                      return result?.data?.message;
+                    } catch (error) {
+                      setStatusError(readableError(error));
+                      throw error;
+                    }
+                  },
+                  () => { setStatusChange(null); setSelected(null); },
+                )}
+              >
+                {statusChange.restore ? "تأكيد الاستعادة" : "تأكيد الأرشفة"}
+              </Button>
+              <Button variant="outline" disabled={action.busy} onClick={() => setStatusChange(null)}>
+                إلغاء
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
       <Modal title="منتج جديد" open={open} onClose={() => setOpen(false)}>
         <ProductForm
           categories={categories.data?.data ?? []}
@@ -653,4 +722,4 @@ export function ProductForm({
       </Button>
     </form>
   );
-        }
+                }
