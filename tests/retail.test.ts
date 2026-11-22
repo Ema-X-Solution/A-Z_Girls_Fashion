@@ -1096,7 +1096,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).rejects.toThrow();
     expect(await db.auditLog.count()).toBeGreaterThan(10);
   });
-  it("exchanges roll back on replacement failure and commit idempotently", async () => {
+  it("retired legacy exchange route returns 410 with zero writes", async () => {
     const managerShift = await db.cashShift.findFirstOrThrow({
       where: { userId: manager.user.id, closedAt: null },
     });
@@ -1109,26 +1109,29 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const sold = original.body.data,
       before = await db.stockBalance.findFirstOrThrow({
         where: { variantId: variant.id },
-      });
-    const returned = {
-      shiftId: managerShift.id,
-      reason: "Exchange size",
-      method: "CASH",
-      items: [{ saleItemId: sold.items[0].id, quantity: 1, sellable: true }],
+      }),
+      salesBefore = await db.sale.count(),
+      returnsBefore = await db.saleReturn.count(),
+      exchangesBefore = await db.exchange.count(),
+      cashBefore = await db.cashMovement.count();
+    const body = {
+      returned: {
+        shiftId: managerShift.id,
+        reason: "Exchange size",
+        method: "CASH",
+        items: [{ saleItemId: sold.items[0].id, quantity: 1, sellable: true }],
+      },
+      replacement: {
+        shiftId: managerShift.id,
+        items: [{ variantId: product.variants[1].id, quantity: 1 }],
+        payments: [{ method: "CASH", amount: "125" }],
+      },
     };
-    const replacement = {
-      shiftId: managerShift.id,
-      items: [{ variantId: product.variants[1].id, quantity: 1 }],
-      payments: [{ method: "CASH", amount: "125" }],
-    };
-    expect(
-      (
-        await send(manager, `/sales/${sold.id}/exchanges`, {
-          returned,
-          replacement,
-        })
-      ).status,
-    ).toBe(409);
+    const retired = await send(manager, `/sales/${sold.id}/exchanges`, body);
+    expect(retired.status).toBe(410);
+    expect(retired.body.error.code).toBe("EXCHANGE_ROUTE_RETIRED");
+    expect(retired.body.error.message).toContain("exchanges/net");
+    // Zero writes: nothing was returned, sold, moved or posted.
     expect(
       (await db.saleItem.findUniqueOrThrow({ where: { id: sold.items[0].id } }))
         .returned,
@@ -1140,35 +1143,10 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         })
       ).quantity,
     ).toBe(before.quantity);
-    const body = {
-        returned,
-        replacement: {
-          ...replacement,
-          items: [{ variantId: variant.id, quantity: 1 }],
-          payments: [{ method: "CASH", amount: "100" }],
-        },
-      },
-      key = crypto.randomUUID();
-    const exchanged = await send(
-      manager,
-      `/sales/${sold.id}/exchanges`,
-      body,
-      key,
-    );
-    expect(exchanged.status).toBe(200);
-    expect(exchanged.body.data.replacement.items[0].unitCost).toBeUndefined();
-    expect(exchanged.body.data.returned.items[0].cost).toBeUndefined();
-    expect(
-      (await send(manager, `/sales/${sold.id}/exchanges`, body, key)).body.data
-        .replacement.id,
-    ).toBe(exchanged.body.data.replacement.id);
-    expect(
-      (
-        await db.stockBalance.findFirstOrThrow({
-          where: { variantId: variant.id },
-        })
-      ).quantity,
-    ).toBe(before.quantity);
+    expect(await db.sale.count()).toBe(salesBefore);
+    expect(await db.saleReturn.count()).toBe(returnsBefore);
+    expect(await db.exchange.count()).toBe(exchangesBefore);
+    expect(await db.cashMovement.count()).toBe(cashBefore);
   });
   it("cash expenses debit the creating cashier shift exactly once", async () => {
     const managerShift = await db.cashShift.findFirstOrThrow({
@@ -1629,6 +1607,199 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         difference === "-20" ? "-20" : "0",
       );
     }
+  });
+  it("net exchanges settle 200 to 210 with only 10 tender and expose a receipt", async () => {
+    const shift = await db.cashShift.findFirstOrThrow({
+        where: { userId: manager.user.id, closedAt: null },
+      }),
+      category = await db.category.findFirstOrThrow();
+    const product = await send(manager, "/products", {
+      nameAr: "أصناف استبدال عشري",
+      sku: "NET-EX2",
+      categoryId: category.id,
+      variants: [
+        { sku: "NET-200", price: "200" },
+        { sku: "NET-210", price: "210" },
+      ],
+    });
+    expect(product.status).toBe(201);
+    const variants = product.body.data.variants,
+      v200 = variants.find((v: any) => v.sku === "NET-200"),
+      v210 = variants.find((v: any) => v.sku === "NET-210");
+    for (const v of variants)
+      expect(
+        (
+          await send(manager, "/inventory/adjustments", {
+            variantId: v.id,
+            locationId: location.id,
+            quantity: 5,
+            reason: "Exchange opening stock",
+            cost: "40",
+          })
+        ).status,
+      ).toBe(200);
+    const sell = (variantId: string, price: string) =>
+        send(manager, "/sales", {
+          shiftId: shift.id,
+          items: [{ variantId, quantity: 1 }],
+          payments: [{ method: "CASH", amount: price }],
+        }),
+      refundOf = (sale: any) => ({
+        shiftId: shift.id,
+        reason: "Exchange test",
+        method: "CASH",
+        items: [
+          { saleItemId: sale.items[0].id, quantity: 1, sellable: true },
+        ],
+      });
+
+    // Quote: exact difference of 10 before any write.
+    const original = await sell(v200.id, "200");
+    expect(original.status).toBe(201);
+    const quote = await send(
+      manager,
+      `/sales/${original.body.data.id}/exchanges/quote`,
+      {
+        returned: refundOf(original.body.data),
+        replacement: {
+          shiftId: shift.id,
+          items: [{ variantId: v210.id, quantity: 1 }],
+          payments: [],
+        },
+      },
+    );
+    expect(quote.status).toBe(200);
+    expect(quote.body.data.difference).toBe("10.00");
+
+    // A different processing shift for return and replacement is rejected.
+    const wrongShift = await send(
+      manager,
+      `/sales/${original.body.data.id}/exchanges/net`,
+      {
+        returned: {
+          ...refundOf(original.body.data),
+          shiftId: crypto.randomUUID(),
+        },
+        replacement: {
+          shiftId: shift.id,
+          items: [{ variantId: v210.id, quantity: 1 }],
+          payments: [],
+        },
+      },
+    );
+    expect(wrongShift.status).toBe(400);
+    expect(wrongShift.body.error.code).toBe("EXCHANGE_SHIFT");
+
+    // Insufficient tender (5 of 10) rolls back every write.
+    const stockBefore = (
+        await db.stockBalance.findFirstOrThrow({
+          where: { variantId: v200.id },
+        })
+      ).quantity,
+      exchangesBefore = await db.exchange.count();
+    const short = await send(
+      manager,
+      `/sales/${original.body.data.id}/exchanges/net`,
+      {
+        returned: refundOf(original.body.data),
+        replacement: {
+          shiftId: shift.id,
+          items: [{ variantId: v210.id, quantity: 1 }],
+          payments: [{ method: "CASH", amount: "5" }],
+        },
+      },
+    );
+    expect(short.status).toBe(400);
+    expect(short.body.error.code).toBe("PAYMENT_INSUFFICIENT");
+    expect(
+      (await db.saleItem.findUniqueOrThrow({
+        where: { id: original.body.data.items[0].id },
+      })).returned,
+    ).toBe(0);
+    expect(
+      (
+        await db.stockBalance.findFirstOrThrow({
+          where: { variantId: v200.id },
+        })
+      ).quantity,
+    ).toBe(stockBefore);
+    expect(await db.exchange.count()).toBe(exchangesBefore);
+
+    // 200 -> 210 with only 10 CASH tender: internal credit 200, refund zero.
+    const cashBefore = await db.cashMovement.aggregate({
+        where: { shiftId: shift.id },
+        _sum: { amount: true },
+      }),
+      up = await send(
+        manager,
+        `/sales/${original.body.data.id}/exchanges/net`,
+        {
+          returned: refundOf(original.body.data),
+          replacement: {
+            shiftId: shift.id,
+            items: [{ variantId: v210.id, quantity: 1 }],
+            payments: [{ method: "CASH", amount: "10" }],
+          },
+        },
+        crypto.randomUUID(),
+      );
+    expect(up.status).toBe(201);
+    expect(up.body.data.difference).toBe("10");
+    expect(up.body.data.returned.refundAmount).toBe("0");
+    expect(
+      up.body.data.replacement.payments.some(
+        (p: any) => p.method === "EXCHANGE_CREDIT" && Number(p.amount) === 200,
+      ),
+    ).toBe(true);
+    const cashAfter = await db.cashMovement.aggregate({
+      where: { shiftId: shift.id },
+      _sum: { amount: true },
+    });
+    expect(cashAfter._sum.amount!.minus(cashBefore._sum.amount!).toString()).toBe(
+      "10",
+    );
+
+    // The exchange receipt is retrievable.
+    const receipt = await manager.agent
+      .get(`/api/exchanges/${up.body.data.id}`)
+      .set("Origin", process.env.APP_ORIGIN ?? origin)
+      .set("X-CSRF-Token", manager.csrf);
+    expect(receipt.status).toBe(200);
+    expect(receipt.body.data.difference).toBe("10");
+    expect(receipt.body.data.returned.originalSale.id).toBe(
+      original.body.data.id,
+    );
+
+    // 210 -> 200 refunds only the 10 difference, no tender required.
+    const original2 = await sell(v210.id, "210");
+    expect(original2.status).toBe(201);
+    const cashBefore2 = await db.cashMovement.aggregate({
+        where: { shiftId: shift.id },
+        _sum: { amount: true },
+      }),
+      down = await send(
+        manager,
+        `/sales/${original2.body.data.id}/exchanges/net`,
+        {
+          returned: refundOf(original2.body.data),
+          replacement: {
+            shiftId: shift.id,
+            items: [{ variantId: v200.id, quantity: 1 }],
+            payments: [],
+          },
+        },
+        crypto.randomUUID(),
+      );
+    expect(down.status).toBe(201);
+    expect(down.body.data.difference).toBe("-10");
+    expect(down.body.data.returned.refundAmount).toBe("10");
+    const cashAfter2 = await db.cashMovement.aggregate({
+      where: { shiftId: shift.id },
+      _sum: { amount: true },
+    });
+    expect(
+      cashAfter2._sum.amount!.minus(cashBefore2._sum.amount!).toString(),
+    ).toBe("-10");
   });
   it("partial VAT refunds preserve every tax cent and printed snapshots remain immutable", async () => {
     const saved = await db.systemSetting.findUniqueOrThrow({
