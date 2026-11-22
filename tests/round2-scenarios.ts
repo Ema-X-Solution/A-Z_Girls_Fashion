@@ -474,12 +474,12 @@ export function registerRound2Tests(get: () => any) {
           await page.getByLabel("خصم على الفاتورة", { exact: true }).fill("5");
           await browserExpect(
             page.getByTestId("promotion-discount"),
-          ).toContainText("٢٠");
+          ).toContainText("20");
           await browserExpect(
             page.getByTestId("customer-discount"),
-          ).toContainText("١٧");
+          ).toContainText("17");
           await browserExpect(page.locator(".grand-total")).toContainText(
-            "١٤٨",
+            "148",
           );
           await page.screenshot({
             path: "test-results/round2-pos-discount-split.png",
