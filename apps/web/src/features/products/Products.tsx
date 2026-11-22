@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, X, Printer, Pencil, Trash2, Check } from "lucide-react";
+import { Plus, Search, X, Printer, Pencil, Trash2, Check, Archive, RotateCcw } from "lucide-react";
 import { ProductImage, ProductImageEditor, ProductImagePicker } from "../shared/ProductImage";
 import { patch, post } from "../../api";
 import { formatDigits, ar, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { BarcodeLabels } from "../barcodes/BarcodeLabels";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
-import { useAction } from "../../app/notifications";
+import { useAction, readableError } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
 import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
@@ -21,8 +21,11 @@ export function Products() {
     [label, setLabel] = useState<Row | null>(null),
     [categoryOpen, setCategoryOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
+    [productTab, setProductTab] = useState<"active" | "archived">("active"),
+    [statusChange, setStatusChange] = useState<{ product: Row; restore: boolean } | null>(null),
+    [statusError, setStatusError] = useState(""),
     query = useData(
-      `/products?q=${encodeURIComponent(debouncedQ)}&offset=${offset}`,
+      `/products?q=${encodeURIComponent(debouncedQ)}&offset=${offset}${productTab === "archived" ? "&archived=1" : ""}`,
       true,
       searchPending,
     ),
@@ -60,6 +63,22 @@ export function Products() {
         )}
       </Header>
       <section className="panel">
+        {archive && (
+          <div className="cat-tabs" style={{ padding: "18px 22px 0" }} role="group" aria-label="عرض المنتجات">
+            <Button
+              variant={productTab === "active" ? "default" : "outline"}
+              onClick={() => { setProductTab("active"); setOffset(0); }}
+            >
+              المنتجات الحالية
+            </Button>
+            <Button
+              variant={productTab === "archived" ? "default" : "outline"}
+              onClick={() => { setProductTab("archived"); setOffset(0); }}
+            >
+              أرشيف المنتجات
+            </Button>
+          </div>
+        )}
         <div className="toolbar">
           <div className="search">
             <Search size={18} />
@@ -134,6 +153,16 @@ export function Products() {
                         <Printer size={16} />
                         باركود
                       </Button>
+                      {archive && (
+                        <Button
+                          variant="ghost"
+                          disabled={action.busy}
+                          onClick={() => { setStatusError(""); setStatusChange({ product: r, restore: productTab === "archived" }); }}
+                        >
+                          {productTab === "archived" ? <RotateCcw size={16} /> : <Archive size={16} />}
+                          {productTab === "archived" ? "استعادة" : "أرشفة"}
+                        </Button>
+                      )}
                     </div>
                   ),
                 },
@@ -148,6 +177,46 @@ export function Products() {
           </>
         )}
       </section>
+      <Modal
+        title={statusChange?.restore ? "استعادة المنتج" : "أرشفة المنتج"}
+        open={!!statusChange}
+        onClose={() => { if (!action.busy) setStatusChange(null); }}
+      >
+        {statusChange && (
+          <>
+            <p><strong>{statusChange.product.nameAr}</strong></p>
+            <p className="note">
+              {statusChange.restore
+                ? "سيظهر المنتج في قائمة المنتجات والبيع من جديد، مع الاحتفاظ بسجلاته السابقة."
+                : "يمكن أرشفة المنتج فقط إذا كانت كمية كل مقاس ولون في كل المخازن صفرًا، ولا توجد كميات قيد التحويل أو محجورة. لن تُحذف الفواتير أو المشتريات السابقة."}
+            </p>
+            {statusError && <p role="alert" className="form-error">{statusError}</p>}
+            <div className="inline-actions" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, maxWidth: 320, marginTop: 18 }}>
+              <Button
+                disabled={action.busy}
+                onClick={() => void action.run(
+                  async () => {
+                    setStatusError("");
+                    try {
+                      const result = await post(`/products/${statusChange.product.id}/${statusChange.restore ? "restore" : "archive"}`, {});
+                      return result?.data?.message;
+                    } catch (error) {
+                      setStatusError(readableError(error));
+                      throw error;
+                    }
+                  },
+                  () => { setStatusChange(null); setSelected(null); },
+                )}
+              >
+                {statusChange.restore ? "تأكيد الاستعادة" : "تأكيد الأرشفة"}
+              </Button>
+              <Button variant="outline" disabled={action.busy} onClick={() => setStatusChange(null)}>
+                إلغاء
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
       <Modal title="منتج جديد" open={open} onClose={() => setOpen(false)}>
         <ProductForm
           categories={categories.data?.data ?? []}
@@ -198,12 +267,13 @@ export function Products() {
             ) : (
               <ul className="list">
                 {(archivedCategories.data?.data ?? []).map((c: Row) => (
-                  <li key={c.id}>
-                    <span>{c.name}</span>
+                  <li key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 16, paddingBlock: 12 }}>
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{c.name}</span>
                     {archive && (
                       <Button
                         variant="outline"
                         title="استعادة القسم من الأرشيف"
+                        style={{ width: 96, minHeight: 44 }}
                         disabled={action.busy}
                         onClick={() =>
                           void action.run(async () => {
@@ -227,16 +297,18 @@ export function Products() {
           <>
         <ul className="list">
           {categories.data?.data.map((c: Row) => (
-            <li key={c.id}>
+            <li key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 16, paddingBlock: 12 }}>
               {editingCat === c.id ? (
-                <div className="cat-edit-row">
+                <div className="cat-edit-row" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "minmax(0, 1fr) 72px 64px", gap: 8 }}>
                   <input
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
                     aria-label={`اسم القسم ${c.name}`}
+                    style={{ width: "100%", minWidth: 0, minHeight: 44 }}
                   />
                   <Button
                     variant="outline"
+                    style={{ minHeight: 44, paddingInline: 8 }}
                     disabled={action.busy || !editingName.trim()}
                     onClick={() =>
                       void action.run(
@@ -252,7 +324,8 @@ export function Products() {
                     حفظ
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="outline"
+                    style={{ minHeight: 44, paddingInline: 8 }}
                     onClick={() => setEditingCat(null)}
                   >
                     إلغاء
@@ -260,10 +333,12 @@ export function Products() {
                 </div>
               ) : (
                 <>
-                  <span>{c.name}</span>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{c.name}</span>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", minWidth: 96 }}>
                   {edit && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
+                      style={{ width: 44, height: 44, padding: 0 }}
                       title="تعديل اسم القسم"
                       onClick={() => {
                         setEditingCat(c.id);
@@ -276,7 +351,8 @@ export function Products() {
                   )}
                   {archive && (
                     <Button
-                      variant="ghost"
+                      variant={confirmRemoveCat === c.id ? "destructive" : "outline"}
+                      style={{ width: 44, height: 44, padding: 0 }}
                       title={
                         confirmRemoveCat === c.id
                           ? "اضغط مرة أخرى للتأكيد"
@@ -299,10 +375,10 @@ export function Products() {
                         );
                       }}
                     >
-                      <Trash2 size={16} />
-                      {confirmRemoveCat === c.id ? "تأكيد؟" : ""}
+                      {confirmRemoveCat === c.id ? "تأكيد؟" : <Trash2 size={16} />}
                     </Button>
                   )}
+                  </div>
                 </>
               )}
             </li>
@@ -653,4 +729,4 @@ export function ProductForm({
       </Button>
     </form>
   );
-        }
+}

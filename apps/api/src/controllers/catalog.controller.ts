@@ -220,8 +220,9 @@ export const handlePostBrands: RequestHandler = route(async (req, res) =>
 
 export const handleGetProducts: RequestHandler = route(async (req, res) => {
     const q = z.string().max(200).default("").parse(req.query.q),
+      archived = z.enum(["1", "true"]).optional().parse(req.query.archived),
       where: Prisma.ProductWhereInput = {
-        status: { not: "ARCHIVED" },
+        status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
         ...(q
           ? {
               OR: [
@@ -314,13 +315,48 @@ export const handlePatchProductsById: RequestHandler = route(async (req, res) =>
 export const handlePostProductsByIdArchive: RequestHandler = route(async (req, res) => {
     const productId = uuid(req.params.id);
     await transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        include: { variants: { include: { balances: true } } },
+      });
+      assert(product, "PRODUCT_NOT_FOUND", "المنتج غير موجود.", 404);
+      assert(product.status !== "ARCHIVED", "PRODUCT_ALREADY_ARCHIVED", "المنتج مؤرشف بالفعل.");
+      const variantIds = product.variants.map((variant) => variant.id);
+      const [shipments, holds] = await Promise.all([
+        tx.shipmentItem.findMany({ where: { variantId: { in: variantIds } } }),
+        tx.stockHold.findMany({ where: { variantId: { in: variantIds } } }),
+      ]);
+      assert(
+        product.variants.every((variant) =>
+          variant.balances.every((balance) => balance.quantity === 0),
+        ) &&
+          shipments.every((item) => item.quantity === item.received) &&
+          holds.every((hold) => hold.quantity === hold.released + hold.disposed),
+        "PRODUCT_HAS_STOCK",
+        "لا يمكن أرشفة المنتج: يجب أن تكون كمية كل مقاس ولون في كل المخازن صفرًا، ولا توجد كميات قيد التحويل أو محجورة.",
+      );
       await tx.product.update({
         where: { id: productId },
         data: { status: "ARCHIVED" },
       });
       await audit(tx, actor(req).id, "PRODUCT_ARCHIVE", productId);
     });
-    res.json({ data: { ok: true } });
+    res.json({ data: { ok: true, message: "تمت أرشفة المنتج مع الاحتفاظ بسجلاته السابقة." } });
+  });
+
+export const handlePostProductsByIdRestore: RequestHandler = route(async (req, res) => {
+    const productId = uuid(req.params.id);
+    await transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: productId } });
+      assert(product, "PRODUCT_NOT_FOUND", "المنتج غير موجود.", 404);
+      assert(product.status === "ARCHIVED", "PRODUCT_NOT_ARCHIVED", "المنتج غير مؤرشف.");
+      await tx.product.update({
+        where: { id: productId },
+        data: { status: "ACTIVE" },
+      });
+      await audit(tx, actor(req).id, "PRODUCT_RESTORE", productId);
+    });
+    res.json({ data: { restored: true, message: "تمت استعادة المنتج من الأرشيف." } });
   });
 
 export const handlePostProductsByIdVariants: RequestHandler = route(async (req, res) => {
