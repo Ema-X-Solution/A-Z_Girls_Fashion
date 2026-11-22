@@ -2145,12 +2145,36 @@ tr:last-child td {
     color: #000;
   }
   .purchase-invoice tr { break-inside: avoid; }
+  .purchase-invoice tfoot { display: table-row-group; }
 }
 @media print {
-  body:has(.purchase-invoice) { background: white !important; }
+  html:has(.purchase-invoice), body:has(.purchase-invoice) { background: white !important; }
   .modal:has(.purchase-invoice) .modal-head { display: none; }
 }
 
+
+/* Cashier breakdown: sales, returns and the amount after returns */
+.cashier-performance-head, .cashier-performance-row {
+  max-width: 850px;
+  grid-template-columns: minmax(150px, 1fr) 50px repeat(3, minmax(100px, 1fr));
+  column-gap: 12px;
+}
+.cashier-net strong { color: #92763a; }
+@media (max-width: 760px) {
+  .cashier-performance-head { display: none; }
+  .cashier-performance-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 8px;
+    margin-inline: 14px;
+    padding-block: 18px;
+  }
+  .cashier-performance-row .cashier-identity { grid-column: 1 / 3; }
+  .cashier-invoices { font-size: 13px; text-align: left; }
+  .cashier-invoices::before { content: attr(data-label) " "; color: #92959c; font-size: 10px; font-weight: 400; }
+  .cashier-value { font-size: 11px; }
+  .cashier-value::before { content: attr(data-label); color: #92959c; font-size: 9px; min-height: 24px; }
+  .cashier-value strong { max-width: 100%; overflow-wrap: anywhere; }
+}
 .product-image-editor {
   display: flex;
   align-items: center;
