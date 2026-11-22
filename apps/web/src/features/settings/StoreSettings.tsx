@@ -33,9 +33,12 @@ export function StoreSettings() {
             key={query.dataUpdatedAt}
             initial={query.data?.data}
             fields={[
-              simple("name", "اسم المتجر"),
-              simple("address", "العنوان", "text", false),
-              simple("phone", ar.phone, "text", false),
+              { ...simple("name", "اسم المتجر"), maxLength: 200 },
+              {
+                ...simple("address", "العنوان", "text", false),
+                maxLength: 1000,
+              },
+              { ...simple("phone", ar.phone, "text", false), maxLength: 40 },
               simple("branchName", "اسم الفرع المطبوع", "text", false),
               simple("taxNumber", "الرقم الضريبي", "text", false),
               simple("commercialRegister", "رقم السجل التجاري", "text", false),
@@ -43,6 +46,9 @@ export function StoreSettings() {
                 key: "invoicePrefix",
                 label: "بادئة رقم الفاتورة",
                 default: "INV",
+                maxLength: 12,
+                pattern: "[A-Za-z0-9_\\-]{1,12}",
+                hint: "من 1 إلى 12 حرفًا إنجليزيًا أو رقمًا أو - أو _",
               },
               {
                 key: "currency",
@@ -54,7 +60,7 @@ export function StoreSettings() {
                 label: "المنطقة الزمنية",
                 options: [{ value: "Africa/Cairo", label: "القاهرة" }],
               },
-              simple("taxRate", "نسبة الضريبة (%)", "number"),
+              { ...simple("taxRate", "نسبة الضريبة (%)", "number"), max: 100 },
               {
                 key: "taxMode",
                 label: "طريقة احتساب الضريبة",
@@ -74,7 +80,13 @@ export function StoreSettings() {
                 default: "true",
                 required: false,
               },
-              simple("returnDays", "فترة الاسترجاع بالأيام", "number"),
+              {
+                ...simple("returnDays", "فترة الاسترجاع بالأيام", "number"),
+                min: 0,
+                max: 365,
+                step: "1",
+                hint: "عدد صحيح من 0 إلى 365 يومًا",
+              },
               {
                 key: "receiptWidth",
                 label: "عرض الإيصال",
@@ -83,23 +95,34 @@ export function StoreSettings() {
                   { value: "58", label: "58 مم" },
                 ],
               },
-              simple("receiptFooter", "رسالة الإيصال", "textarea", false),
-              simple(
-                "returnPolicy",
-                "سياسة الاستبدال والاسترجاع المطبوعة",
-                "textarea",
-                false,
-              ),
+              {
+                ...simple("receiptFooter", "رسالة الإيصال", "textarea", false),
+                maxLength: 1000,
+              },
+              {
+                ...simple(
+                  "returnPolicy",
+                  "سياسة الاستبدال والاسترجاع المطبوعة",
+                  "textarea",
+                  false,
+                ),
+                minLength: 3,
+                maxLength: 5000,
+              },
             ]}
+            error={action.error}
             busy={action.busy}
             submit={(body) =>
-              void action.run(() =>
-                patch("/settings/store", {
-                  ...body,
-                  showTaxOnInvoice: body.showTaxOnInvoice === "true",
-                  returnDays: Number(body.returnDays),
-                  receiptWidth: Number(body.receiptWidth),
-                }),
+              void action.run(
+                () =>
+                  patch("/settings/store", {
+                    ...body,
+                    showTaxOnInvoice: body.showTaxOnInvoice === "true",
+                    returnDays: Number(body.returnDays),
+                    receiptWidth: Number(body.receiptWidth),
+                  }),
+                undefined,
+                true,
               )
             }
           />
@@ -107,4 +130,4 @@ export function StoreSettings() {
       </section>
     </>
   );
-                  }
+}
