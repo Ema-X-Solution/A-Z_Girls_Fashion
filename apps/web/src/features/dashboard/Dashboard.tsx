@@ -178,17 +178,19 @@ export function Dashboard({ reports = false }: { reports?: boolean }) {
                   <div className="panel-title">
                     <div>
                       <h2>أداء الكاشير</h2>
-                      <p>الفواتير والمبيعات شامل الضريبة خلال الفترة</p>
+                      <p>المبيعات والمرتجعات شامل الضريبة، والصافي بعد خصم المرتجعات</p>
                     </div>
                   </div>
                   <div className="cashier-performance-head">
-                    <span>الكاشير</span><span>الفواتير</span><span>المبيعات بالضريبة</span>
+                    <span>الكاشير</span><span>الفواتير</span><span>المبيعات بالضريبة</span><span>المرتجعات</span><span>بعد خصم المرتجعات</span>
                   </div>
                   {d.cashiers.map((cashier: any) => (
                     <div className="cashier-performance-row" key={cashier.id}>
-                      <span>{cashier.name} <code className="cashier-code" dir="ltr">{cashier.sellerCode}</code></span>
-                      <strong>{cashier.invoices}</strong>
-                      <strong>{fm(cashier.grossSales, "latn")}</strong>
+                      <span className="cashier-identity">{cashier.name} <code className="cashier-code" dir="ltr">{cashier.sellerCode}</code></span>
+                      <strong className="cashier-invoices" data-label="الفواتير">{cashier.invoices}</strong>
+                      <span className="cashier-value" data-label="المبيعات بالضريبة"><strong>{fm(cashier.salesWithTax, "latn")}</strong></span>
+                      <span className="cashier-value" data-label="المرتجعات"><strong>{fm(cashier.returnsWithTax, "latn")}</strong></span>
+                      <span className="cashier-value cashier-net" data-label="بعد خصم المرتجعات"><strong>{fm(cashier.grossSales, "latn")}</strong></span>
                     </div>
                   ))}
                 </section>
