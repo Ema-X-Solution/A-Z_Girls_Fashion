@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Plus, Search, X, Printer, Pencil, Trash2, Check } from "lucide-react";
 import { ProductImage, ProductImageEditor, ProductImagePicker } from "../shared/ProductImage";
 import { patch, post } from "../../api";
-import { ar, formatMoney as fm } from "../../i18n";
+import { formatDigits, ar, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { BarcodeLabels } from "../barcodes/BarcodeLabels";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
@@ -370,7 +370,7 @@ export function Products() {
                 { label: ar.sku, render: (r) => r.sku },
                 {
                   label: "المقاس / اللون",
-                  render: (r) => Object.values(r.options).join(" / ") || "—",
+                  render: (r) => formatDigits(Object.values(r.options).join(" / ")) || "—",
                 },
                 { label: ar.barcode, render: (r) => <code>{r.barcode}</code> },
                 { label: ar.price, render: (r) => fm(r.price) },
@@ -399,7 +399,7 @@ export function Products() {
                 {
                   label: "المتغير",
                   render: (r) =>
-                    Object.values(r.variant.options).join(" / ") || r.variant.sku,
+                    formatDigits(Object.values(r.variant.options).join(" / ")) || r.variant.sku,
                 },
                 {
                   label: "المخزن",
@@ -455,7 +455,7 @@ export function Products() {
                     label: "المتغير",
                     options: selected.variants.map((v: Row) => ({
                       value: v.id,
-                      label: `${v.sku} ${Object.values(v.options).join(" / ")} (الحد الأدنى الحالي: ${v.minStock})`,
+                      label: `${v.sku} ${formatDigits(Object.values(v.options).join(" / "))} (الحد الأدنى الحالي: ${v.minStock})`,
                     })),
                   },
                   simple("price", "سعر البيع الجديد", "number", false),
@@ -653,4 +653,4 @@ export function ProductForm({
       </Button>
     </form>
   );
-}
+        }
