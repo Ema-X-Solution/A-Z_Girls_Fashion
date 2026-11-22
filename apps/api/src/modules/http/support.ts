@@ -11,7 +11,7 @@ export const route =
 
 export const uuid = (v: unknown) => id.parse(v);
 
-export function page(query: any) {
+export function page(query: { readonly limit?: unknown; readonly offset?: unknown }) {
   return {
     take: z.coerce
       .number()

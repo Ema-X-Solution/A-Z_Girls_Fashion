@@ -68,6 +68,7 @@ export function LoginPage({ onError }: LoginPageProps) {
               <input
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
+                aria-label={ar.password}
                 {...register("password")}
                 aria-invalid={!!errors.password}
               />

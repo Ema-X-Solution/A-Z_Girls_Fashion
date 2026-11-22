@@ -841,8 +841,8 @@ export function registerCompletionTests(get: () => any) {
         await writeFile(`test-results/report-${kind}.pdf`, pdf.body);
       }
     });
-    it("operates expense approval, report PDF export, admin screens, shipping and two-device cloud carts in the browser", async () => {
-      const { app, manager, send, db, resetFixtureQuota } = get();
+    it("operates expense approval, report PDF export, admin screens and shipping while POS excludes cloud carts", async () => {
+      const { app, manager, send, resetFixtureQuota } = get();
       await resetFixtureQuota();
       const f = await fixture();
       const pending = await send(manager, "/expenses", {
@@ -1013,93 +1013,9 @@ export function registerCompletionTests(get: () => any) {
           .getByRole("option")
           .first()
           .click();
-        const saveResponse = page.waitForResponse(
-          (r) =>
-            r.url().endsWith("/api/shared-carts") &&
-            r.request().method() === "POST",
-        );
-        await page
-          .getByRole("button", { name: "تعليق ومزامنة للخادم", exact: true })
-          .click();
-        const saved = await saveResponse;
-        expect(saved.status()).toBe(201);
-        const sharedId = (await saved.json()).data.id;
-        await browserExpect(page.locator(".cart-line")).toHaveCount(0);
-        const c2 = await context(),
-          page2 = await c2.newPage();
-        page2.on("pageerror", (e) => errors.push(e.message));
-        await page2.goto(url + "/pos");
-        await page2
-          .getByRole("button", { name: "السلال المشتركة", exact: true })
-          .click();
-        await page2
-          .getByRole("dialog")
-          .getByRole("button", { name: "استئناف", exact: true })
-          .first()
-          .click();
-        await browserExpect(page2.locator(".cart-line")).toHaveCount(1);
-        await browserExpect(
-          page2.getByRole("button", { name: "إتمام البيع", exact: true }),
-        ).toBeEnabled();
-        await page
-          .getByRole("button", { name: "السلال المشتركة", exact: true })
-          .click();
-        const refused = page.waitForResponse(
-          (r) =>
-            r.url().endsWith(`/shared-carts/${sharedId}/claim`) &&
-            r.request().method() === "POST",
-        );
-        await page
-          .getByRole("dialog")
-          .getByRole("button", { name: "استئناف", exact: true })
-          .first()
-          .click();
-        expect((await refused).status()).toBe(409);
-        await page.keyboard.press("Escape");
-        await page2
-          .locator(".pos-cart-scroll details")
-          .evaluateAll((nodes) =>
-            nodes.forEach((node) => ((node as HTMLDetailsElement).open = true)),
-          );
-        await page2
-          .getByLabel("ملاحظات", { exact: true })
-          .fill("تعديل تمت مزامنته من الجهاز الثاني");
-        await browserExpect
-          .poll(async () =>
-            String(
-              (
-                await db.sharedCart.findUniqueOrThrow({
-                  where: { id: sharedId },
-                })
-              ).draft.notes,
-            ),
-          )
-          .toBe("تعديل تمت مزامنته من الجهاز الثاني");
-        await page2.screenshot({
-          path: "test-results/completion-cloud-cart.png",
-          fullPage: true,
-        });
-        await page2
-          .getByRole("button", { name: "حفظ وتحرير السلة للخادم", exact: true })
-          .click();
-        await browserExpect(page2.locator(".cart-line")).toHaveCount(0);
-        await page
-          .getByRole("button", { name: "السلال المشتركة", exact: true })
-          .click();
-        await page
-          .getByRole("dialog")
-          .getByRole("button", { name: "استئناف", exact: true })
-          .first()
-          .click();
+        await browserExpect(page.getByRole("button", { name: "تعليق ومزامنة للخادم", exact: true })).toHaveCount(0);
+        await browserExpect(page.getByRole("button", { name: "السلال المشتركة", exact: true })).toHaveCount(0);
         await browserExpect(page.locator(".cart-line")).toHaveCount(1);
-        await page
-          .locator(".pos-cart-scroll details")
-          .evaluateAll((nodes) =>
-            nodes.forEach((node) => ((node as HTMLDetailsElement).open = true)),
-          );
-        await browserExpect(
-          page.getByLabel("ملاحظات", { exact: true }),
-        ).toHaveValue("تعديل تمت مزامنته من الجهاز الثاني");
         expect(errors).toEqual([]);
       } finally {
         await browser.close();

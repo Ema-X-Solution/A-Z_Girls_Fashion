@@ -484,7 +484,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const p = await send(manager, "/purchases", {
       supplierId: supplier.id,
       locationId: location.id,
-      items: [{ variantId: variant.id, quantity: 3, unitCost: "40" }],
+      items: [{ variantId: variant.id, quantity: 3, unitCost: "40", salePrice: "100.00" }],
     });
     expect(p.status).toBe(201);
     purchase = p.body.data;
@@ -869,8 +869,8 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await browserExpect(
         page.getByRole("heading", { name: /أهلاً/ }),
       ).toBeVisible();
-      await openSidebarPage(page, "المبيعات");
-      await page.getByPlaceholder("ابحث برقم الفاتورة").fill(invoice);
+      await openSidebarPage(page, "فواتير المبيعات");
+      await page.getByPlaceholder("ابحث برقم الفاتورة أو باركود المنتج...").fill(invoice);
       await page.getByRole("button", { name: "عرض الفاتورة" }).click();
       await page.getByRole("button", { name: "إرجاع منتجات" }).click();
       await page.locator(".return-line input[type=number]").fill("1");
@@ -1245,8 +1245,9 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const purchase = await send(manager, "/purchases", {
       supplierId: accountSupplier.id,
       locationId: location.id,
-      items: [{ variantId: accountVariant.id, quantity: 3, unitCost: "40" }],
+      items: [{ variantId: accountVariant.id, quantity: 3, unitCost: "40", salePrice: "90" }],
     });
+    expect(purchase.status).toBe(201);
     await send(manager, `/purchases/${purchase.body.data.id}/approve`, {});
     const received = await send(
       manager,
@@ -2381,19 +2382,18 @@ describe.sequential("real PostgreSQL retail workflows", () => {
           .getByRole("button", { name: "إضافة منتج", exact: true })
           .click();
         const form = page.getByRole("dialog");
-        const sku = withImage ? "BROWSER-IMAGE" : "BROWSER-NO-IMAGE";
         await form
           .locator('input[name="nameAr"]')
           .fill("منتج اختبار صورة اختيارية");
-        await form.locator('input[name="sku"]').fill(sku);
+        await browserExpect(form.locator('input[name="sku"]')).toHaveCount(0);
         await form
           .locator('select[name="categoryId"]')
           .selectOption({ index: 1 });
         await form
           .locator(".variant-row input")
           .nth(0)
-          .fill(sku + "-V1");
-        await form.locator(".variant-row input").nth(3).fill("15");
+          .fill("M");
+        await form.locator(".variant-row input").nth(1).fill("Black");
         if (withImage) {
           await form
             .getByLabel("صورة المنتج (اختياري)", { exact: true })
@@ -2427,6 +2427,9 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         const response = await creation;
         expect(response.status()).toBe(201);
         const body = await response.json();
+        expect(body.data.sku).toMatch(/^PRD-/);
+        expect(body.data.variants[0].sku).toMatch(/^VAR-/);
+        expect(body.data.variants[0].barcode).toMatch(/^20\d{10}$/);
         if (withImage)
           expect(body.data.imageUrl).toMatch(/^\/api\/brand-assets\//);
         else expect(body.data.imageUrl).toBeNull();
@@ -2607,11 +2610,9 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         "94.56",
       );
       await browserExpect(page.locator(".receipt-preview")).toContainText(
-        "جميع أصناف العرض",
+        "All promotion items",
       );
-      await page
-        .locator(".receipt-preview img")
-        .evaluate((img: HTMLImageElement) => img.decode());
+      await browserExpect(page.locator(".receipt-preview .receipt-side-barcode")).toBeVisible();
       await page
         .locator(".receipt-preview")
         .screenshot({ path: "test-results/promotion-receipt.png" });
@@ -2798,7 +2799,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         "CR-1042",
         "CR-2118",
         "SELLER-001",
-        "مشمولة بالسعر",
+        "included",
       ])
         await browserExpect(receipt).toContainText(value);
       const saleId = (await receipt.getAttribute("data-sale-id"))!,
@@ -2903,7 +2904,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .click();
       await openSidebarPage(page, "المبيعات");
       await page
-        .getByPlaceholder("ابحث برقم الفاتورة")
+        .getByPlaceholder("ابحث برقم الفاتورة أو باركود المنتج...")
         .fill(mixed.receiptNumber!);
       await page
         .getByRole("button", { name: "عرض الفاتورة", exact: true })
@@ -2922,7 +2923,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByRole("button", { name: "اعتماد الاستبدال", exact: true })
         .click();
       await browserExpect(page.locator(".receipt-preview")).toContainText(
-        "فرق السعر المسترد",
+        "Price difference refunded",
       );
       await browserExpect(page.locator(".receipt-preview")).toContainText(
         "130.00",
@@ -3860,7 +3861,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByRole("button", { name: "إتمام البيع", exact: true })
         .click();
       await browserExpect(page.locator(".receipt-preview")).toContainText(
-        "نقاط مستخدمة: 5",
+        "Points redeemed: 5",
       );
       await page.screenshot({
         path: "test-results/loyalty-receipt.png",
