@@ -39,7 +39,7 @@ describe("round 5 medium regressions", () => {
         name: "TEST",
         email: "test@example.test",
         roles: [],
-        permissions: ["sales.create"],
+        permissions: ["sales.create", "sales.discount"],
         discountLimit: "10",
       };
       next();

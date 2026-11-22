@@ -35,6 +35,13 @@ export async function quoteSale(
   input: z.infer<typeof checkoutSchema>,
   options: { checkDiscount?: boolean } = {},
 ) {
+  const hasManualDiscount = D(input.discount).gt(0) || input.items.some((item) => D(item.discount ?? "0").gt(0));
+  assert(
+    !hasManualDiscount || actor.permissions.includes("sales.discount"),
+    "DISCOUNT_FORBIDDEN",
+    "لا تملك صلاحية إضافة خصم يدوي على الفاتورة أو الأصناف. اطلب من المسؤول منح الصلاحية.",
+    403,
+  );
   const ids = input.items.map((i) => i.variantId);
   assert(
     new Set(ids).size === ids.length,
