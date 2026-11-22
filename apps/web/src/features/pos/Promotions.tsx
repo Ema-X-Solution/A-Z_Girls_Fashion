@@ -1,3 +1,4 @@
+import { displayLocale } from "../../i18n";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, patch } from "../../api";
@@ -129,8 +130,8 @@ export function Promotions() {
                     : "كل المنتجات"}
                 </td>
                 <td>
-                  {new Date(r.startsAt).toLocaleDateString("ar-EG")} —{" "}
-                  {new Date(r.endsAt).toLocaleDateString("ar-EG")}
+                  {new Date(r.startsAt).toLocaleDateString(displayLocale)} —{" "}
+                  {new Date(r.endsAt).toLocaleDateString(displayLocale)}
                 </td>
                 <td>
                   {!r.active
