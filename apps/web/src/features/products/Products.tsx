@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, X, Printer } from "lucide-react";
+import { Plus, Search, X, Printer, Pencil, Trash2, Check } from "lucide-react";
 import { ProductImage, ProductImageEditor, ProductImagePicker } from "../shared/ProductImage";
 import { patch, post } from "../../api";
 import { ar, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { BarcodeLabels } from "../barcodes/BarcodeLabels";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
-import { useAction } from "../../app/notifications";
+import { useAction, notify } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
 import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
@@ -31,8 +31,12 @@ export function Products() {
     action = useAction(),
     create = useAllowed("products.create"),
     edit = useAllowed("products.update"),
-    changePrice = useAllowed("products.change_price");
+    changePrice = useAllowed("products.change_price"),
+    archive = useAllowed("products.archive");
   const [catFormKey, setCatFormKey] = useState(0);
+  const [editingCat, setEditingCat] = useState<string | null>(null),
+    [editingName, setEditingName] = useState(""),
+    [confirmRemoveCat, setConfirmRemoveCat] = useState<string | null>(null);
   return (
     <>
       <Header title={ar.products} subtitle="منتجاتك، بكل مقاس ولون وتفصيلة">
@@ -159,7 +163,85 @@ export function Products() {
       >
         <ul className="list">
           {categories.data?.data.map((c: Row) => (
-            <li key={c.id}>{c.name}</li>
+            <li key={c.id}>
+              {editingCat === c.id ? (
+                <>
+                  <input
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    aria-label={`اسم القسم ${c.name}`}
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={action.busy || !editingName.trim()}
+                    onClick={() =>
+                      void action.run(
+                        () =>
+                          patch(`/categories/${c.id}`, {
+                            name: editingName.trim(),
+                          }),
+                        () => setEditingCat(null),
+                      )
+                    }
+                  >
+                    <Check size={16} />
+                    حفظ
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setEditingCat(null)}
+                  >
+                    إلغاء
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span>{c.name}</span>
+                  {edit && (
+                    <Button
+                      variant="ghost"
+                      title="تعديل اسم القسم"
+                      onClick={() => {
+                        setEditingCat(c.id);
+                        setEditingName(c.name);
+                        setConfirmRemoveCat(null);
+                      }}
+                    >
+                      <Pencil size={16} />
+                    </Button>
+                  )}
+                  {archive && (
+                    <Button
+                      variant="ghost"
+                      title={
+                        confirmRemoveCat === c.id
+                          ? "اضغط مرة أخرى للتأكيد"
+                          : "حذف أو أرشفة القسم"
+                      }
+                      onClick={() => {
+                        if (confirmRemoveCat !== c.id) {
+                          setConfirmRemoveCat(c.id);
+                          return;
+                        }
+                        void action.run(
+                          async () => {
+                            const r = await post(
+                              `/categories/${c.id}/remove`,
+                              {},
+                            );
+                            if (r?.data?.message) notify(r.data.message);
+                          },
+                          () => setConfirmRemoveCat(null),
+                        );
+                      }}
+                    >
+                      <Trash2 size={16} />
+                      {confirmRemoveCat === c.id ? "تأكيد؟" : ""}
+                    </Button>
+                  )}
+                </>
+              )}
+            </li>
           ))}
         </ul>
         {create && (
