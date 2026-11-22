@@ -43,7 +43,26 @@ export const handlePostPurchases: RequestHandler = route(async (req, res) => {
           .max(200),
       })
       .parse(req.body);
+    const canChangePrice = actor(req).permissions.includes("products.change_price");
     const p = await transaction(async (tx) => {
+      // Validate every line before any write, using the same serializable transaction.
+      if (!canChangePrice) {
+        const variants = await tx.productVariant.findMany({
+          where: { id: { in: input.items.map((item) => item.variantId) } },
+          select: { id: true, price: true },
+        });
+        const prices = new Map(variants.map((variant) => [variant.id, variant.price]));
+        for (const item of input.items) {
+          const price = prices.get(item.variantId);
+          assert(price, "VARIANT_NOT_FOUND", "الصنف غير موجود. حدّث القائمة وحاول مرة أخرى.", 404);
+          assert(
+            price.equals(item.salePrice),
+            "PRICE_CHANGE_FORBIDDEN",
+            "لا تملك صلاحية تغيير سعر البيع. استخدم سعر البيع الحالي للصنف أو اطلب من المسؤول تعديل السعر.",
+            403,
+          );
+        }
+      }
       // Extract salePrice and minStock from items before inserting (not DB columns on PurchaseItem)
       const itemsForCreate = input.items.map(
         ({ salePrice: _sp, minStock: _ms, ...item }) => item,
@@ -60,7 +79,7 @@ export const handlePostPurchases: RequestHandler = route(async (req, res) => {
       // Update variant sale prices and dynamic minStock where provided
       for (const item of input.items) {
         const updateData: Record<string, any> = {};
-        if (item.salePrice !== undefined) updateData.price = item.salePrice;
+        if (canChangePrice) updateData.price = item.salePrice;
         if (item.minStock !== undefined) updateData.minStock = item.minStock;
         if (Object.keys(updateData).length > 0) {
           await tx.productVariant.update({
