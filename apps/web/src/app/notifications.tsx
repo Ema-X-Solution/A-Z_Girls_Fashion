@@ -22,6 +22,10 @@ export function readableError(error: unknown) {
     VALIDATION: "راجع الحقول المطلوبة والقيم المدخلة.",
     FORBIDDEN: "ليس لديك صلاحية تنفيذ هذه العملية.",
     NOT_FOUND: "السجل المطلوب غير موجود.",
+    P2002: "هذه القيمة مسجلة بالفعل. استخدم قيمة أخرى.",
+    ROLE_NAME_EXISTS: "اسم الدور مسجل بالفعل. اختر اسمًا آخر.",
+    CUSTOMER_PHONE_EXISTS: "رقم الهاتف مسجل بالفعل لعميل آخر.",
+    APPROVER_LIMIT: "الخصم المطلوب أكبر من حد موافقتك. يلزم مراجع بحد خصم أعلى.",
   };
   const labels: Record<string, string> = {
     password: "كلمة المرور",
@@ -90,22 +94,28 @@ export function Toasts() {
 
 export function useAction() {
   const client = useQueryClient(),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
   return {
     busy,
-    run: async (fn: () => Promise<unknown>, done?: () => void) => {
+    error,
+    clearError: () => setError(""),
+    run: async (fn: () => Promise<unknown>, done?: () => void, inlineError = false) => {
       if (busy) return;
       setBusy(true);
+      setError("");
       try {
         const result = await fn();
         await client.invalidateQueries();
         notify(typeof result === "string" && result ? result : ar.success);
         done?.();
       } catch (e) {
-        notify(readableError(e), true);
+        const message = readableError(e);
+        setError(message);
+        if (!inlineError) notify(message, true);
       } finally {
         setBusy(false);
       }
     },
   };
-    }
+}
