@@ -286,6 +286,25 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const list = await owner.agent.get("/api/categories");
     const names = list.body.data.map((c: any) => c.name);
     expect(names).not.toContain("Lifecycle with product");
+    const archivedList = await owner.agent.get("/api/categories?archived=1");
+    const archivedNames = archivedList.body.data.map((c: any) => c.name);
+    expect(archivedNames).toContain("Lifecycle with product");
+    const restored = await send(
+      owner,
+      `/categories/${withProduct.body.data.id}/restore`,
+      {},
+    );
+    expect(restored.status).toBe(200);
+    expect(restored.body.data.restored).toBe(true);
+    const restoreAgain = await send(
+      owner,
+      `/categories/${withProduct.body.data.id}/restore`,
+      {},
+    );
+    expect(restoreAgain.status).toBe(409);
+    const activeList = await owner.agent.get("/api/categories");
+    const activeNames = activeList.body.data.map((c: any) => c.name);
+    expect(activeNames).toContain("Lifecycle with product");
     await db.productVariant.deleteMany({
       where: { productId: product.body.data.id },
     });
@@ -4416,3 +4435,4 @@ registerCompletionTests(() => ({
 }));
 
 registerRound2Tests(() => ({ db, app, owner, manager, cashier, send, login, resetFixtureQuota, password, origin: () => process.env.APP_ORIGIN ?? origin, availablePort }));
+
