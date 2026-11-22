@@ -377,7 +377,7 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
           Object.entries(row).map(([k, v]) => [
             k,
             v instanceof Date
-              ? new Intl.DateTimeFormat("ar-EG", {
+              ? new Intl.DateTimeFormat("ar-EG-u-nu-latn", {
                   timeZone: "Africa/Cairo",
                   dateStyle: "short",
                   timeStyle: "short",
