@@ -1,218 +1,433 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, post, useSession } from "../../api";
-import { Button } from "../../components/ui/button";
-import { Header, ErrorMessage, Field, Modal } from "../shared/Controls";
-import { displayLocale, formatDigits, formatMoney } from "../../i18n";
-import { approvalError } from "./approval-messages";
-const labels: Record<string, string> = {
-  PENDING: "قيد المراجعة",
-  APPROVED: "موافق عليه",
-  REJECTED: "مرفوض",
-  CONSUMED: "تم البيع بالموافقة",
+import { Plus } from "lucide-react";
+import { patch, post, useSession } from "../../api";
+import { ar, formatDate, formatMoney as fm, statuses, roleLabels } from "../../i18n";
+
+const auditActions: Record<string, string> = {
+  SALE: "إنشاء فاتورة بيع",
+  REFUND: "مرتجع نقدي",
+  CHECKOUT_CANCELLED: "إلغاء فاتورة من نقطة البيع",
+  CUSTOMER_CREATE: "إضافة عميل",
+  PURCHASE_RECEIVE: "استلام مشتريات",
+  SUPPLIER_PAYMENT: "سداد مورد",
+  SUPPLIER_RETURN: "مرتجع مورد",
+  ROLE_CREATE: "إنشاء دور صلاحيات",
+  ROLE_UPDATE: "تعديل دور صلاحيات",
+  DISCOUNT_APPROVAL_USED: "استخدام موافقة خصم",
+  LOGIN: "تسجيل دخول",
+  LOGIN_FAILED: "محاولة دخول فاشلة",
+  SHIFT_OPEN: "فتح وردية",
+  SHIFT_CLOSE: "إغلاق وردية",
+  CASH_MOVEMENT: "حركة نقدية",
+  NET_EXCHANGE: "استبدال صافي",
+  CATEGORY_RENAME: "إعادة تسمية قسم",
+  CATEGORY_ARCHIVE: "أرشفة قسم",
+  CATEGORY_DELETE: "حذف قسم",
+  CATEGORY_RESTORE: "استعادة قسم من الأرشيف",
+  PRODUCT_CREATE: "إضافة منتج",
+  PRODUCT_UPDATE: "تعديل منتج",
+  PRODUCT_ARCHIVE: "أرشفة منتج",
+  PRODUCT_IMAGE_UPDATED: "تحديث صورة منتج",
+  VARIANT_CREATE: "إضافة متغير منتج",
+  VARIANT_UPDATE: "تعديل متغير منتج",
+  BARCODE_LABELS_PREPARE: "تجهيز ملصقات باركود",
+  BRANCH_CREATE: "إضافة فرع",
+  BRANCH_UPDATE: "تعديل فرع",
+  REGISTER_CREATE: "إضافة جهاز كاشير",
+  REGISTER_UPDATE: "تعديل جهاز كاشير",
+  STOCK_LOCATION: "تعديل موقع مخزون",
+  COUNT_OPEN: "فتح جلسة جرد",
+  COUNT_APPROVE: "اعتماد جرد",
+  COUNT_CANCEL: "إلغاء جرد",
+  QUARANTINE_CREATE: "إضافة حجر مخزون",
+  QUARANTINE_RESOLVE: "معالجة حجر مخزون",
+  SHIPMENT_SEND: "إرسال شحنة",
+  SHIPMENT_RECEIVE: "استلام شحنة",
+  PURCHASE_CREATE: "إنشاء أمر شراء",
+  PURCHASE_APPROVE: "اعتماد أمر شراء",
+  SUPPLIER_CREATE: "إضافة مورد",
+  SUPPLIER_UPDATE: "تعديل مورد",
+  CUSTOMER_UPDATE: "تعديل عميل",
+  CUSTOMER_DISCOUNT: "خصم عميل",
+  DISCOUNT_REQUESTED: "طلب موافقة خصم",
+  EXPENSE_DECISION: "قرار مصروف",
+  EXPENSE_CATEGORY_CREATE: "إضافة فئة مصروف",
+  EXPENSE_ATTACHMENT: "إرفاق مستند مصروف",
+  STORE_SETTINGS: "تعديل إعدادات المتجر",
+  LOYALTY_SETTINGS: "تعديل إعدادات الولاء",
+  LOGO_UPDATED: "تحديث الشعار",
+  USER_CREATE: "إضافة مستخدم",
+  USER_UPDATE: "تعديل مستخدم",
+  USER_STATUS: "تغيير حالة مستخدم",
+  USER_ROLE_CHANGE: "تغيير دور مستخدم",
+  USER_SESSIONS_REVOKE: "إنهاء جلسات مستخدم",
+  SESSION_REVOKE: "إنهاء جلسة",
+  CREDENTIAL_RESET: "إعادة تعيين بيانات دخول",
 };
-export function DiscountApprovals() {
-  const user = useSession((s) => s.user)!,
-    client = useQueryClient(),
-    [selected, setSelected] = useState<any>(null),
-    [note, setNote] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const query = useQuery({
-    queryKey: ["discount-approvals"],
-    queryFn: () => api("/discount-approvals"),
-    refetchInterval: 5000,
-  });
-  const allowed = user.permissions.includes("sales.discount_approve");
-  async function decide(decision: string) {
-    setBusy(true);
-    setError("");
-    try {
-      await post(`/discount-approvals/${selected.id}/decision`, {
-        decision,
-        note,
-      });
-      setSelected(null);
-      await client.invalidateQueries();
-    } catch (e) {
-      setError(approvalError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+import { Button } from "../../components/ui/button";
+import { CustomerHistory } from "../customers/CustomerHistory";
+import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import { useAction } from "../../app/notifications";
+import { useData } from "../../hooks/useData";
+import { Loading, ErrorState, Modal, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import { type FieldSpec, EntryForm, simple } from "../../components/application/EntryForm";
+import { nav } from "../../app/SidebarNavigation";
+import { type Row } from "../../app/types";
+
+export function Records({ kind }: { kind: string }) {
+  const [search, setSearch] = useState("");
+  const { debounced: debouncedSearch, searchPending } =
+    useDebouncedSearch(search);
+  const [editingRecord, setEditingRecord] = useState<Row | null>(null);
+  const [historyCustomer, setHistoryCustomer] = useState<Row | null>(null);
+  const [offset, setOffset] = useState(0),
+    [open, setOpen] = useState(false),
+    query = useData(
+      `/${kind}?offset=${offset}${kind === "customers" ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`,
+      true,
+      kind === "customers" && searchPending,
+    ),
+    roles = useData("/roles", kind === "users"),
+    shift = useData("/shifts/current", kind === "expenses"),
+    action = useAction(),
+    user = useSession((s) => s.user)!,
+    canCreate =
+      kind !== "audit-logs" &&
+      user.permissions.includes(
+        (
+          {
+            suppliers: "suppliers.manage",
+            customers: "customers.manage",
+            expenses: "expenses.create",
+            users: "users.manage",
+          } as Row
+        )[kind],
+      );
+  const fields: FieldSpec[] =
+    kind === "suppliers"
+      ? [
+          simple("name", ar.name),
+          simple("phone", ar.phone),
+          simple("address", "العنوان", "text", false),
+          simple("openingBalance", "الرصيد الافتتاحي", "number"),
+        ]
+      : kind === "customers"
+        ? [
+            simple("name", "الاسم (اختياري)", "text", false),
+            simple("phone", ar.phone, "tel"),
+            simple("email", ar.email, "email", false),
+            simple("address", "العنوان", "text", false),
+            simple("notes", ar.notes, "textarea", false),
+          ]
+        : kind === "expenses"
+          ? [
+              {
+                key: "category",
+                label: ar.category,
+                options: [
+                  "إيجار",
+                  "كهرباء",
+                  "إنترنت",
+                  "رواتب",
+                  "نقل",
+                  "تغليف",
+                  "صيانة",
+                  "تسويق",
+                  "أخرى",
+                ].map((value) => ({ value, label: value })),
+              },
+              simple("amount", ar.amount, "number"),
+              {
+                key: "method",
+                label: "طريقة الدفع",
+                options: [
+                  { value: "CASH", label: ar.cash },
+                  { value: "BANK", label: ar.bank },
+                  { value: "WALLET", label: ar.wallet },
+                  { value: "CARD", label: ar.card },
+                ],
+              },
+              simple("description", ar.description, "textarea"),
+            ]
+          : [
+              simple("name", ar.name),
+              simple("email", ar.email, "email"),
+              {
+                key: "password",
+                label: editingRecord
+                  ? "كلمة المرور الجديدة (اتركه فارغاً للإبقاء على الحالية)"
+                  : "كلمة المرور (8 أحرف على الأقل)",
+                type: "password",
+                required: !editingRecord,
+              },
+              {
+                key: "roleId",
+                label: "الدور",
+                options:
+                  roles.data?.data.map((r: Row) => ({
+                    value: r.id,
+                    label: roleLabels[r.name] ?? r.name,
+                  })) ?? [],
+              },
+              simple("discountLimit", "حد الخصم (%)", "number"),
+            ];
+  const columns =
+    kind === "audit-logs"
+      ? [
+          { label: ar.date, render: (r: Row) => formatDate(r.createdAt) },
+          { label: "الإجراء", render: (r: Row) => auditActions[r.action] ?? r.action },
+          {
+            label: "المستخدم",
+            render: (r: Row) => (
+              <code>{r.userId?.slice(0, 8) ?? "النظام"}</code>
+            ),
+          },
+          { label: "المرجع", render: (r: Row) => <code>{r.reference}</code> },
+        ]
+      : kind === "expenses"
+        ? [
+            { label: ar.date, render: (r: Row) => formatDate(r.date) },
+            { label: ar.category, render: (r: Row) => r.category },
+            { label: ar.description, render: (r: Row) => r.description },
+            { label: ar.amount, render: (r: Row) => fm(r.amount) },
+            { label: "الدفع", render: (r: Row) => statuses[r.method] },
+          ]
+        : [
+            {
+              label: ar.name,
+              render: (r: Row) => (
+                <strong>
+                  {r.name || (kind === "customers" ? "بدون اسم" : "—")}
+                </strong>
+              ),
+            },
+            {
+              label: kind === "users" ? ar.email : ar.phone,
+              render: (r: Row) =>
+                kind === "users" ? (
+                  r.email
+                ) : (
+                  <bdi dir="ltr" className="customer-phone">
+                    {r.phone}
+                  </bdi>
+                ),
+            },
+            ...(kind === "users"
+              ? [
+                  {
+                    label: "الأدوار",
+                    render: (r: Row) =>
+                      r.roles
+                        .map(
+                          (v: Row) =>
+                            roleLabels[v.role.name] ?? v.role.name,
+                        )
+                        .join(" / "),
+                  },
+                  {
+                    label: ar.status,
+                    render: (r: Row) => (
+                      <Badge value={r.active ? "نشط" : "معطّل"} />
+                    ),
+                  },
+                  {
+                    label: ar.actions,
+                    render: (r: Row) => (
+                      <div
+                        className="inline-actions"
+                        style={{ display: "flex", gap: "0.5rem" }}
+                      >
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setEditingRecord({
+                              id: r.id,
+                              name: r.name,
+                              email: r.email,
+                              roleId: r.roles?.[0]?.role?.id ?? "",
+                              discountLimit: r.discountLimit,
+                            });
+                            action.clearError();
+                            setOpen(true);
+                          }}
+                        >
+                          تعديل
+                        </Button>
+                        {!r.roles.some((v: Row) => v.role.name === "OWNER") && (
+                          <Button
+                            variant="outline"
+                            disabled={action.busy}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  "تغيير حالة المستخدم وإلغاء جلساته؟",
+                                )
+                              )
+                                void action.run(() =>
+                                  patch(`/users/${r.id}/status`, {
+                                    active: !r.active,
+                                  }),
+                                );
+                            }}
+                          >
+                            {r.active ? "تعطيل" : "تفعيل"}
+                          </Button>
+                        )}
+                      </div>
+                    ),
+                  },
+                ]
+              : [
+                  { label: "العنوان", render: (r: Row) => r.address || "—" },
+                  ...(kind === "customers"
+                    ? [
+                        {
+                          label: ar.actions,
+                          render: (r: Row) => (
+                            <div className="head-actions">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingRecord(r);
+                                  action.clearError();
+                            setOpen(true);
+                                }}
+                              >
+                                تعديل
+                              </Button>
+                              {user.permissions.some((p) =>
+                                ["sales.view_all", "sales.view_own"].includes(
+                                  p,
+                                ),
+                              ) && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setHistoryCustomer(r)}
+                                >
+                                  سجل العميل
+                                </Button>
+                              )}
+                            </div>
+                          ),
+                        },
+                      ]
+                    : []),
+                ]),
+          ];
   return (
     <>
       <Header
-        title="موافقات الخصومات"
-        subtitle={
-          allowed
-            ? `راجع الخصم والسبب قبل الاعتماد. حد موافقتك ${user.discountLimit}%.`
-            : "طلباتك للخصومات الاستثنائية ونتيجة مراجعة المدير."
-        }
-      />
-      <ErrorMessage
-        message={
-          !selected ? error || (query.error instanceof Error ? query.error.message : "") : ""
-        }
-      />
-      <section className="panel table-wrap">
-        <table>
-          <thead>
-            <tr>
-              {[
-                "الكاشير",
-                "سبب الطلب",
-                "قبل الخصم",
-                "الخصم",
-                "المستحق",
-                "الحالة",
-                "المراجع",
-                "الإجراءات",
-              ].map((t) => (
-                <th key={t}>{t}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {query.data?.data.map((r: any) => (
-              <tr key={r.id}>
-                <td>{r.requesterName}</td>
-                <td style={{ whiteSpace: "normal", maxWidth: 240 }}>
-                  {r.reason}
-                </td>
-                <td>{formatMoney(r.subtotal)}</td>
-                <td>{formatMoney(r.discount)}</td>
-                <td>{formatMoney(r.total)}</td>
-                <td>
-                  {r.status !== "CONSUMED" && new Date(r.expiresAt) < new Date()
-                    ? "انتهت الصلاحية"
-                    : labels[r.status]}
-                </td>
-                <td>{r.approverName || "—"}</td>
-                <td>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setError("");
-                      setSelected(r);
-                      setNote("");
-                    }}
-                  >
-                    مراجعة الطلب
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!query.data?.data.length && (
-          <p className="empty">
-            {query.isLoading ? "جارٍ تحميل الطلبات..." : "لا توجد طلبات خصم."}
-          </p>
-        )}
-      </section>
-      <Modal
-        title="مراجعة الخصم"
-        open={!!selected}
-        error={error}
-        close={() => {
-          if (!busy) setSelected(null);
-        }}
+        title={nav.find((n) => n.path === `/${kind}`)?.title ?? ""}
+        subtitle="بيانات محفوظة ومتصلة بعمليات متجرك"
       >
-        {selected && (
+        {canCreate && (
+          <Button
+            onClick={() => {
+              setEditingRecord(null);
+              action.clearError();
+              setOpen(true);
+            }}
+          >
+            <Plus size={18} />
+            {ar.add}
+          </Button>
+        )}
+      </Header>
+      <section className="panel">
+        {kind === "customers" && (
+          <div className="toolbar">
+            <input
+              aria-label="بحث العملاء"
+              dir="ltr"
+              style={{ textAlign: "right" }}
+              placeholder="ابحث بالاسم أو رقم الهاتف"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </div>
+        )}
+        {query.isLoading ? (
+          <Loading />
+        ) : query.error ? (
+          <ErrorState error={query.error} retry={() => void query.refetch()} />
+        ) : (
           <>
-            <p>الكاشير: {selected.requesterName}</p>
-            <p>سبب الطلب: {selected.reason}</p>
-            {selected.input.displayPromotion && (
-              <p>
-                العرض التلقائي: {selected.input.displayPromotion.name} — خصم{" "}
-                {formatMoney(selected.input.automaticDiscount)}. الخصم اليدوي
-                المطلوب اعتماده: {formatMoney(selected.input.manualDiscount)}.
-              </p>
-            )}
-            <p>
-              الخصم: {formatMoney(selected.discount)} من{" "}
-              {formatMoney(selected.subtotal)} — المستحق:{" "}
-              {formatMoney(selected.total)}
-            </p>
-            <p>
-              صالح حتى: {new Date(selected.expiresAt).toLocaleString(displayLocale)}
-            </p>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>الصنف</th>
-                    <th>الكمية</th>
-                    <th>سعر القطعة</th>
-                    <th>خصم السطر</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selected.input.items.map((i: any) => {
-                    const display = selected.input.displayItems?.find(
-                      (d: any) => d.variantId === i.variantId,
-                    );
-                    return (
-                      <tr key={i.variantId}>
-                        <td>
-                          {display?.name || "صنف"}
-                          <br />
-                          <small>
-                            {display?.sku} —{" "}
-                            {formatDigits(Object.values(display?.options ?? {}).join(" / "))}
-                          </small>
-                        </td>
-                        <td>{i.quantity}</td>
-                        <td>{formatMoney(display?.unitPrice ?? 0)}</td>
-                        <td>
-                          {i.discount}{" "}
-                          {i.discountType === "PERCENT" ? "%" : "ج.م"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {selected.decisionNote && (
-              <p>قرار المراجع: {selected.decisionNote}</p>
-            )}
-            {allowed &&
-              selected.requesterId !== user.id &&
-              selected.status === "PENDING" &&
-              new Date(selected.expiresAt) > new Date() && (
-                <>
-                  <Field label="ملاحظة القرار">
-                    {(id) => (
-                      <input
-                        id={id}
-                        value={note}
-                        maxLength={1000}
-                        onChange={(e) => setNote(e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <div className="head-actions">
-                    <Button
-                      disabled={busy || note.trim().length < 3}
-                      onClick={() => void decide("APPROVED")}
-                    >
-                      الموافقة على الخصم
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={busy || note.trim().length < 3}
-                      onClick={() => void decide("REJECTED")}
-                    >
-                      رفض الطلب
-                    </Button>
-                  </div>
-                </>
-              )}
+            <Table rows={query.data?.data ?? []} columns={columns} />
+            <Pager
+              offset={offset}
+              setOffset={setOffset}
+              length={query.data?.data.length ?? 0}
+            />
           </>
         )}
+      </section>
+      {historyCustomer && (
+        <Modal
+          title={`سجل العميل — ${historyCustomer.name || historyCustomer.phone}`}
+          open
+          onClose={() => setHistoryCustomer(null)}
+        >
+          <CustomerHistory customerId={historyCustomer.id} />
+        </Modal>
+      )}
+      <Modal
+        title={
+          editingRecord
+            ? kind === "users"
+              ? `تعديل المستخدم: ${editingRecord.name}`
+              : kind === "customers"
+                ? "تعديل العميل"
+                : "تعديل"
+            : ar.add
+        }
+        open={open}
+        error={action.error}
+        onClose={() => {
+          setOpen(false);
+          setEditingRecord(null);
+        }}
+      >
+        <EntryForm
+          key={editingRecord?.id ?? "new"}
+          initial={editingRecord ?? undefined}
+          fields={fields}
+          busy={action.busy}
+          submit={(body) => {
+            if (kind === "users") {
+              body.roleIds = [body.roleId];
+              delete body.roleId;
+              if (!body.password) {
+                delete body.password;
+              }
+              if (!body.employeeCode) delete body.employeeCode;
+            }
+            if (kind === "customers" && !body.email) {
+              if (editingRecord) body.email = null;
+              else delete body.email;
+            }
+            if (kind === "expenses" && body.method === "CASH")
+              body.shiftId = shift.data?.data?.id;
+            void action.run(
+              () =>
+                editingRecord
+                  ? patch(`/${kind}/${editingRecord.id}`, body)
+                  : post(
+                      `/${kind}`,
+                      body,
+                      kind === "expenses" ? crypto.randomUUID() : undefined,
+                    ),
+              () => {
+                setOpen(false);
+                setEditingRecord(null);
+              },
+              true,
+            );
+          }}
+        />
       </Modal>
     </>
   );
-}
+                      }
