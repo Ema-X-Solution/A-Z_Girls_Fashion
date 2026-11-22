@@ -79,6 +79,7 @@ export function Reports() {
       `${path}&offset=${offset}`,
       valid && !searchPending && (kind !== "cashier-invoices" || !!cashierId),
     );
+  const exportLimited = (query.data?.total ?? 0) > 10000;
   const visibleTypes = types.filter(
     (t) =>
       !["purchases", "suppliers", "gross-profit", "net-profit"].includes(
@@ -148,11 +149,17 @@ export function Reports() {
                 }}
               >
                 <option value="">اختر الكاشير...</option>
-                {(cashiers.data?.data ?? []).map((cashier: { id: string; name: string; sellerCode: string }) => (
-                  <option key={cashier.id} value={cashier.id}>
-                    {cashier.name} ({cashier.sellerCode})
-                  </option>
-                ))}
+                {(cashiers.data?.data ?? []).map(
+                  (cashier: {
+                    id: string;
+                    name: string;
+                    sellerCode: string;
+                  }) => (
+                    <option key={cashier.id} value={cashier.id}>
+                      {cashier.name} ({cashier.sellerCode})
+                    </option>
+                  ),
+                )}
               </select>
             </FormField>
           )}
@@ -160,27 +167,44 @@ export function Reports() {
         <ErrorMessage
           message={!valid ? "اختار فترة صحيحة لا تتجاوز 366 يومًا" : ""}
         />
+        {(query.data?.total ?? 0) >= 10000 && (
+          <div className="notice" role={exportLimited ? "alert" : "status"}>
+            {exportLimited
+              ? "عدد النتائج أكبر من حد التصدير (10,000 صف). ضيّق الفترة أو البحث أولًا؛ لن يتم تنزيل ملف ناقص."
+              : "وصل التقرير إلى حد التصدير: 10,000 صف. يشمل التصدير كل هذه النتائج."}
+          </div>
+        )}
         <div className="inline-actions report-controls">
-          {valid && !searchPending && (kind !== "cashier-invoices" || cashierId) && (
-            <>
-              <a className="btn btn-outline" href={`/api${path}&format=xlsx`}>
-                تصدير Excel
-              </a>
-              <a className="btn btn-outline" href={`/api${path}&format=pdf`}>
-                تصدير PDF
-              </a>
-              <button
-                className="btn btn-outline"
-                onClick={() => {
-                  document.body.classList.add("report-print");
-                  window.print();
-                  document.body.classList.remove("report-print");
-                }}
-              >
-                طباعة الصفحة الحالية
-              </button>
-            </>
-          )}
+          {valid &&
+            !searchPending &&
+            (kind !== "cashier-invoices" || cashierId) && (
+              <>
+                <a
+                  className="btn btn-outline"
+                  aria-disabled={exportLimited}
+                  href={exportLimited ? undefined : `/api${path}&format=xlsx`}
+                >
+                  تصدير Excel
+                </a>
+                <a
+                  className="btn btn-outline"
+                  aria-disabled={exportLimited}
+                  href={exportLimited ? undefined : `/api${path}&format=pdf`}
+                >
+                  تصدير PDF
+                </a>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    document.body.classList.add("report-print");
+                    window.print();
+                    document.body.classList.remove("report-print");
+                  }}
+                >
+                  طباعة الصفحة الحالية
+                </button>
+              </>
+            )}
         </div>
         <h2>{query.data?.title ?? "التقرير"}</h2>
         <p className="management-note">
