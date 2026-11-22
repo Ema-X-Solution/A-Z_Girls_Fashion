@@ -25,9 +25,22 @@ export function readableError(error: unknown) {
     P2002: "هذه القيمة مسجلة بالفعل. استخدم قيمة أخرى.",
     ROLE_NAME_EXISTS: "اسم الدور مسجل بالفعل. اختر اسمًا آخر.",
     CUSTOMER_PHONE_EXISTS: "رقم الهاتف مسجل بالفعل لعميل آخر.",
-    APPROVER_LIMIT: "الخصم المطلوب أكبر من حد موافقتك. يلزم مراجع بحد خصم أعلى.",
+    APPROVER_LIMIT:
+      "الخصم المطلوب أكبر من حد موافقتك. يلزم مراجع بحد خصم أعلى.",
   };
   const labels: Record<string, string> = {
+    invoicePrefix:
+      "بادئة رقم الفاتورة (1 إلى 12 حرفًا إنجليزيًا أو رقمًا أو - أو _)",
+    taxRate: "نسبة الضريبة (0 إلى 100)",
+    returnDays: "فترة الاسترجاع (عدد صحيح من 0 إلى 365)",
+    receiptFooter: "رسالة الإيصال (1000 حرف بحد أقصى)",
+    returnPolicy: "سياسة الاستبدال والاسترجاع (3 إلى 5000 حرف)",
+    spendPerPoint:
+      "مبلغ الشراء لكل نقطة (1 على الأقل، بمنزلتين عشريتين كحد أقصى)",
+    pointValue: "قيمة النقطة (0.01 إلى 100)",
+    expiryDays: "صلاحية النقاط (عدد صحيح من 1 إلى 3650)",
+    maxRedeemPercent: "أقصى نسبة استبدال (عدد صحيح من 1 إلى 90)",
+    minimumRedeemPoints: "أقل عدد نقاط (عدد صحيح من 1 إلى 1000000)",
     password: "كلمة المرور",
     email: "البريد الإلكتروني",
     name: "الاسم",
@@ -100,7 +113,11 @@ export function useAction() {
     busy,
     error,
     clearError: () => setError(""),
-    run: async (fn: () => Promise<unknown>, done?: () => void, inlineError = false) => {
+    run: async (
+      fn: () => Promise<unknown>,
+      done?: () => void,
+      inlineError = false,
+    ) => {
       if (busy) return;
       setBusy(true);
       setError("");

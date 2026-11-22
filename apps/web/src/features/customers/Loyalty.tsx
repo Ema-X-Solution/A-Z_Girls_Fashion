@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { readableError } from "../../app/notifications";
 import { api, patch } from "../../api";
 import { Button } from "../../components/ui/button";
 import { Field, ErrorMessage } from "../shared/Controls";
@@ -43,7 +44,7 @@ export function LoyaltySettings() {
             });
             await client.invalidateQueries();
           } catch (e) {
-            setError(e instanceof Error ? e.message : "تعذر حفظ الإعدادات");
+            setError(readableError(e));
           } finally {
             setBusy(false);
           }
@@ -89,7 +90,9 @@ export function LoyaltySettings() {
                   min={min}
                   max={max}
                   step={step}
-                  defaultValue={data[String(key)]}
+                  defaultValue={Number(data[String(key)]).toFixed(
+                    step === "0.01" ? 2 : 0,
+                  )}
                 />
               )}
             </Field>
@@ -171,4 +174,4 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
       </div>
     </section>
   );
-}
+        }

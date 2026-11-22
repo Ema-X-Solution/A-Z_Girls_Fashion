@@ -13,6 +13,13 @@ export type FieldSpec = {
   required?: boolean;
   options?: { value: string; label: string }[];
   default?: string;
+  min?: number;
+  max?: number;
+  step?: string;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  hint?: string;
 };
 
 export function EntryForm({
@@ -20,11 +27,13 @@ export function EntryForm({
   submit,
   busy,
   initial = {},
+  error = "",
 }: {
   fields: FieldSpec[];
   submit: (value: Row) => void;
   busy: boolean;
   initial?: Row;
+  error?: string;
 }) {
   const [visiblePasswords, setVisiblePasswords] = useState<
     Record<string, boolean>
@@ -33,6 +42,7 @@ export function EntryForm({
   return (
     <form
       className="entry-form"
+      onInput={() => setFormError("")}
       onInvalid={(e) => {
         e.preventDefault();
         const input = e.target as HTMLInputElement;
@@ -58,7 +68,7 @@ export function EntryForm({
     >
       <div className="form-grid">
         {fields.map((f) => (
-          <Field key={f.key} label={f.label}>
+          <Field key={f.key} label={f.label} hint={f.hint}>
             {f.options ? (
               <select
                 name={f.key}
@@ -75,6 +85,8 @@ export function EntryForm({
             ) : f.type === "textarea" ? (
               <textarea
                 name={f.key}
+                minLength={f.minLength}
+                maxLength={f.maxLength}
                 required={f.required !== false}
                 defaultValue={initial[f.key] ?? f.default}
               />
@@ -123,8 +135,13 @@ export function EntryForm({
                 type={f.type ?? "text"}
                 dir={f.key === "phone" ? "ltr" : undefined}
                 style={f.key === "phone" ? { textAlign: "right" } : undefined}
-                min={f.type === "number" ? "0" : undefined}
-                step={f.type === "number" ? "0.01" : undefined}
+                min={f.min ?? (f.type === "number" ? "0" : undefined)}
+                max={f.max}
+                minLength={f.minLength}
+                maxLength={f.maxLength}
+                pattern={f.pattern}
+                title={f.hint}
+                step={f.step ?? (f.type === "number" ? "0.01" : undefined)}
                 required={f.required !== false}
                 defaultValue={initial[f.key] ?? f.default}
                 autoComplete={
@@ -135,10 +152,10 @@ export function EntryForm({
           </Field>
         ))}
       </div>
-      {formError && (
+      {(formError || error) && (
         <p className="form-error" role="alert">
           <CircleAlert size={16} />
-          {formError}
+          {formError || error}
         </p>
       )}
       <Button className="form-submit" disabled={busy}>

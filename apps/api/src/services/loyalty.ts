@@ -73,13 +73,13 @@ export async function loyaltyQuote(
   assert(
     !points || customerId,
     "LOYALTY_CUSTOMER",
-    "Select a customer to redeem points",
+    "اختر عميلًا لاستبدال نقاط الولاء.",
     400,
   );
   assert(
     !points || settings.enabled,
     "LOYALTY_DISABLED",
-    "Loyalty program is disabled",
+    "برنامج نقاط الولاء غير مفعل.",
     409,
   );
   const balance = customerId
@@ -89,13 +89,13 @@ export async function loyaltyQuote(
     assert(
       points >= settings.minimumRedeemPoints,
       "LOYALTY_MINIMUM",
-      "Below the minimum redemption points",
+      "عدد النقاط أقل من الحد الأدنى للاستبدال.",
       400,
     );
     assert(
       points <= balance.available && balance.debt === 0,
       "LOYALTY_BALANCE",
-      "Insufficient available loyalty points",
+      "رصيد نقاط الولاء المتاح لا يكفي للاستبدال.",
       409,
     );
   }
@@ -104,7 +104,7 @@ export async function loyaltyQuote(
     discount.lte(round(base.mul(settings.maxRedeemPercent).div(100))) &&
       (!points || discount.lt(base)),
     "LOYALTY_LIMIT",
-    "Loyalty redemption exceeds the configured invoice limit",
+    "قيمة استبدال النقاط تتجاوز الحد المسموح لهذه الفاتورة.",
     400,
   );
   return { ...balance, points, discount, settings };
@@ -168,7 +168,7 @@ export async function postLoyaltySale(
   assert(
     remaining === 0,
     "LOYALTY_BALANCE",
-    "Loyalty points changed; retry checkout",
+    "تغير رصيد نقاط الولاء. راجع الرصيد وحاول إتمام البيع مرة أخرى.",
   );
   if (quote.points)
     await tx.loyaltyEntry.create({
@@ -340,4 +340,4 @@ export async function reverseLoyalty(tx: Tx, sale: any, returnId: string) {
       },
     });
   return { reversed, restored };
-}
+  }
