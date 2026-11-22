@@ -7,7 +7,6 @@ import { activeShift, stock } from "./operations.js";
 import { D } from "../utils/money.js";
 import { quoteSale, receiptSettings } from "./sale-pricing.js";
 import { lockLoyalty, postLoyaltySale } from "./loyalty.js";
-import { assertCartLease } from "../routes/shared-carts.js";
 export async function checkout(
   tx: Tx,
   actor: Actor,
@@ -21,17 +20,6 @@ export async function checkout(
     400,
   );
   const shift = await activeShift(tx, input.shiftId, actor);
-  if (input.sharedCart) {
-    await assertCartLease(
-      tx,
-      actor,
-      input.sharedCart,
-      shift.register.locationId,
-    );
-    await tx.cartReservation.deleteMany({
-      where: { cartId: input.sharedCart.id },
-    });
-  }
   if (input.customerId) await lockLoyalty(tx, input.customerId);
   const customer = input.customerId
     ? await tx.customer.findUnique({
@@ -223,15 +211,5 @@ export async function checkout(
     taxRate,
     receiptNumber,
   });
-  if (input.sharedCart)
-    await tx.sharedCart.update({
-      where: { id: input.sharedCart.id },
-      data: {
-        status: "CONSUMED",
-        saleId: sale.id,
-        leaseHash: null,
-        leaseUntil: null,
-      },
-    });
   return { ...sale, receiptNumber, receiptSnapshot };
-}
+    }
