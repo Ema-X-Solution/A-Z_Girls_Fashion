@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { checkoutSchema } from "@az/shared";
 import { api, ApiError, post, useSession } from "../../api";
-import { formatMoney as fm } from "../../i18n";
+import { formatDigits, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { Field, Header, Modal, ErrorMessage } from "../shared/Controls";
 import { ReceiptView } from "../receipts/ReceiptView";
@@ -656,7 +656,7 @@ export function POS() {
                           </div>
                           <strong>{p.nameAr}</strong>
                           <small>
-                            {Object.values(v.options).join(" / ") || v.sku}
+                            {formatDigits(Object.values(v.options).join(" / ")) || v.sku}
                           </small>
                           <div
                             style={{
@@ -730,7 +730,7 @@ export function POS() {
                         <div>
                           <strong>{i.variant.product?.nameAr}</strong>
                           <small>
-                            {Object.values(i.variant.options ?? {}).join(" / ")}
+                            {formatDigits(Object.values(i.variant.options ?? {}).join(" / "))}
                           </small>
                           <b>{fm(currentPrice(i))}</b>
                         </div>
@@ -1124,4 +1124,4 @@ export function POS() {
       </Modal>
     </div>
   );
-        }
+    }
