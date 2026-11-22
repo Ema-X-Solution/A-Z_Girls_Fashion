@@ -1,0 +1,22 @@
+.settings-panel .entry-form input[role="switch"] {
+  appearance: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  margin: 5px 0;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  background:
+    radial-gradient(circle at 12px center, white 8px, transparent 9px), #a5b0aa;
+  cursor: pointer;
+}
+.settings-panel .entry-form input[role="switch"]:checked {
+  background:
+    radial-gradient(circle at 30px center, white 8px, transparent 9px), #45835a;
+}
+.settings-panel .entry-form input[role="switch"]:focus-visible {
+  outline: 2px solid #45835a;
+  outline-offset: 3px;
+}

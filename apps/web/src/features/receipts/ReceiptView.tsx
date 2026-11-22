@@ -12,6 +12,8 @@ import { Button } from "../../components/ui/button";
 import { defaultReturnPolicy } from "@az/shared";
 import "./receipts.css";
 import { cents, decimal } from "../pos/money";
+import { useData } from "../../hooks/useData";
+import { Loading, ErrorState } from "../../components/application/Primitives";
 type Row = Record<string, any>;
 const money = (v: unknown) =>
   new Intl.NumberFormat("en-US", {
@@ -49,7 +51,13 @@ export function ReceiptView({
   actions?: ReactNode;
   autoPrint?: boolean;
 }) {
-  const snapshot = sale.receiptSnapshot ?? {},
+  const storeQuery = useData("/store", !returned),
+    invoiceReady =
+      !!returned || (storeQuery.isSuccess && !storeQuery.isFetching),
+    showTax = storeQuery.data?.data?.showTaxOnInvoice !== false,
+    printedAutomatically = useRef(""),
+    printKey = [sale.id, returned?.id, exchange?.id].join(":"),
+    snapshot = sale.receiptSnapshot ?? {},
     width = snapshot.receiptWidth === 58 ? 58 : 80,
     preview = useRef<HTMLElement | null>(null),
     [pageHeight, setPageHeight] = useState(297);
@@ -72,9 +80,14 @@ export function ReceiptView({
       observer.disconnect();
       delete document.body.dataset.printKind;
     };
-  }, [sale.id, returned?.id, exchange?.id]);
+  }, [sale.id, returned?.id, exchange?.id, invoiceReady]);
   useEffect(() => {
-    if (!autoPrint) return;
+    if (
+      !autoPrint ||
+      !invoiceReady ||
+      printedAutomatically.current === printKey
+    )
+      return;
     let cancelled = false;
     void document.fonts.ready.then(async () => {
       await Promise.all(
@@ -84,14 +97,31 @@ export function ReceiptView({
       );
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
-          if (!cancelled) window.print();
+          if (!cancelled) {
+            printedAutomatically.current = printKey;
+            window.print();
+          }
         }),
       );
     });
     return () => {
       cancelled = true;
     };
-  }, [autoPrint, sale.id]);
+  }, [autoPrint, invoiceReady, printKey, showTax]);
+  if (!invoiceReady) {
+    return (
+      <div className="no-print">
+        {storeQuery.error ? (
+          <ErrorState
+            error={storeQuery.error}
+            retry={() => void storeQuery.refetch()}
+          />
+        ) : (
+          <Loading />
+        )}
+      </div>
+    );
+  }
   const printed = returned
     ? returned.items.map((r: Row) => {
         const original =
@@ -333,10 +363,12 @@ export function ReceiptView({
             {[
               ["Subtotal before discount", sale.subtotal],
               ["Total discounts", sale.discount],
-              [
-                "Net before VAT",
-                sale.netBeforeTax ?? Number(sale.total) - Number(sale.tax),
-              ],
+              ...(showTax
+                ? [[
+                    "Net before VAT",
+                    sale.netBeforeTax ?? Number(sale.total) - Number(sale.tax),
+                  ]]
+                : []),
             ].map(([label, value]) => (
               <div className="receipt-summary-row" key={label}>
                 <span>{label}</span>
@@ -346,15 +378,17 @@ export function ReceiptView({
                 </b>
               </div>
             ))}
-            <div className="receipt-summary-row">
-              <span>
-                VAT
-                {!snapshot.legacyTaxRateUnknown
-                  ? ` (${Number(sale.taxRate ?? 0)}% ${sale.taxMode === "INCLUSIVE" ? "included" : "added"})`
-                  : ""}
-              </span>
-              <b dir="ltr">{money(sale.tax)} EGP</b>
-            </div>
+            {showTax && (
+              <div className="receipt-summary-row">
+                <span>
+                  VAT
+                  {!snapshot.legacyTaxRateUnknown
+                    ? ` (${Number(sale.taxRate ?? 0)}% ${sale.taxMode === "INCLUSIVE" ? "included" : "added"})`
+                    : ""}
+                </span>
+                <b dir="ltr">{money(sale.tax)} EGP</b>
+              </div>
+            )}
             <div className="receipt-summary-row final">
               <span>Amount due</span>
               <b dir="ltr">{money(sale.total)} EGP</b>
@@ -495,4 +529,4 @@ export function ReceiptView({
       )}
     </>
   );
-}
+      }

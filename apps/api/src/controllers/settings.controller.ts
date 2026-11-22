@@ -33,6 +33,7 @@ export const handlePatchSettingsStore: RequestHandler = route(async (req, res) =
         receiptFooter: z.string().max(1000),
         receiptWidth: z.union([z.literal(58), z.literal(80)]),
         taxMode: z.enum(["INCLUSIVE", "EXCLUSIVE"]).optional(),
+        showTaxOnInvoice: z.boolean().optional(),
         branchName: z.string().max(200).optional(),
         taxNumber: z.string().max(80).optional(),
         commercialRegister: z.string().max(80).optional(),
@@ -49,6 +50,7 @@ export const handlePatchSettingsStore: RequestHandler = route(async (req, res) =
       });
       const value = {
         taxMode: "EXCLUSIVE",
+        showTaxOnInvoice: true,
         invoicePrefix: "INV",
         returnPolicy: defaultReturnPolicy,
         ...((previous?.value as Record<string, any>) ?? {}),
