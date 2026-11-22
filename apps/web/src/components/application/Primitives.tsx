@@ -50,9 +50,7 @@ export function Modal({
   open,
   onClose,
   children,
-  error,
 }: {
-  error?: string;
   title: string;
   open: boolean;
   onClose: () => void;
@@ -79,7 +77,6 @@ export function Modal({
           <Dialog.Description className="sr-only">
             {title} — أكمل الحقول المطلوبة ثم احفظ.
           </Dialog.Description>
-          {error && <p className="form-error" role="alert"><CircleAlert size={16} />{error}</p>}
           {children}
         </Dialog.Content>
       </Dialog.Portal>

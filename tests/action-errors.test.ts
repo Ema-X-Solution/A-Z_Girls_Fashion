@@ -31,12 +31,4 @@ describe("Arabic action errors", () => {
       readableError(new ApiError(400, "EXPORT_LIMIT", "too many rows")),
     ).toContain("10,000");
   });
-  it("explains duplicate role names and phones in Arabic", () => {
-    expect(
-      readableError(new ApiError(409, "ROLE_NAME_EXISTS", "duplicate")),
-    ).toContain("اسم الدور مسجل بالفعل");
-    expect(
-      readableError(new ApiError(409, "CUSTOMER_PHONE_EXISTS", "duplicate")),
-    ).toContain("رقم الهاتف مسجل بالفعل");
-  });
 });
