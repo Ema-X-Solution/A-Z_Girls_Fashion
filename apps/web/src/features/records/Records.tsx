@@ -2,6 +2,21 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { patch, post, useSession } from "../../api";
 import { ar, formatDate, formatMoney as fm, statuses, roleLabels } from "../../i18n";
+
+const auditActions: Record<string, string> = {
+  SALE: "إنشاء فاتورة بيع",
+  REFUND: "مرتجع نقدي",
+  CHECKOUT_CANCELLED: "إلغاء فاتورة من نقطة البيع",
+  CUSTOMER_CREATE: "إضافة عميل",
+  PURCHASE_RECEIVE: "استلام مشتريات",
+  SUPPLIER_PAYMENT: "سداد مورد",
+  SUPPLIER_RETURN: "مرتجع مورد",
+  ROLE_CREATE: "إنشاء دور صلاحيات",
+  ROLE_UPDATE: "تعديل دور صلاحيات",
+  DISCOUNT_APPROVAL_USED: "استخدام موافقة خصم",
+  LOGIN: "تسجيل دخول",
+  LOGIN_FAILED: "محاولة دخول فاشلة",
+};
 import { Button } from "../../components/ui/button";
 import { CustomerHistory } from "../customers/CustomerHistory";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
@@ -113,7 +128,7 @@ export function Records({ kind }: { kind: string }) {
     kind === "audit-logs"
       ? [
           { label: ar.date, render: (r: Row) => formatDate(r.createdAt) },
-          { label: "الإجراء", render: (r: Row) => <code>{r.action}</code> },
+          { label: "الإجراء", render: (r: Row) => auditActions[r.action] ?? r.action },
           {
             label: "المستخدم",
             render: (r: Row) => (
@@ -363,4 +378,4 @@ export function Records({ kind }: { kind: string }) {
       </Modal>
     </>
   );
-}
+                      }
