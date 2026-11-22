@@ -200,8 +200,9 @@ export function Sales() {
           (returning ? (
             <>
               <p className="notice">
-                يجب فتح وردية لمعالجة الاسترداد. يُعاد المخزون فقط للمنتجات
-                الصالحة للبيع.
+                {!shift.data?.data &&
+                  "يجب فتح وردية لمعالجة الاسترداد. "}
+                يُعاد المخزون فقط للمنتجات الصالحة للبيع.
               </p>
               <form
                 className="entry-form"
@@ -343,4 +344,4 @@ export function Sales() {
       </Modal>
     </>
   );
-}
+                    }
