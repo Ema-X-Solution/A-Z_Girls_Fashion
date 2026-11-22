@@ -17,9 +17,9 @@ describe('cashier VAT totals', () => {
     };
     const data = await dashboardData(tx, { id: 'owner', permissions: ['sales.view_all'] } as any, from, to);
     expect(data.cashiers).toHaveLength(3);
-    expect(data.cashiers.find((c: any) => c.id === 'A')).toMatchObject({ invoices: 1, grossSales: '57.00', netSales: '50.00', sellerCode: 'A' });
+    expect(data.cashiers.find((c: any) => c.id === 'A')).toMatchObject({ invoices: 1, grossSales: '57.00', salesWithTax: '114.00', returnsWithTax: '57.00', netSales: '50.00', sellerCode: 'A' });
     expect(data.cashiers.find((c: any) => c.id === 'B')).toMatchObject({ grossSales: '228.00' });
-    expect(data.cashiers.find((c: any) => c.id === 'C')).toMatchObject({ invoices: 0, grossSales: '-114.00' });
+    expect(data.cashiers.find((c: any) => c.id === 'C')).toMatchObject({ invoices: 0, grossSales: '-114.00', salesWithTax: '0.00', returnsWithTax: '114.00' });
     expect(data.cashiers.reduce((sum: number, c: any) => sum + Number(c.grossSales), 0)).toBe(Number(data.totalSalesWithTax));
     expect(tx.saleReturn.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { createdAt: { gte: from, lte: to } } }));
   });
