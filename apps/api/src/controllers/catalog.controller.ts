@@ -99,6 +99,15 @@ export const handlePostCategories: RequestHandler = route(async (req, res) => {
     const input = z
       .object({ name: text, parentId: id.optional() })
       .parse(req.body);
+    const duplicate = await db.category.findFirst({
+      where: { name: input.name, parentId: input.parentId ?? null },
+    });
+    assert(
+      !duplicate,
+      "CATEGORY_NAME_EXISTS",
+      "يوجد قسم بنفس الاسم بالفعل. اختر اسمًا مختلفًا.",
+      409,
+    );
     res.status(201).json({ data: await db.category.create({ data: input }) });
   });
 
