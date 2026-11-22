@@ -16,6 +16,8 @@ export const handlePostSalesQuote: RequestHandler = route(async (req, res) => {
         taxMode: priced.taxMode,
         taxRate: priced.taxRate,
         promotion: priced.promotion,
+        promotionDiscount: priced.promotionDiscount.toFixed(2),
+        customerDiscount: priced.customerDiscount.toFixed(2),
         automaticDiscount: priced.automaticDiscount.toFixed(2),
         manualDiscount: priced.manualDiscount.toFixed(2),
         loyalty: {

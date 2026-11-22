@@ -1,3 +1,4 @@
+import { registerRound2Tests } from "./round2-scenarios";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import EmbeddedPostgres from "embedded-postgres";
 import { mkdtemp, mkdir, readFile } from "node:fs/promises";
@@ -4157,3 +4158,5 @@ registerCompletionTests(() => ({
   origin: () => process.env.APP_ORIGIN ?? origin,
   availablePort,
 }));
+
+registerRound2Tests(() => ({ db, app, owner, manager, cashier, send, login, resetFixtureQuota, password, origin: () => process.env.APP_ORIGIN ?? origin, availablePort }));

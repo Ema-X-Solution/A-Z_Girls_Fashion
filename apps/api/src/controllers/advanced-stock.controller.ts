@@ -55,6 +55,22 @@ const visible = (v: any, profit: boolean): any =>
         )
       : v;
 
+type ItemIdentity = {
+  id: string;
+  sku: string;
+  options: unknown;
+  product: { nameAr: string };
+};
+
+function itemLabel(variant: ItemIdentity | undefined, id: string) {
+  if (!variant) return `صنف غير متاح (${id})`;
+  const options =
+    variant.options && typeof variant.options === "object"
+      ? Object.values(variant.options).filter((v) => typeof v === "string").join(" / ")
+      : "";
+  return [variant.product.nameAr, variant.sku, options].filter(Boolean).join(" • ");
+}
+
 async function countPage(req: any, model: "shipment" | "stockHold") {
   const skip = z.coerce
     .number()
@@ -81,8 +97,24 @@ async function countPage(req: any, model: "shipment" | "stockHold") {
           }),
           db.stockHold.count(),
         ]);
+  const ids = [...new Set(result[0].flatMap((row) =>
+    "items" in row ? row.items.map((item) => item.variantId) : [row.variantId],
+  ))];
+  const variants = await db.productVariant.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, sku: true, options: true, product: { select: { nameAr: true } } },
+  });
+  const identities = new Map(variants.map((variant) => [variant.id, variant]));
+  const data = result[0].map((row) =>
+    "items" in row
+      ? { ...row, items: row.items.map((item) => ({
+          ...item,
+          variantLabel: itemLabel(identities.get(item.variantId), item.variantId),
+        })) }
+      : { ...row, variantLabel: itemLabel(identities.get(row.variantId), row.variantId) },
+  );
   return {
-    data: visible(result[0], actor(req).permissions.includes("reports.profit")),
+    data: visible(data, actor(req).permissions.includes("reports.profit")),
     total: result[1],
   };
 }
