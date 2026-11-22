@@ -247,6 +247,7 @@ export function Records({ kind }: { kind: string }) {
                               roleId: r.roles?.[0]?.role?.id ?? "",
                               discountLimit: r.discountLimit,
                             });
+                            action.clearError();
                             setOpen(true);
                           }}
                         >
@@ -288,7 +289,8 @@ export function Records({ kind }: { kind: string }) {
                                 variant="outline"
                                 onClick={() => {
                                   setEditingRecord(r);
-                                  setOpen(true);
+                                  action.clearError();
+                            setOpen(true);
                                 }}
                               >
                                 تعديل
@@ -322,6 +324,7 @@ export function Records({ kind }: { kind: string }) {
           <Button
             onClick={() => {
               setEditingRecord(null);
+              action.clearError();
               setOpen(true);
             }}
           >
@@ -381,6 +384,7 @@ export function Records({ kind }: { kind: string }) {
             : ar.add
         }
         open={open}
+        error={action.error}
         onClose={() => {
           setOpen(false);
           setEditingRecord(null);
@@ -419,6 +423,7 @@ export function Records({ kind }: { kind: string }) {
                 setOpen(false);
                 setEditingRecord(null);
               },
+              true,
             );
           }}
         />
