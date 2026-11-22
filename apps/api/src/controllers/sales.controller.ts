@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { checkoutSchema } from "@az/shared";
-import { db, assert, audit, json } from "../lib/db.js";
+import { db, assert, json } from "../lib/db.js";
 import { actor } from "../middleware/auth.js";
 import { checkout, once, refund, returnSchema } from "../services/operations.js";
 import { route, uuid, page, hasCosts } from "../utils/http.js";
@@ -120,29 +120,14 @@ export const handlePostSalesByIdReturns: RequestHandler = route(async (req, res)
     });
   });
 
-export const handlePostSalesByIdExchanges: RequestHandler = route(async (req, res) => {
-    const saleId = uuid(req.params.id),
-      input = z
-        .object({ returned: returnSchema, replacement: checkoutSchema })
-        .parse(req.body);
-    const result = (await once(
-      actor(req),
-      req.get("Idempotency-Key"),
-      `exchange:${saleId}`,
-      input,
-      async (tx) => {
-        const returned = await refund(tx, actor(req), saleId, input.returned);
-        const replacement = await checkout(tx, actor(req), input.replacement);
-        await audit(tx, actor(req).id, "EXCHANGE", replacement.id, {
-          returnId: returned.id,
-        });
-        return { returned, replacement };
-      },
-    )) as any;
-    res.json({
-      data: {
-        returned: safeSale(result.returned, hasCosts(req)),
-        replacement: safeSale(result.replacement, hasCosts(req)),
-      },
-    });
+// Retired: the legacy full-refund/full-tender exchange flow was replaced by
+// the net exchange endpoints (quote then net). The route stays as an explicit
+// 410 so stale callers fail loudly with zero stock, cash, return or sale writes.
+export const handlePostSalesByIdExchanges: RequestHandler = route(() => {
+    assert(
+      false,
+      "EXCHANGE_ROUTE_RETIRED",
+      "تم إيقاف مسار الاستبدال القديم. استخدم مسار الاستبدال الجديد: /api/sales/:id/exchanges/quote ثم /api/sales/:id/exchanges/net.",
+      410,
+    );
   });
