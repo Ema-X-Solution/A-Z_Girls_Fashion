@@ -25,11 +25,27 @@ export function EntryForm({
   busy: boolean;
   initial?: Row;
 }) {
-  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [visiblePasswords, setVisiblePasswords] = useState<
+    Record<string, boolean>
+  >({});
   const [formError, setFormError] = useState("");
   return (
     <form
       className="entry-form"
+      onInvalid={(e) => {
+        e.preventDefault();
+        const input = e.target as HTMLInputElement;
+        const label =
+          fields.find((field) => field.key === input.name)?.label ?? "الحقل";
+        setFormError(
+          input.validity.valueMissing
+            ? `أكمل حقل ${label}.`
+            : input.validity.rangeUnderflow
+              ? `${label} لا يمكن أن يكون سالبًا.`
+              : `راجع قيمة ${label}.`,
+        );
+        input.focus();
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(e.currentTarget));
@@ -79,12 +95,23 @@ export function EntryForm({
                 <button
                   type="button"
                   className="password-toggle"
-                  aria-label={visiblePasswords[f.key] ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                  aria-label={
+                    visiblePasswords[f.key]
+                      ? "إخفاء كلمة المرور"
+                      : "إظهار كلمة المرور"
+                  }
                   onClick={() =>
-                    setVisiblePasswords((old) => ({ ...old, [f.key]: !old[f.key] }))
+                    setVisiblePasswords((old) => ({
+                      ...old,
+                      [f.key]: !old[f.key],
+                    }))
                   }
                 >
-                  {visiblePasswords[f.key] ? <EyeOff size={17} /> : <Eye size={17} />}
+                  {visiblePasswords[f.key] ? (
+                    <EyeOff size={17} />
+                  ) : (
+                    <Eye size={17} />
+                  )}
                 </button>
               </div>
             ) : (

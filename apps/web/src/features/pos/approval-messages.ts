@@ -1,5 +1,11 @@
 import { ApiError } from "../../api";
 const messages: Record<string, string> = {
+  INVALID_DISCOUNT:
+    "الخصم أكبر من القيمة المتاحة أو النسبة أعلى من 100%. راجع الخصم.",
+  INSUFFICIENT_STOCK:
+    "الكمية المطلوبة أكبر من المخزون في مكان البيع. قلل الكمية أو حدّث الأصناف.",
+  PAYMENT_INSUFFICIENT: "المبلغ المستلم أقل من المستحق. راجع الدفعات.",
+  INVALID_CHANGE: "الزيادة في الدفع مسموحة نقدًا فقط. راجع الدفعات.",
   DISCOUNT_APPROVAL_INVALID:
     "موافقة الخصم لم تُعتمد بعد، أو انتهت صلاحيتها أو استُخدمت. راجع نتيجة الطلب قبل البيع.",
   DISCOUNT_APPROVAL_CHANGED:

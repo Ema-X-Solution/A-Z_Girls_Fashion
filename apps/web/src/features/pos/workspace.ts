@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { checkoutSchema } from "@az/shared";
-import { sharedCartBinding } from "@az/shared";
 import { emptyPayment } from "./PaymentEditor";
 const text = z.string().max(5000);
 const payment = z.object({
@@ -11,7 +10,6 @@ const payment = z.object({
   cardLast4: text,
 });
 const draftSchema = z.object({
-  sharedCart: sharedCartBinding.optional(),
   customerSearch: z.string().max(100).optional(),
   customerNameDraft: z.string().max(200).optional(),
   loyaltyPoints: z.number().int().min(0).max(1000000).optional(),
@@ -49,7 +47,13 @@ const workspaceSchema = z.object({
     .array(draftSchema.extend({ id: z.string().uuid(), savedAt: text }))
     .max(50),
   pending: z
-    .object({ key: z.string().uuid(), body: checkoutSchema, createdAt: text })
+    .object({
+      key: z.string().uuid(),
+      // Preserve the exact body of pre-upgrade attempts for check/cancel/retry.
+      // The API rejects retired fields on new requests, but must not change old identities.
+      body: checkoutSchema.omit({ sharedCart: true }).passthrough(),
+      createdAt: text,
+    })
     .nullable(),
   receiptId: z.string().uuid().nullable(),
 });
@@ -92,4 +96,4 @@ export function saveWorkspace(
   if (encoded.length > 2_000_000) throw new Error("Workspace too large");
   storage.setItem(workspaceKey(userId), encoded);
   return clean;
-}
+  }

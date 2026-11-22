@@ -75,24 +75,10 @@ export async function stock(
   const balance = await tx.stockBalance.findUniqueOrThrow({
     where: { variantId_locationId: { variantId, locationId } },
   });
-  if (quantity < 0) {
-    const reserved =
-      (
-        await tx.cartReservation.aggregate({
-          where: { variantId, locationId, expiresAt: { gt: new Date() } },
-          _sum: { quantity: true },
-        })
-      )._sum.quantity ?? 0;
-    assert(
-      balance.quantity + quantity >= reserved,
-      "STOCK_RESERVED",
-      "الكمية محجوزة في سلة مشتركة",
-    );
-  }
   assert(
     balance.quantity + quantity >= 0,
     "INSUFFICIENT_STOCK",
-    "Insufficient stock",
+    "الكمية المطلوبة أكبر من المخزون المتاح",
   );
   const averageCost =
     quantity > 0 && input.cost

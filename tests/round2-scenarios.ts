@@ -1,3 +1,4 @@
+import { registerPosStockTests } from "./pos-stock-scenarios";
 import { chromium, expect as browserExpect } from "@playwright/test";
 import { preview } from "vite";
 import { resolve } from "node:path";
@@ -510,4 +511,5 @@ export function registerRound2Tests(get: () => any) {
       }, 60000);
     },
   );
-          }
+  registerPosStockTests(get);
+}

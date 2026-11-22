@@ -253,16 +253,6 @@ schemas["POST /api/products"].properties.returnRule = {
   type: "string",
   enum: ["STANDARD", "DEFECT_ONLY"],
 };
-const binding = object({
-  id: uuid,
-  revision: { type: "integer", minimum: 1 },
-  token: { type: "string", pattern: "^[a-f0-9]{64}$" },
-});
-const draft = {
-  type: "object",
-  description:
-    "Bounded POS draft: display-only variants/items, quantities, customer, discounts, notes and tender drafts. Shared cart binding is supplied separately. Server prices/costs are authoritative.",
-};
 schemas["POST /api/expenses"].properties.submitForApproval = {
   type: "boolean",
   description:
@@ -326,28 +316,7 @@ Object.assign(schemas, {
     quantity: integer,
     reason: str,
   }),
-  "POST /api/shared-carts": object(
-    {
-      title: str,
-      locationId: uuid,
-      draft,
-      reserve: { type: "boolean", default: false },
-    },
-    ["title", "locationId", "draft"],
-  ),
-  "POST /api/shared-carts/:id/sync": object({
-    binding,
-    stamp: {
-      type: "integer",
-      minimum: 1,
-      description:
-        "Monotonically increasing client timestamp within this lease; older writes ignored.",
-    },
-    draft,
-  }),
-  "POST /api/shared-carts/:id/release": object({ binding, draft }),
 });
-checkout.properties.sharedCart = binding;
 schemas["POST /api/products"].properties.imageDataUrl = {
   type: "string",
   maxLength: 200000,
@@ -470,7 +439,6 @@ for (const [file, prefix] of [
   ["apps/api/src/routes/administration.ts", "/api"],
   ["apps/api/src/routes/customer-discounts.ts", "/api"],
   ["apps/api/src/routes/advanced-stock.ts", "/api"],
-  ["apps/api/src/routes/shared-carts.ts", "/api"],
   ["apps/api/src/routes/detailed-reports.ts", "/api"],
 ]) {
   const source = readFileSync(file, "utf8");
@@ -517,7 +485,6 @@ for (const [file, prefix] of [
         "administration",
         "customerDiscounts",
         "advancedStock",
-        "sharedCarts",
         "detailedReports",
       ].includes(node.expression.expression.getText(sourceFile)) &&
       ["get", "post", "patch"].includes(node.expression.name.text) &&
@@ -756,7 +723,7 @@ writeFileSync(
       },
     },
     null,
-    2,
+    0,
   ) + "\n",
 );
 console.log(`Documented ${Object.keys(paths).length} API paths.`);

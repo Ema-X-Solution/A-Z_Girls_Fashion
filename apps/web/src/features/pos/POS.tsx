@@ -14,6 +14,7 @@ import {
   ReceiptText,
   Trash2,
 } from "lucide-react";
+import { checkoutSchema } from "@az/shared";
 import { api, ApiError, post, useSession } from "../../api";
 import { formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
@@ -42,6 +43,8 @@ export function POS() {
     [scanning, setScanning] = useState(false),
     [busy, setBusy] = useState(false),
     [customerBusy, setCustomerBusy] = useState(false),
+    [clearOpen, setClearOpen] = useState(false),
+    [stockVariants, setStockVariants] = useState<Record<string, Row>>({}),
     [error, setError] = useState("");
   const { workspace, commit, ready, storageError } = usePosWorkspace(user!.id);
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
@@ -56,7 +59,8 @@ export function POS() {
     scanning ||
     !ready ||
     !!pending ||
-    !!workspace.receiptId;
+    !!workspace.receiptId ||
+    clearOpen;
   useEffect(() => {
     if (!frozen) scanInput.current?.focus();
   }, [ready, scanning]);
@@ -96,9 +100,44 @@ export function POS() {
       field("customer", v);
     },
     setNotes = (v: string) => field("notes", v);
+  function stockAtRegister(variant: Row | undefined): number | undefined {
+    const locationId = shift.data?.data?.register?.locationId;
+    if (!locationId || !variant || !Array.isArray(variant.balances)) return;
+    return variant.balances.reduce(
+      (sum: number, balance: Row) =>
+        sum +
+        (balance.locationId === locationId ? Number(balance.quantity) || 0 : 0),
+      0,
+    );
+  }
+  function canSetQuantity(variant: Row | undefined, quantity: number) {
+    const available = stockAtRegister(variant);
+    if (available === undefined) {
+      setError(
+        shift.data?.data
+          ? "امسح باركود الصنف للتحقق من مخزونه في مكان البيع قبل زيادة الكمية."
+          : "افتح وردية أولًا لتحديد مخزون مكان البيع.",
+      );
+      return false;
+    }
+    if (quantity > Math.min(available, 10000)) {
+      setError(
+        available <= 0
+          ? "نفد مخزون هذا الصنف في مكان البيع."
+          : `المتاح في مكان البيع ${available} قطعة. لا يمكن إضافة كمية أكبر من المتاح.`,
+      );
+      return false;
+    }
+    setError("");
+    return true;
+  }
   const cart = {
     items: workspace.active.items,
-    add: (v: any) =>
+    add: (v: Row) => {
+      const quantity =
+        (workspace.active.items.find((i) => i.variant.id === v.id)?.quantity ??
+          0) + 1;
+      if (!canSetQuantity(v, quantity)) return false;
       field("items", (rows) =>
         rows.some((i) => i.variant.id === v.id)
           ? rows.map((i) =>
@@ -118,13 +157,37 @@ export function POS() {
                 quantity: 1,
               },
             ],
-      ),
-    quantity: (id: string, quantity: number) =>
+      );
+      return true;
+    },
+    remove: (id: string) => {
+      commit((w) => {
+        if (w.pending || w.receiptId) return w;
+        const discounts = { ...w.active.itemDiscounts };
+        delete discounts[id];
+        return {
+          ...w,
+          active: {
+            ...w.active,
+            items: w.active.items.filter((i) => i.variant.id !== id),
+            itemDiscounts: discounts,
+            discountApprovalId: undefined,
+          },
+        };
+      });
+      setError("");
+    },
+    quantity: (id: string, quantity: number) => {
+      const old =
+        workspace.active.items.find((i) => i.variant.id === id)?.quantity ?? 0;
+      if (quantity <= 0) return cart.remove(id);
+      if (quantity > old && !canSetQuantity(stockVariants[id], quantity))
+        return;
       field("items", (rows) =>
-        rows
-          .map((i) => (i.variant.id === id ? { ...i, quantity } : i))
-          .filter((i) => i.quantity > 0),
-      ),
+        rows.map((i) => (i.variant.id === id ? { ...i, quantity } : i)),
+      );
+      setError("");
+    },
   };
   const products = useQuery({
       queryKey: ["pos-products", debouncedQ],
@@ -137,6 +200,17 @@ export function POS() {
       queryFn: () => api("/shifts/current"),
     }),
     store = useQuery({ queryKey: ["pos-store"], queryFn: () => api("/store") });
+  useEffect(() => {
+    if (!products.data?.data) return;
+    setStockVariants((old) => ({
+      ...old,
+      ...Object.fromEntries(
+        products.data.data.flatMap((p: Row) =>
+          p.variants.map((v: Row) => [v.id, v]),
+        ),
+      ),
+    }));
+  }, [products.data]);
   const items = cart.items.map((i) => ({
     variantId: i.variant.id,
     quantity: i.quantity,
@@ -202,6 +276,63 @@ export function POS() {
           total: cents(quote.data.data.total),
         }
       : local;
+  const checkoutInput = {
+    ...pricingInput,
+    requireCustomer: true as const,
+    payments: resolvedPayments(payments, summary.total),
+  };
+  const validatedCheckout = checkoutSchema.safeParse(checkoutInput);
+  const invalidField = validatedCheckout.success
+    ? ""
+    : String(validatedCheckout.error.issues[0]?.path[0] ?? "");
+  const invalidMessage =
+    invalidField === "payments"
+      ? "راجع مبالغ الدفع وبيانات البطاقة قبل البيع."
+      : invalidField === "discount" || invalidField === "items"
+        ? "راجع الكميات والخصومات. اكتب مبالغ غير سالبة بمنزلتين عشريتين بحد أقصى."
+        : "راجع بيانات الفاتورة قبل البيع.";
+  const stockProblem = cart.items.find((item) => {
+    const available = stockAtRegister(stockVariants[item.variant.id]);
+    return available !== undefined && item.quantity > available;
+  });
+  const paid = checkoutInput.payments.reduce(
+    (sum, payment) => sum + cents(payment.amount),
+    0n,
+  );
+  const cash = checkoutInput.payments
+    .filter((payment) => payment.method === "CASH")
+    .reduce((sum, payment) => sum + cents(payment.amount), 0n);
+  const checkoutBlockedReason = pending
+    ? "تحقق من نتيجة محاولة البيع السابقة أو ألغها بأمان أولًا."
+    : !ready
+      ? "البيع متوقف لحين تأمين حفظ السلة على المتصفح."
+      : busy
+        ? "جارٍ مراجعة وتسجيل البيع..."
+        : customerBusy || scanning
+          ? "انتظر اكتمال العملية الحالية."
+          : shift.isLoading
+            ? "جارٍ التحقق من الوردية..."
+            : !shift.data?.data
+              ? "افتح وردية أولًا لإتمام البيع."
+              : !cart.items.length
+                ? "أضف صنفًا إلى الفاتورة أولًا."
+                : !customer
+                  ? "اختر العميل قبل إتمام البيع."
+                  : stockProblem
+                    ? "كمية أحد الأصناف أكبر من المتاح في مكان البيع. قلل الكمية أو احذف الصنف."
+                    : !validatedCheckout.success
+                      ? invalidMessage
+                      : summary.total < 0n
+                        ? "الخصم أكبر من قيمة الفاتورة. راجع الخصم."
+                        : quote.isFetching
+                          ? "جارٍ مراجعة أسعار الفاتورة والخصومات..."
+                          : quote.error
+                            ? approvalError(quote.error)
+                            : paid < summary.total
+                              ? "المبلغ المستلم أقل من المستحق. راجع الدفعات."
+                              : paid - summary.total > cash
+                                ? "الزيادة في الدفع مسموحة نقدًا فقط. راجع الدفعات."
+                                : "";
   const currentPrice = (item: CartDraft["items"][number]) =>
     quote.data?.data.items?.find(
       (line: Row) => line.variantId === item.variant.id,
@@ -234,8 +365,8 @@ export function POS() {
       const r = await api(`/barcodes/${encodeURIComponent(scanned)}/lookup`, {
         signal: AbortSignal.timeout(15000),
       });
+      setStockVariants((old) => ({ ...old, [r.data.id]: r.data }));
       cart.add(r.data);
-      setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "الباركود غير موجود");
     } finally {
@@ -244,29 +375,38 @@ export function POS() {
   }
   async function complete() {
     if (frozen || inFlight.current) return;
-    if (!customer) {
-      setError("حدد رقم العميل قبل إتمام البيع، حتى مع الدفع النقدي");
+    if (checkoutBlockedReason || !validatedCheckout.success) {
+      setError(checkoutBlockedReason || invalidMessage);
       return;
+    }
+    // Quote and validate before journaling: a rejected preview is not a sale attempt.
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const latest = await api("/sales/quote", {
+        method: "POST",
+        body: JSON.stringify(validatedCheckout.data),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (cents(latest.data.total) !== summary.total) {
+        await client.invalidateQueries({ queryKey: ["pos-quote"] });
+        setError(
+          "اتغير المبلغ المستحق. راجع الأسعار والدفعات قبل تأكيد البيع من جديد.",
+        );
+        return;
+      }
+    } catch (e) {
+      setError(approvalError(e));
+      return;
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
     }
     const attempt = {
       key: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      body: {
-        requireCustomer: true as const,
-        ...(workspace.active.loyaltyPoints
-          ? { loyaltyPoints: workspace.active.loyaltyPoints }
-          : {}),
-        ...(workspace.active.discountApprovalId
-          ? { discountApprovalId: workspace.active.discountApprovalId }
-          : {}),
-        shiftId: shift.data?.data?.id,
-        items,
-        discount: discount || "0",
-        discountType,
-        payments: resolvedPayments(payments, summary.total),
-        ...(customer ? { customerId: customer } : {}),
-        notes,
-      },
+      body: validatedCheckout.data,
     };
     if (!commit((w) => ({ ...w, pending: attempt }))) return;
     await recover(attempt, "retry");
@@ -409,6 +549,7 @@ export function POS() {
         </div>
       )}
       <fieldset
+        className="pos-workspace"
         disabled={frozen}
         style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
       >
@@ -471,15 +612,28 @@ export function POS() {
                   p.variants
                     .filter((v: Row) => v.active && p.status === "ACTIVE")
                     .map((v: Row) => {
-                      const stockQty = (v.balances ?? []).reduce(
-                        (n: number, b: Row) => n + (b.quantity ?? 0),
-                        0,
-                      );
-                      const isLow = stockQty <= (v.minStock ?? 2);
-                      const isOut = stockQty <= 0;
+                      const stockQty = stockAtRegister(v);
+                      const isLow =
+                        stockQty !== undefined && stockQty <= (v.minStock ?? 2);
+                      const isOut = stockQty !== undefined && stockQty <= 0;
+                      const inCart =
+                        cart.items.find((i) => i.variant.id === v.id)
+                          ?.quantity ?? 0;
+                      const atLimit =
+                        stockQty === undefined ||
+                        inCart >= Math.min(stockQty, 10000);
                       return (
                         <button
-                          disabled={busy}
+                          disabled={frozen || atLimit}
+                          title={
+                            stockQty === undefined
+                              ? "افتح وردية أولًا لتحديد مخزون مكان البيع"
+                              : isOut
+                                ? "نفد المخزون في مكان البيع"
+                                : atLimit
+                                  ? "تمت إضافة الكمية المتاحة بالكامل"
+                                  : "إضافة إلى الفاتورة"
+                          }
                           className="catalog-item"
                           key={v.id}
                           onClick={() =>
@@ -520,9 +674,11 @@ export function POS() {
                                     : "#059669",
                               }}
                             >
-                              {isOut
-                                ? "نفد المخزون"
-                                : `المتاح: ${stockQty} ق`}
+                              {stockQty === undefined
+                                ? "افتح وردية لعرض المتاح"
+                                : isOut
+                                  ? "نفد المخزون في مكان البيع"
+                                  : `المتاح هنا: ${stockQty} ق`}
                             </span>
                           </div>
                           <div>
@@ -548,14 +704,8 @@ export function POS() {
               </h2>
               <Button
                 variant="ghost"
-                disabled={busy}
-                onClick={() => {
-                  if (
-                    cart.items.length &&
-                    window.confirm("مسح جميع عناصر السلة؟")
-                  )
-                    clear();
-                }}
+                disabled={frozen || !cart.items.length}
+                onClick={() => setClearOpen(true)}
               >
                 <Trash2 size={14} />
                 مسح
@@ -586,7 +736,18 @@ export function POS() {
                           </button>
                           <span>{i.quantity}</span>
                           <button
-                            disabled={busy}
+                            disabled={
+                              busy ||
+                              stockAtRegister(stockVariants[i.variant.id]) ===
+                                undefined ||
+                              i.quantity >=
+                                Math.min(
+                                  stockAtRegister(
+                                    stockVariants[i.variant.id],
+                                  ) ?? 0,
+                                  10000,
+                                )
+                            }
                             aria-label="زيادة الكمية"
                             onClick={() =>
                               cart.quantity(i.variant.id, i.quantity + 1)
@@ -595,6 +756,14 @@ export function POS() {
                             <Plus size={14} />
                           </button>
                         </div>
+                        <Button
+                          variant="ghost"
+                          className="pos-remove-line"
+                          aria-label={`حذف ${i.variant.sku} من الفاتورة`}
+                          onClick={() => cart.remove(i.variant.id)}
+                        >
+                          <Trash2 size={15} />
+                        </Button>
                         <strong>
                           {fm(
                             decimal(
@@ -727,7 +896,11 @@ export function POS() {
                 )}
                 {(quote.data?.data.promotion ||
                   cents(quote.data?.data.customerDiscount) > 0n) && (
-                  <div className="notice" role="status" aria-label="تفاصيل الخصومات التلقائية">
+                  <div
+                    className="notice"
+                    role="status"
+                    aria-label="تفاصيل الخصومات التلقائية"
+                  >
                     <div>
                       {quote.data.data.promotion && (
                         <>
@@ -740,7 +913,8 @@ export function POS() {
                       )}
                       {cents(quote.data.data.customerDiscount) > 0n && (
                         <p data-testid="customer-discount">
-                          خصم العميل الدائم: {fm(quote.data.data.customerDiscount)}
+                          خصم العميل الدائم:{" "}
+                          {fm(quote.data.data.customerDiscount)}
                         </p>
                       )}
                       {quote.data.data.promotion?.returnRule ===
@@ -883,24 +1057,52 @@ export function POS() {
               </div>
               <Button
                 className="full"
-                disabled={
-                  frozen ||
-                  !customer ||
-                  !cart.items.length ||
-                  !shift.data?.data ||
-                  summary.total < 0n ||
-                  quote.isLoading ||
-                  !!quote.error
-                }
+                aria-describedby="pos-checkout-status"
+                disabled={frozen || !!checkoutBlockedReason}
                 onClick={() => void complete()}
               >
                 <Check size={18} />
                 {busy ? "جارٍ تسجيل البيع..." : "إتمام البيع"}
               </Button>
+              <p
+                id="pos-checkout-status"
+                className="pos-checkout-status"
+                role="status"
+                aria-live="polite"
+              >
+                {checkoutBlockedReason || "جاهز لإتمام البيع."}
+              </p>
             </div>
           </section>
         </div>
       </fieldset>
+      <Modal
+        title="مسح الفاتورة الحالية؟"
+        open={clearOpen}
+        close={() => setClearOpen(false)}
+      >
+        <p>
+          سيتم حذف كل أصناف الفاتورة وبيانات العميل والدفع من هذه السلة فقط. لا
+          يؤثر ذلك على المبيعات المسجلة.
+        </p>
+        <div className="inline-actions">
+          <Button
+            variant="outline"
+            autoFocus
+            onClick={() => setClearOpen(false)}
+          >
+            رجوع للفاتورة
+          </Button>
+          <Button
+            onClick={() => {
+              clear();
+              setClearOpen(false);
+            }}
+          >
+            تأكيد مسح الفاتورة
+          </Button>
+        </div>
+      </Modal>
       <Modal
         title="تم البيع بنجاح"
         open={!!receipt}
@@ -912,4 +1114,4 @@ export function POS() {
       </Modal>
     </div>
   );
-}
+                    }
