@@ -16,6 +16,18 @@ catalogRouter.post(
   controllers.handlePostCategories,
 );
 
+catalogRouter.patch(
+  "/categories/:id",
+  can("products.update"),
+  controllers.handlePatchCategoriesById,
+);
+
+catalogRouter.post(
+  "/categories/:id/remove",
+  can("products.archive"),
+  controllers.handlePostCategoriesByIdRemove,
+);
+
 catalogRouter.get(
   "/brands",
   can("products.view"),
