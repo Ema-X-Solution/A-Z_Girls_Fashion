@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { allowed, useTask, patch, FormField } from "../management/Tools";
 import { ErrorMessage } from "../shared/Controls";
+import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 export function CustomerDiscount({
   customerId,
   percent,
@@ -9,8 +10,7 @@ export function CustomerDiscount({
   percent: string;
 }) {
   const [value, setValue] = useState(percent),
-    task = useTask(),
-    [validationError, setValidationError] = useState("");
+    task = useTask();
   return (
     <section className="panel management-card">
       <h3>خصم العميل الدائم</h3>
@@ -20,20 +20,9 @@ export function CustomerDiscount({
       </p>
       {allowed("settings.manage") && (
         <form
-          noValidate
+          {...arabicFormValidation()}
           onSubmit={(e) => {
             e.preventDefault();
-            if (
-              !value.trim() ||
-              !/^\d+(?:\.\d{1,2})?$/.test(value) ||
-              Number(value) > 100
-            ) {
-              setValidationError(
-                "نسبة خصم العميل يجب أن تكون من 0 إلى 100 وبحد أقصى رقمين بعد العلامة العشرية.",
-              );
-              return;
-            }
-            setValidationError("");
             void task.run(() =>
               patch(`/customers/${customerId}/discount`, { percent: value }),
             );
@@ -46,17 +35,14 @@ export function CustomerDiscount({
               max={100}
               step="0.01"
               value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-                setValidationError("");
-              }}
+              onChange={(e) => setValue(e.target.value)}
               required
             />
           </FormField>
           <button className="btn btn-outline" disabled={task.busy}>
             حفظ خصم العميل
           </button>
-          <ErrorMessage message={validationError || task.error} />
+          <ErrorMessage message={task.error} />
         </form>
       )}
     </section>
