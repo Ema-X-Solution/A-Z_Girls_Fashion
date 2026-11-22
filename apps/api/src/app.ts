@@ -20,7 +20,6 @@ import { promotions } from "./routes/promotions.js";
 import { publicBranding, branding } from "./routes/branding.js";
 import { expenseWorkflow } from "./routes/expense-workflow.js";
 import { administration } from "./routes/administration.js";
-import { sharedCarts } from "./routes/shared-carts.js";
 import { customerDiscounts } from "./routes/customer-discounts.js";
 import { advancedStock } from "./routes/advanced-stock.js";
 import { detailedReports } from "./routes/detailed-reports.js";
@@ -154,7 +153,6 @@ app.use("/api", expenseWorkflow);
 
 app.use("/api", administration);
 
-app.use("/api", sharedCarts);
 
 app.use("/api", customerDiscounts);
 
