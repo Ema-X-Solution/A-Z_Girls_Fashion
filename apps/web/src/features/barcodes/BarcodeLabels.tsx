@@ -501,7 +501,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
           </Button>
           <Button
             variant="outline"
-            disabled={!job || !validSize}
+            disabled={!job || !validSize || copies.length === 0}
             onClick={() => window.print()}
           >
             <Printer size={17} />
@@ -526,7 +526,9 @@ export function BarcodeLabels({ product }: { product?: Product }) {
               <ScanBarcode size={18} /> معاينة الطباعة
             </h2>
             <span>
-              {copies.length} ملصق • {size.width} × {size.height} مم
+              {copies.length === 0
+                ? "لا توجد ملصقات بعد. اضبط عدد الملصقات على 1 أو أكثر."
+                : `${copies.length} ملصق • ${size.width} × ${size.height} مم`}
             </span>
           </div>
           <div
