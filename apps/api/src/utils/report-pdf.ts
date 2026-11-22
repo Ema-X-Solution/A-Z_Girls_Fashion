@@ -28,6 +28,8 @@ function normalizeReportText(text: string) {
 }
 function runsFor(text: string) {
   text = normalizeReportText(text);
+  // Empty cells have no bidi runs. Avoid an infinite -Infinity level loop.
+  if (!text) return [];
   // Numeric cells and ISO dates are LTR, even inside an Arabic report.
   const direction = /[\u0621-\u064a\u066e-\u06d3]/.test(text) ? "rtl" : "ltr";
   const levels = bidi.getEmbeddingLevels(text, direction).levels as Uint8Array;
@@ -205,4 +207,4 @@ export async function reportPdf(
   }
   pdf.end();
   await done;
-}
+      }
