@@ -17,27 +17,27 @@ const schema = z
     endsAt: z.string().datetime(),
     active: z.boolean().default(false),
   })
-  .refine(
-    (v) => new Date(v.endsAt) > new Date(v.startsAt),
-    "End must be after start",
-  )
-  .refine(
-    (v) => v.type !== "PERCENT" || D(v.percent).gt(0),
-    "Percentage required",
-  );
+  .refine((v) => new Date(v.endsAt) > new Date(v.startsAt), {
+    message: "تاريخ نهاية العرض يجب أن يكون بعد تاريخ البداية.",
+    path: ["endsAt"],
+  })
+  .refine((v) => v.type !== "PERCENT" || D(v.percent).gt(0), {
+    message: "نسبة خصم العرض يجب أن تكون أكبر من صفر.",
+    path: ["percent"],
+  });
 
 export const handleGetPromotions: RequestHandler = async (_req, res, next) => {
-    try {
-      res.json({
-        data: await db.promotion.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 100,
-        }),
-      });
-    } catch (e) {
-      next(e);
-    }
-  };
+  try {
+    res.json({
+      data: await db.promotion.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+    });
+  } catch (e) {
+    next(e);
+  }
+};
 
 const savePromotion: RequestHandler = async (req, res, next) => {
   const method = req.method.toLowerCase();
@@ -61,7 +61,7 @@ const savePromotion: RequestHandler = async (req, res, next) => {
       assert(
         new Set(input.productIds).size === input.productIds.length,
         "DUPLICATE_PRODUCT",
-        "Duplicate products",
+        "توجد منتجات مكررة في العرض.",
         400,
       );
       assert(
@@ -69,7 +69,7 @@ const savePromotion: RequestHandler = async (req, res, next) => {
           where: { id: { in: input.productIds } },
         })) === input.productIds.length,
         "INVALID_PRODUCT",
-        "Unknown product",
+        "أحد منتجات العرض غير موجود.",
         400,
       );
       const data = {
