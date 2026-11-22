@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { allowed, useTask, patch, FormField } from "../management/Tools";
 import { ErrorMessage } from "../shared/Controls";
+import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 export function CustomerDiscount({
   customerId,
   percent,
@@ -19,6 +20,7 @@ export function CustomerDiscount({
       </p>
       {allowed("settings.manage") && (
         <form
+          {...arabicFormValidation()}
           onSubmit={(e) => {
             e.preventDefault();
             void task.run(() =>
