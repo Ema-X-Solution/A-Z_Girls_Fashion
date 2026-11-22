@@ -43,7 +43,7 @@ export function readableError(error: unknown) {
         .flatMap(([field, messages]) =>
           messages.map((message) => {
             if (field === "password" && message.includes("Too small"))
-              return "كلمة المرور يجب أن تكون ٨ أحرف على الأقل";
+              return "كلمة المرور يجب أن تكون 8 أحرف على الأقل";
             if (message.includes("Invalid email"))
               return "البريد الإلكتروني غير صحيح";
             if (/[\u0600-\u06ff]/.test(message)) return message;
@@ -108,4 +108,4 @@ export function useAction() {
       }
     },
   };
-}
+    }
