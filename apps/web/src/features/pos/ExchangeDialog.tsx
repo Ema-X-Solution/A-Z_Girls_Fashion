@@ -397,6 +397,11 @@ export function ExchangeDialog({
               error || (quote.error instanceof Error ? quote.error.message : "")
             }
           />
+          {reason.trim().length < 3 && (
+            <p className="note" role="status">
+              اكتب سبب الاستبدال بالتفصيل (٣ أحرف على الأقل) لتفعيل زر الاعتماد.
+            </p>
+          )}
           <Button
             className="full"
             disabled={
@@ -416,3 +421,4 @@ export function ExchangeDialog({
     </Modal>
   );
 }
+
