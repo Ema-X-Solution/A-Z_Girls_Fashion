@@ -1,16 +1,16 @@
+import * as authControllers from "./controllers/auth.controller.js";
+import * as systemControllers from "./controllers/system.controller.js";
 import express from "express";
 import { roles } from "./routes/roles.routes.js";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
-import { verify } from "argon2";
 import { pinoHttp } from "pino-http";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { db, assert, AppError, audit, transaction } from "./lib/db.js";
-import { actor, authenticate, cookieName, cookieOptions, digest, token } from "./middleware/auth.js";
+import { AppError } from "./lib/db.js";
+import { authenticate } from "./middleware/auth.js";
 import { reports } from "./routes/reports.js";
-import { isAllowedOrigin } from "./config/origins.js";
 import { barcodes } from "./routes/barcodes.js";
 import { supplierRoutes } from "./routes/supplier-routes.js";
 import { exchanges } from "./routes/exchanges.js";
@@ -28,7 +28,6 @@ import { productImages } from "./routes/product-images.js";
 import { loyaltyRoutes } from "./routes/loyalty-routes.js";
 import { stockDocuments } from "./routes/stock-documents.js";
 import { customers } from "./routes/customers.js";
-import { route } from "./utils/http.js";
 
 import { catalogRouter } from "./routes/catalog.routes.js";
 import { usersRouter } from "./routes/users.routes.js";
@@ -78,10 +77,7 @@ app.set("json replacer", (_key: string, value: unknown) =>
 
 app.get(
   "/api/health",
-  route(async (_req, res) => {
-    await db.$queryRaw`SELECT 1`;
-    res.json({ status: "ok" });
-  }),
+  systemControllers.handleGetHealth,
 );
 
 app.post(
@@ -92,110 +88,24 @@ app.post(
     standardHeaders: "draft-8",
     legacyHeaders: false,
   }),
-  route(async (req, res) => {
-    assert(isAllowedOrigin(req.get("origin")), "CSRF", "Invalid origin", 403);
-    const input = z
-      .object({
-        email: z
-          .string()
-          .email()
-          .transform((v) => v.toLowerCase()),
-        password: z.string().min(1).max(256),
-      })
-      .parse(req.body);
-    const user = await db.user.findUnique({ where: { email: input.email } });
-    // A real Argon2 verification also runs for unknown users to reduce account enumeration.
-    const dummy =
-      "$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-    const correct = await verify(
-      user?.passwordHash ?? dummy,
-      input.password,
-    ).catch(() => false);
-    if (
-      !user ||
-      !user.active ||
-      (user.lockedUntil && user.lockedUntil > new Date()) ||
-      !correct
-    ) {
-      if (user)
-        await transaction(async (tx) => {
-          await tx.user.update({
-            where: { id: user.id },
-            data: {
-              failedAttempts: { increment: 1 },
-              lockedUntil:
-                user.failedAttempts >= 4
-                  ? new Date(Date.now() + 900000)
-                  : undefined,
-            },
-          });
-          await audit(tx, user.id, "LOGIN_FAILED", user.id);
-        });
-      throw new AppError(
-        401,
-        "INVALID_CREDENTIALS",
-        "Invalid credentials or account temporarily locked",
-      );
-    }
-    const raw = token(),
-      csrf = token();
-    await transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: user.id },
-        data: { failedAttempts: 0, lockedUntil: null },
-      });
-      await tx.session.create({
-        data: {
-          id: digest(raw),
-          csrf,
-          userId: user.id,
-          expiresAt: new Date(Date.now() + 8 * 3600000),
-        },
-      });
-      await audit(tx, user.id, "LOGIN", user.id);
-    });
-    res
-      .cookie(cookieName, raw, { ...cookieOptions, maxAge: 8 * 3600000 })
-      .json({ data: { csrf } });
-  }),
+  authControllers.handlePostAuthLogin,
 );
 
 app.use("/api", publicBranding);
 
 app.use("/api", authenticate);
 
-app.get("/api/auth/me", (req, res) =>
-  res.json({ data: { ...actor(req), csrf: req.csrf } }),
+app.get("/api/auth/me", authControllers.handleGetAuthMe,
 );
 
 app.post(
   "/api/auth/logout",
-  route(async (req, res) => {
-    await db.session.delete({ where: { id: req.sessionId } });
-    res.clearCookie(cookieName, cookieOptions).json({ data: { ok: true } });
-  }),
+  authControllers.handlePostAuthLogout,
 );
 
 app.post(
   "/api/auth/refresh",
-  route(async (req, res) => {
-    const raw = token(),
-      csrf = token();
-    await transaction(async (tx) => {
-      await tx.session.delete({ where: { id: req.sessionId } });
-      await tx.session.create({
-        data: {
-          id: digest(raw),
-          userId: actor(req).id,
-          csrf,
-          expiresAt: new Date(Date.now() + 8 * 3600000),
-        },
-      });
-    });
-    res
-      .cookie(cookieName, raw, { ...cookieOptions, maxAge: 8 * 3600000 })
-      .json({ data: { csrf } });
-  }),
+  authControllers.handlePostAuthRefresh,
 );
 
 app.use("/api", usersRouter);
