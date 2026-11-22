@@ -399,7 +399,7 @@ export function ExchangeDialog({
           />
           {reason.trim().length < 3 && (
             <p className="note" role="status">
-              اكتب سبب الاستبدال بالتفصيل (٣ أحرف على الأقل) لتفعيل زر الاعتماد.
+              اكتب سبب الاستبدال بالتفصيل (3 أحرف على الأقل) لتفعيل زر الاعتماد.
             </p>
           )}
           <Button
