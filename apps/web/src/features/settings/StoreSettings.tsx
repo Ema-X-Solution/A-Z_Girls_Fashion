@@ -1,10 +1,15 @@
 import { LogoSettings } from "../shared/LogoSettings";
+import "./settings.css";
 import { patch } from "../../api";
 import { ar } from "../../i18n";
 import { LoyaltySettings } from "../customers/Loyalty";
 import { useAction } from "../../app/notifications";
 import { useData } from "../../hooks/useData";
-import { Loading, ErrorState, Header } from "../../components/application/Primitives";
+import {
+  Loading,
+  ErrorState,
+  Header,
+} from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 
 export function StoreSettings() {
@@ -62,6 +67,13 @@ export function StoreSettings() {
                   { value: "EXCLUSIVE", label: "الضريبة تُضاف إلى سعر البيع" },
                 ],
               },
+              {
+                key: "showTaxOnInvoice",
+                label: "إظهار الضريبة في الفاتورة",
+                type: "checkbox",
+                default: "true",
+                required: false,
+              },
               simple("returnDays", "فترة الاسترجاع بالأيام", "number"),
               {
                 key: "receiptWidth",
@@ -84,6 +96,7 @@ export function StoreSettings() {
               void action.run(() =>
                 patch("/settings/store", {
                   ...body,
+                  showTaxOnInvoice: body.showTaxOnInvoice === "true",
                   returnDays: Number(body.returnDays),
                   receiptWidth: Number(body.receiptWidth),
                 }),
@@ -94,4 +107,4 @@ export function StoreSettings() {
       </section>
     </>
   );
-}
+                  }
