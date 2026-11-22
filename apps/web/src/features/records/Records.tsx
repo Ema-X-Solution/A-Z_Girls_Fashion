@@ -1,9 +1,23 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { patch, post, useSession } from "../../api";
-import { ar, formatDate, formatMoney as fm, statuses, roleLabels } from "../../i18n";
+import {
+  ar,
+  formatDate,
+  formatMoney as fm,
+  statuses,
+  roleLabels,
+} from "../../i18n";
 
 const auditActions: Record<string, string> = {
+  EXPENSE_SUBMITTED: "طلب مراجعة مصروف",
+  EXPENSE: "تسجيل مصروف",
+  EXPENSE_CATEGORY_STATUS: "تغيير حالة تصنيف مصروف",
+  PROMOTION_CREATED: "إنشاء عرض",
+  PROMOTION_UPDATED: "تعديل عرض",
+  DISCOUNT_APPROVED: "اعتماد خصم",
+  DISCOUNT_REJECTED: "رفض خصم",
+  PRODUCT_RESTORE: "استعادة منتج",
   SALE: "إنشاء فاتورة بيع",
   REFUND: "مرتجع نقدي",
   CHECKOUT_CANCELLED: "إلغاء فاتورة من نقطة البيع",
@@ -69,8 +83,20 @@ import { CustomerHistory } from "../customers/CustomerHistory";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import { useAction } from "../../app/notifications";
 import { useData } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Header, Badge, Table, Pager } from "../../components/application/Primitives";
-import { type FieldSpec, EntryForm, simple } from "../../components/application/EntryForm";
+import {
+  Loading,
+  ErrorState,
+  Modal,
+  Header,
+  Badge,
+  Table,
+  Pager,
+} from "../../components/application/Primitives";
+import {
+  type FieldSpec,
+  EntryForm,
+  simple,
+} from "../../components/application/EntryForm";
 import { nav } from "../../app/SidebarNavigation";
 import { type Row } from "../../app/types";
 
@@ -175,11 +201,19 @@ export function Records({ kind }: { kind: string }) {
     kind === "audit-logs"
       ? [
           { label: ar.date, render: (r: Row) => formatDate(r.createdAt) },
-          { label: "الإجراء", render: (r: Row) => auditActions[r.action] ?? r.action },
+          {
+            label: "الإجراء",
+            render: (r: Row) => auditActions[r.action] ?? r.action,
+          },
           {
             label: "المستخدم",
             render: (r: Row) => (
-              <code>{r.userId?.slice(0, 8) ?? "النظام"}</code>
+              <span title={r.userId ?? undefined}>
+                {r.userName ||
+                  (r.userId
+                    ? `مستخدم غير متاح (${r.userId.slice(0, 8)})`
+                    : "النظام")}
+              </span>
             ),
           },
           { label: "المرجع", render: (r: Row) => <code>{r.reference}</code> },
@@ -218,10 +252,7 @@ export function Records({ kind }: { kind: string }) {
                     label: "الأدوار",
                     render: (r: Row) =>
                       r.roles
-                        .map(
-                          (v: Row) =>
-                            roleLabels[v.role.name] ?? v.role.name,
-                        )
+                        .map((v: Row) => roleLabels[v.role.name] ?? v.role.name)
                         .join(" / "),
                   },
                   {
@@ -290,7 +321,7 @@ export function Records({ kind }: { kind: string }) {
                                 onClick={() => {
                                   setEditingRecord(r);
                                   action.clearError();
-                            setOpen(true);
+                                  setOpen(true);
                                 }}
                               >
                                 تعديل
@@ -430,4 +461,4 @@ export function Records({ kind }: { kind: string }) {
       </Modal>
     </>
   );
-                      }
+                                }
