@@ -1,4 +1,10 @@
-import { useId, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import {
+  useId,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ShoppingBag, ShieldCheck, X, CircleAlert } from "lucide-react";
 import { ApiError } from "../../api";
@@ -18,7 +24,13 @@ export function Loading() {
   );
 }
 
-export function ErrorState({ error, retry }: { error: unknown; retry: () => void }) {
+export function ErrorState({
+  error,
+  retry,
+}: {
+  error: unknown;
+  retry: () => void;
+}) {
   return (
     <div className="empty error">
       <CircleAlert />
@@ -79,7 +91,12 @@ export function Modal({
           <Dialog.Description className="sr-only">
             {title} — أكمل الحقول المطلوبة ثم احفظ.
           </Dialog.Description>
-          {error && <p className="form-error" role="alert"><CircleAlert size={16} />{error}</p>}
+          {error && (
+            <p className="form-error" role="alert">
+              <CircleAlert size={16} />
+              {error}
+            </p>
+          )}
           {children}
         </Dialog.Content>
       </Dialog.Portal>
@@ -87,7 +104,15 @@ export function Modal({
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  children,
+  hint,
+}: {
+  label: string;
+  children: ReactNode;
+  hint?: string;
+}) {
   const fieldId = useId();
   return (
     <div className="field">
@@ -97,6 +122,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
             id: fieldId,
           })
         : children}
+      {hint && <small>{hint}</small>}
     </div>
   );
 }
