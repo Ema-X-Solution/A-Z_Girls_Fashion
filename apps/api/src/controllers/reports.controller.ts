@@ -79,7 +79,7 @@ export async function dashboardData(
     .minus(refunds);
   const cashierRows = new Map<
     string,
-    { id: string; name: string; sellerCode: string; invoices: number; netSales: ReturnType<typeof D>; grossSales: ReturnType<typeof D> }
+    { id: string; name: string; sellerCode: string; invoices: number; netSales: ReturnType<typeof D>; grossSales: ReturnType<typeof D>; salesWithTax: ReturnType<typeof D>; returnsWithTax: ReturnType<typeof D> }
   >();
   for (const sale of sales) {
     const current = cashierRows.get(sale.userId) ?? {
@@ -89,10 +89,13 @@ export async function dashboardData(
       invoices: 0,
       netSales: D(0),
       grossSales: D(0),
+      salesWithTax: D(0),
+      returnsWithTax: D(0),
     };
     current.invoices += 1;
     current.netSales = current.netSales.plus(sale.netBeforeTax);
     current.grossSales = current.grossSales.plus(sale.total);
+    current.salesWithTax = current.salesWithTax.plus(sale.total);
     cashierRows.set(sale.userId, current);
   }
   // Keep each cashier's figures aligned with the dashboard totals: returns
@@ -106,9 +109,12 @@ export async function dashboardData(
       invoices: 0,
       netSales: D(0),
       grossSales: D(0),
+      salesWithTax: D(0),
+      returnsWithTax: D(0),
     };
     current.netSales = current.netSales.minus(D(item.amount).minus(item.tax));
     current.grossSales = current.grossSales.minus(item.amount);
+    current.returnsWithTax = current.returnsWithTax.plus(item.amount);
     cashierRows.set(sale.userId, current);
   }
   const netSales = sales
@@ -156,6 +162,8 @@ export async function dashboardData(
         ...row,
         netSales: round(row.netSales).toFixed(2),
         grossSales: round(row.grossSales).toFixed(2),
+        salesWithTax: round(row.salesWithTax).toFixed(2),
+        returnsWithTax: round(row.returnsWithTax).toFixed(2),
       }))
       .sort((a, b) => Number(b.grossSales) - Number(a.grossSales)),
   };
