@@ -1,3 +1,4 @@
+import { checkoutSchema } from "@az/shared";
 import { describe, it, expect } from "vitest";
 import {
   emptyWorkspace,
@@ -16,6 +17,38 @@ function storage() {
   };
 }
 describe("durable POS journal", () => {
+  it("preserves exact pre-upgrade pending bodies while rejecting retired shared-cart input for new sales", () => {
+    const local = storage(),
+      w = emptyWorkspace();
+    const body = {
+      shiftId: user,
+      items: [
+        {
+          variantId: user,
+          quantity: 1,
+          discount: "0",
+          discountType: "FIXED" as const,
+        },
+      ],
+      discount: "0",
+      discountType: "FIXED" as const,
+      notes: "",
+      payments: [
+        {
+          method: "CASH" as const,
+          amount: "10",
+          cardBrand: "",
+          authorizationCode: "",
+          cardLast4: "",
+        },
+      ],
+      sharedCart: { id: user, revision: 1, token: "0".repeat(64) },
+    };
+    w.pending = { key: user, createdAt: new Date().toISOString(), body };
+    saveWorkspace(local, user, w);
+    expect(readWorkspace(local, user).pending?.body).toEqual(body);
+    expect(checkoutSchema.safeParse(body).success).toBe(false);
+  });
   it("keeps per-user drafts and exact pending tender without variant cost fields", () => {
     const local = storage(),
       w = emptyWorkspace();
