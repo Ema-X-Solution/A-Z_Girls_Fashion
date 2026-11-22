@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Header, Modal, ErrorMessage } from "../shared/Controls";
-import { statuses } from "../../i18n";
+import { statuses, formatMoney } from "../../i18n";
 import {
   allowed,
   Grid,
@@ -74,18 +74,29 @@ export function Expenses() {
         {allowed("expenses.approve") && (
           <button
             className="btn btn-outline"
-            onClick={() => setCategoryOpen(true)}
+            onClick={() => {
+              task.clearError();
+              setCategoryOpen(true);
+            }}
           >
             تصنيفات المصروفات
           </button>
         )}
         {allowed("expenses.create") && (
-          <button className="btn btn-primary" onClick={() => setOpen(true)}>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              task.clearError();
+              setOpen(true);
+            }}
+          >
             طلب مصروف جديد
           </button>
         )}
       </Header>
-      <ErrorMessage message={task.error} />
+      <ErrorMessage
+        message={!open && !categoryOpen && !selected ? task.error : ""}
+      />
       <section className="panel management-card">
         <div className="report-controls">
           <FormField label="الحالة">
@@ -112,7 +123,7 @@ export function Expenses() {
             { label: "التاريخ", render: (r) => when(r.date) },
             { label: "التصنيف", render: (r) => r.category },
             { label: "الوصف", render: (r) => r.description },
-            { label: "القيمة", render: (r) => `${r.amount} ج.م` },
+            { label: "القيمة", render: (r) => formatMoney(r.amount) },
             { label: "الدفع", render: (r) => statuses[r.method] ?? r.method },
             { label: "الحالة", render: (r) => labels[r.status] },
             {
@@ -120,7 +131,10 @@ export function Expenses() {
               render: (r) => (
                 <button
                   className="btn btn-outline"
-                  onClick={() => setSelected(r)}
+                  onClick={() => {
+                    task.clearError();
+                    setSelected(r);
+                  }}
                 >
                   تفاصيل ومرفقات
                 </button>
@@ -143,7 +157,10 @@ export function Expenses() {
         error={task.error}
         title="طلب مصروف جديد"
         open={open}
-        close={() => setOpen(false)}
+        close={() => {
+          task.clearError();
+          setOpen(false);
+        }}
       >
         <form onSubmit={submit} className="entry-form">
           <FormField label="التصنيف">
@@ -205,7 +222,10 @@ export function Expenses() {
         error={task.error}
         title="تصنيفات المصروفات"
         open={categoryOpen}
-        close={() => setCategoryOpen(false)}
+        close={() => {
+          task.clearError();
+          setCategoryOpen(false);
+        }}
       >
         <Grid
           rows={categories.data?.data ?? []}
@@ -257,12 +277,15 @@ export function Expenses() {
         error={task.error}
         title="تفاصيل المصروف"
         open={!!selected}
-        close={() => setSelected(null)}
+        close={() => {
+          task.clearError();
+          setSelected(null);
+        }}
       >
         {selected && (
           <>
             <p>
-              {selected.description} • {selected.amount} ج.م •{" "}
+              {selected.description} • {formatMoney(selected.amount)} •{" "}
               {labels[selected.status]}
             </p>
             <p>{selected.decisionNote}</p>
@@ -331,4 +354,4 @@ export function Expenses() {
       </Modal>
     </>
   );
-}
+        }
