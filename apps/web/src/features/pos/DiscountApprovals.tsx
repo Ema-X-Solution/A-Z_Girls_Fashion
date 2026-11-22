@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, useSession } from "../../api";
 import { Button } from "../../components/ui/button";
 import { Header, ErrorMessage, Field, Modal } from "../shared/Controls";
-import { formatMoney } from "../../i18n";
+import { formatMoney, displayLocale } from "../../i18n";
 import { approvalError } from "./approval-messages";
 const labels: Record<string, string> = {
   PENDING: "قيد المراجعة",
@@ -134,7 +134,7 @@ export function DiscountApprovals() {
               {formatMoney(selected.total)}
             </p>
             <p>
-              صالح حتى: {new Date(selected.expiresAt).toLocaleString("ar-EG")}
+              صالح حتى: {new Date(selected.expiresAt).toLocaleString(displayLocale)}
             </p>
             <div className="table-wrap">
               <table>
