@@ -143,6 +143,8 @@ Shared carts have been retired. Their API routes return 404 and new checkout req
 
 ## Errors
 
+The POS validates the checkout fields and refreshes the server quote before saving a new pending attempt. Invalid input remains editable. Unknown sale outcomes retain the original request body and idempotency key for result checks, exact retries or confirmed cancellation. Entry forms show invalid fields in the form, and shift-opening server errors stay in the open dialog. Report exports above 10,000 rows are blocked with a visible notice rather than downloading a partial file.
+
 Errors use `{ "error": { "code": "...", "message": "...", "fields": {} } }` (fields only for validation). HTTP 400: malformed request/invalid monetary or date values. 401: missing/expired session. 403: permission or CSRF denial. 404: unknown record/endpoint. 409: uniqueness, stock, shift, return-policy or concurrent business conflict. 429: rate limited (rate-limit middleware may return text). 500: unexpected internal error; details appear only in server logs.
 
 Business codes include `INSUFFICIENT_STOCK`, `SHIFT_CLOSED`, `SHIFT_EXISTS`, `SHIFT_OWNER`, `DISCOUNT_LIMIT`, `PAYMENT_INSUFFICIENT`, `INVALID_CHANGE`, `RETURN_QUANTITY`, `RETURN_PERIOD`, `PURCHASE_STATUS`, `RECEIVE_QUANTITY`, `COUNT_MOVED`, `OWNER_PROTECTED`, `PRIVILEGE_ESCALATION` and `IDEMPOTENCY_CONFLICT`. Prisma uniqueness/not-found conflicts may use P2002/P2025. Refresh the source record before retrying a genuine business conflict.
