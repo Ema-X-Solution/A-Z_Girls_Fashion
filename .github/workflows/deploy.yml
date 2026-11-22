@@ -38,3 +38,4 @@ jobs:
             pm2 save
             sudo nginx -t
             sudo systemctl reload nginx
+            node scripts/verify-deployment.mjs
