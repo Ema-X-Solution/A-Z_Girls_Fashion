@@ -178,17 +178,17 @@ export function Dashboard({ reports = false }: { reports?: boolean }) {
                   <div className="panel-title">
                     <div>
                       <h2>أداء الكاشير</h2>
-                      <p>الفواتير والمبيعات بدون الضريبة خلال الفترة</p>
+                      <p>الفواتير والمبيعات شامل الضريبة خلال الفترة</p>
                     </div>
                   </div>
                   <div className="cashier-performance-head">
-                    <span>الكاشير</span><span>الفواتير</span><span>المبيعات بدون الضريبة</span>
+                    <span>الكاشير</span><span>الفواتير</span><span>المبيعات بالضريبة</span>
                   </div>
                   {d.cashiers.map((cashier: any) => (
                     <div className="cashier-performance-row" key={cashier.id}>
-                      <span>{cashier.name} <small dir="ltr">{cashier.sellerCode}</small></span>
+                      <span>{cashier.name} <code className="cashier-code" dir="ltr">{cashier.sellerCode}</code></span>
                       <strong>{cashier.invoices}</strong>
-                      <strong>{fm(cashier.netSales)}</strong>
+                      <strong>{fm(cashier.grossSales, "latn")}</strong>
                     </div>
                   ))}
                 </section>
