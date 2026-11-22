@@ -83,6 +83,14 @@ export function EntryForm({
                 required={f.required !== false}
                 defaultValue={initial[f.key] ?? f.default}
               />
+            ) : f.type === "checkbox" ? (
+              <input
+                name={f.key}
+                type="checkbox"
+                role="switch"
+                value="true"
+                defaultChecked={String(initial[f.key] ?? f.default) === "true"}
+              />
             ) : f.type === "password" ? (
               <div className="password-field">
                 <input
