@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   displayLocale,
+  formatDigits,
   formatDate,
   formatMoney,
 } from "../apps/web/src/i18n.js";
@@ -23,4 +24,12 @@ describe("English digits throughout the Arabic UI", () => {
     ).toContain("2026");
     expect(formatDate(null)).toBe("—");
   });
+});
+
+it("normalizes size-label digits for display without changing the stored value", () => {
+  const stored = "\u0664 / \u06f6 سنوات";
+  expect(formatDigits(stored)).toBe("4 / 6 سنوات");
+  expect(stored).toBe("\u0664 / \u06f6 سنوات");
+  expect(formatDigits("TEST 120 / صغير")).toBe("TEST 120 / صغير");
+  expect(formatDigits("")).toBe("");
 });
