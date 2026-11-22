@@ -126,15 +126,14 @@ export function ReceiptView({
     ? returned.items.map((r: Row) => {
         const original =
           sale.items.find((i: Row) => i.id === r.saleItemId) ?? r.saleItem;
-        const quantity = BigInt(original?.quantity ?? 1);
+        const gross = cents(original?.unitPrice) * BigInt(r.quantity),
+          net = cents(r.amount) - (sale.taxMode === "EXCLUSIVE" ? cents(r.tax) : 0n),
+          saving = gross > net ? gross - net : 0n;
         return {
           ...original,
           quantity: r.quantity,
           total: r.amount,
-          discount: decimal(
-            (cents(original?.discount) * BigInt(r.quantity) + quantity / 2n) /
-              quantity,
-          ),
+          discount: decimal(saving),
         };
       })
     : sale.items;
@@ -529,4 +528,4 @@ export function ReceiptView({
       )}
     </>
   );
-      }
+            }
