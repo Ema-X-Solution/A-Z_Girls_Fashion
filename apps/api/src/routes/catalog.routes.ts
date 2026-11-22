@@ -77,6 +77,12 @@ catalogRouter.post(
 );
 
 catalogRouter.post(
+  "/products/:id/restore",
+  can("products.archive"),
+  controllers.handlePostProductsByIdRestore,
+);
+
+catalogRouter.post(
   "/products/:id/variants",
   can("products.create"),
   controllers.handlePostProductsByIdVariants,
