@@ -4,7 +4,14 @@ import { fileURLToPath } from "node:url";
 import type { Response } from "express";
 const bidi = bidiFactory();
 function runsFor(text: string) {
-  const levels = bidi.getEmbeddingLevels(text, "rtl").levels as Uint8Array;
+  // Arabic-Indic digits trigger RTL shaping even in an even-level number run.
+  // Use one unambiguous digit set in exported numeric values.
+  text = text.replace(/[٠-٩۰-۹]/g, (digit) =>
+    String(digit.charCodeAt(0) - (digit <= "٩" ? 0x660 : 0x6f0)),
+  );
+  // Numeric cells and ISO dates are LTR, even inside an Arabic report.
+  const direction = /[\u0621-\u064a\u066e-\u06d3]/.test(text) ? "rtl" : "ltr";
+  const levels = bidi.getEmbeddingLevels(text, direction).levels as Uint8Array;
   const runs: { text: string; level: number }[] = [];
   for (let i = 0; i < text.length; i++) {
     const level = levels[i]!;
@@ -64,18 +71,21 @@ export async function reportPdf(
     cw = width / columns.length,
     lineHeight = 17;
   let y = 0;
+  // Amiri defaults neutral/digit-only shaping to RTL. Keep ASCII runs in
+  // a Latin font so font shaping cannot reverse dates, times or signs.
+  const fontFor = (value: string) =>
+    /^[\x20-\x7e]*$/.test(value) ? "Helvetica" : "Arabic";
+  const runWidth = (value: string) =>
+    pdf.font(fontFor(value)).widthOfString(value, { features: [] });
   const measure = (value: string) =>
-    runsFor(value).reduce(
-      (sum, r) => sum + pdf.widthOfString(r.text, { features: [] }),
-      0,
-    );
+    runsFor(value).reduce((sum, r) => sum + runWidth(r.text), 0);
   const text = (value: string, x: number, at: number, w: number, size = 11) => {
     pdf.fontSize(size).fillColor("#171717");
     const runs = runsFor(value);
-    const widths = runs.map((r) => pdf.widthOfString(r.text, { features: [] }));
+    const widths = runs.map((r) => runWidth(r.text));
     let cursor = x + w - widths.reduce((s, v) => s + v, 0);
     runs.forEach((r, i) => {
-      pdf.text(r.text, cursor, at, {
+      pdf.font(fontFor(r.text)).text(r.text, cursor, at, {
         width: widths[i]! + 1,
         lineBreak: false,
         features: [],

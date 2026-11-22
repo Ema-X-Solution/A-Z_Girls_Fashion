@@ -220,6 +220,7 @@ export function Administration() {
         </section>
       )}
       <Modal
+        error={task.error}
         title={
           edit?.kind === "role"
             ? "تغيير دور المستخدم"

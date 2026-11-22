@@ -1,5 +1,6 @@
 import { ApiError } from "../../api";
 const messages: Record<string, string> = {
+  DISCOUNT_LIMIT: "الخصم يتجاوز حد صلاحيتك. اطلب موافقة المدير قبل البيع.",
   INVALID_DISCOUNT:
     "الخصم أكبر من القيمة المتاحة أو النسبة أعلى من 100%. راجع الخصم.",
   INSUFFICIENT_STOCK:

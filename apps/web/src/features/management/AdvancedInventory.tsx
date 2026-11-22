@@ -116,7 +116,11 @@ export function AdvancedInventory() {
               : [
                   { label: "التاريخ", render: (r) => when(r.createdAt) },
                   { label: "المخزن", render: (r) => location(r.locationId) },
-                  { label: "الصنف", render: (r) => r.variantLabel ?? `صنف غير متاح (${r.variantId})` },
+                  {
+                    label: "الصنف",
+                    render: (r) =>
+                      r.variantLabel ?? `صنف غير متاح (${r.variantId})`,
+                  },
                   { label: "السبب", render: (r) => r.reason },
                   {
                     label: "المتبقي",
@@ -143,6 +147,7 @@ export function AdvancedInventory() {
         />
       </section>
       <Modal
+        error={task.error}
         title={tab === "shipments" ? "شحن تحويل بين مخزنين" : "حجر بضاعة للفحص"}
         open={open}
         close={() => setOpen(false)}
@@ -276,6 +281,7 @@ export function AdvancedInventory() {
         </form>
       </Modal>
       <Modal
+        error={task.error}
         title={
           tab === "shipments"
             ? "تفاصيل الشحنة واستلامها"
@@ -386,4 +392,4 @@ export function AdvancedInventory() {
       </Modal>
     </>
   );
-              }
+                               }

@@ -22,10 +22,12 @@ export function Modal({
   open,
   close,
   children,
+  error,
 }: {
   title: string;
   open: boolean;
   close: () => void;
+  error?: string;
   children: ReactNode;
 }) {
   return (
@@ -49,6 +51,7 @@ export function Modal({
           <Dialog.Description className="sr-only">
             {title} - راجع البيانات قبل التأكيد.
           </Dialog.Description>
+          {error && <ErrorMessage message={error} />}
           {children}
         </Dialog.Content>
       </Dialog.Portal>

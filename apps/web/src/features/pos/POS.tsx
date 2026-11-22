@@ -253,12 +253,22 @@ export function POS() {
     queryFn: ({ signal }) =>
       api("/sales/quote", {
         method: "POST",
-        body: JSON.stringify(pricingInput),
+        body: JSON.stringify({ ...pricingInput, previewOnly: true }),
         signal,
       }),
     enabled: !!shift.data?.data && cart.items.length > 0,
     retry: false,
   });
+  const authorizationError = quote.data?.data.authorizationError;
+  const quoteError =
+    quote.error ??
+    (authorizationError
+      ? new ApiError(
+          authorizationError.status,
+          authorizationError.code,
+          authorizationError.message,
+        )
+      : null);
   const local = previewTotals(
       cart.items,
       itemDiscounts,
@@ -326,8 +336,8 @@ export function POS() {
                         ? "الخصم أكبر من قيمة الفاتورة. راجع الخصم."
                         : quote.isFetching
                           ? "جارٍ مراجعة أسعار الفاتورة والخصومات..."
-                          : quote.error
-                            ? approvalError(quote.error)
+                          : quoteError
+                            ? approvalError(quoteError)
                             : paid < summary.total
                               ? "المبلغ المستلم أقل من المستحق. راجع الدفعات."
                               : paid - summary.total > cash
@@ -882,14 +892,14 @@ export function POS() {
                   </span>
                   <b>{fm(decimal(summary.tax))}</b>
                 </div>
-                {quote.error && (
+                {quoteError && (
                   <ErrorMessage
                     message={
-                      quote.error instanceof ApiError &&
-                      quote.error.code === "DISCOUNT_LIMIT"
+                      quoteError instanceof ApiError &&
+                      quoteError.code === "DISCOUNT_LIMIT"
                         ? "الخصم يتجاوز الحد المسموح لحسابك."
-                        : quote.error instanceof Error
-                          ? approvalError(quote.error)
+                        : quoteError instanceof Error
+                          ? approvalError(quoteError)
                           : "تعذر مراجعة الفاتورة"
                     }
                   />
@@ -947,12 +957,12 @@ export function POS() {
                     </Button>
                   </div>
                 )}
-                {quote.error instanceof ApiError &&
+                {quoteError instanceof ApiError &&
                   [
                     "DISCOUNT_LIMIT",
                     "DISCOUNT_APPROVAL_INVALID",
                     "DISCOUNT_APPROVAL_CHANGED",
-                  ].includes(quote.error.code) &&
+                  ].includes(quoteError.code) &&
                   !workspace.active.discountApprovalId && (
                     <div>
                       <Field label="سبب تجاوز حد الخصم">
@@ -1114,4 +1124,4 @@ export function POS() {
       </Modal>
     </div>
   );
-                    }
+        }
