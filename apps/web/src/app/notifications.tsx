@@ -97,9 +97,9 @@ export function useAction() {
       if (busy) return;
       setBusy(true);
       try {
-        await fn();
+        const result = await fn();
         await client.invalidateQueries();
-        notify(ar.success);
+        notify(typeof result === "string" && result ? result : ar.success);
         done?.();
       } catch (e) {
         notify(readableError(e), true);
