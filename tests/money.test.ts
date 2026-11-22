@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { D, totals, allocate, returnAmount } from "../apps/api/src/utils/money.js";
+import {
+  D,
+  totals,
+  allocate,
+  returnAmount,
+} from "../apps/api/src/utils/money.js";
 import {
   checkoutSchema,
   roleDefaults,
@@ -50,6 +55,27 @@ describe("exact decimal accounting", () => {
     const last = returnAmount(D(10), 3, 2, D("6.66"), 1);
     expect(first.toFixed(2)).toBe("3.33");
     expect(last.toFixed(2)).toBe("3.34");
+  });
+  it("allocates repeated tiny partial returns cumulatively without overrefunds", () => {
+    for (let quantity = 1; quantity <= 20; quantity++) {
+      for (let centTotal = 0; centTotal <= 25; centTotal++) {
+        const total = D(centTotal).div(100);
+        let refunded = D(0);
+        for (let returned = 0; returned < quantity; returned++) {
+          const amount = returnAmount(total, quantity, returned, refunded, 1);
+          expect(amount.gte(0)).toBe(true);
+          refunded = refunded.plus(amount);
+          expect(refunded.lte(total)).toBe(true);
+        }
+        expect(refunded.eq(total)).toBe(true);
+      }
+    }
+  });
+  it("keeps historical partial refunds bounded when earlier rounding ran ahead", () => {
+    expect(returnAmount(D("0.02"), 4, 2, D("0.02"), 1).toFixed(2)).toBe("0.00");
+    expect(returnAmount(D("315.35"), 3, 2, D("210.24"), 1).toFixed(2)).toBe(
+      "105.11",
+    );
   });
   it("rejects excess returns", () =>
     expect(() => returnAmount(D(10), 3, 2, D("6.66"), 2)).toThrow());

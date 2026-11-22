@@ -10,6 +10,75 @@ export function registerRound2Tests(get: () => any) {
   describe.sequential(
     "round2 data-preservation and display regressions",
     () => {
+      it("returns a two-cent four-unit line repeatedly without overrefund or constraint failure", async () => {
+        const { db, owner, send } = get();
+        const openShift = await db.cashShift.findFirstOrThrow({
+          where: { userId: owner.user.id, closedAt: null },
+          include: { register: true },
+        });
+        const location = { id: openShift.register.locationId };
+        const category = await db.category.findFirstOrThrow(),
+          open = await db.cashShift.findFirstOrThrow({
+            where: { userId: owner.user.id, closedAt: null },
+          });
+        const product = await send(owner, "/products", {
+          nameAr: "TEST tiny partial return",
+          sku: "TEST-TINY-RETURN",
+          categoryId: category.id,
+          variants: [{ sku: "TEST-TINY-RETURN-ONE", price: "0.01" }],
+        });
+        expect(product.status).toBe(201);
+        const variantId = product.body.data.variants[0].id;
+        await send(owner, "/inventory/adjustments", {
+          variantId,
+          locationId: location.id,
+          quantity: 4,
+          reason: "TEST tiny return opening",
+          cost: "0",
+        });
+        const created = await send(owner, "/sales", {
+          shiftId: open.id,
+          items: [{ variantId, quantity: 4 }],
+          discount: "0.02",
+          payments: [{ method: "CASH", amount: "1" }],
+        });
+        expect(created.status).toBe(201);
+        expect(created.body.data.total).toBe("0.02");
+        const values: string[] = [];
+        for (let i = 0; i < 4; i++) {
+          const returned = await send(
+            owner,
+            `/sales/${created.body.data.id}/returns`,
+            {
+              shiftId: open.id,
+              reason: "TEST tiny partial return",
+              method: "CASH",
+              items: [
+                {
+                  saleItemId: created.body.data.items[0].id,
+                  quantity: 1,
+                  sellable: true,
+                },
+              ],
+            },
+          );
+          expect(returned.status).toBe(200);
+          values.push(returned.body.data.total);
+        }
+        expect(values).toEqual(["0.01", "0", "0.01", "0"]);
+        const stored = await db.saleItem.findUniqueOrThrow({
+          where: { id: created.body.data.items[0].id },
+        });
+        expect(stored.returned).toBe(4);
+        expect(stored.refunded.toFixed(2)).toBe("0.02");
+        expect(
+          (
+            await db.sale.findUniqueOrThrow({
+              where: { id: created.body.data.id },
+            })
+          ).status,
+        ).toBe("FULLY_RETURNED");
+      });
       let variant: any, priceOnly: any, destination: any;
       const options = { المقاس: "M", اللون: "أزرق" };
       it("preserves every omitted variant field and limits the price-only role", async () => {
@@ -512,4 +581,4 @@ export function registerRound2Tests(get: () => any) {
     },
   );
   registerPosStockTests(get);
-}
+                       }

@@ -68,7 +68,12 @@ export function returnAmount(
     requested > quantity - returned
   )
     throw new Error("Invalid return quantity");
-  return returned + requested === quantity
-    ? total.minus(refunded)
-    : round(total.mul(requested).div(quantity));
+  const remaining = Prisma.Decimal.max(D(0), total.minus(refunded));
+  if (returned + requested === quantity) return remaining;
+  const target = round(total.mul(returned + requested).div(quantity));
+  // Clamp for historical returns made with independent per-request rounding.
+  return Prisma.Decimal.min(
+    remaining,
+    Prisma.Decimal.max(D(0), target.minus(refunded)),
+  );
 }
