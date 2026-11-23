@@ -1,3 +1,6 @@
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { readableError } from "../../app/notifications";
@@ -112,12 +115,12 @@ const kinds: Record<string, string> = {
   EXPIRE: "انتهاء صلاحية",
 };
 export function CustomerLoyalty({ customerId }: { customerId: string }) {
-  const [offset, setOffset] = useState(0);
+  const paging = usePagination(customerId,true,"local");
   const query = useQuery({
-    queryKey: ["customer-loyalty", customerId, offset],
-    queryFn: () => api(`/customers/${customerId}/loyalty?offset=${offset}`),
+    queryKey: ["customer-loyalty", customerId, paging.page, paging.pageSize],
+    queryFn: ({signal}) => api(`/customers/${customerId}/loyalty?${paging.query}`,{signal}),
   });
-  if (query.isLoading) return <p>جارٍ تحميل النقاط…</p>;
+  if (query.isLoading) return <TableSkeleton columns={3} />;
   if (query.error) return <ErrorMessage message={query.error.message} />;
   const data = query.data?.data;
   if (!data) return null;
@@ -156,22 +159,7 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
         </table>
       </div>
       {!data.total && <p>لا توجد حركات نقاط مسجلة.</p>}
-      <div className="pager">
-        <Button
-          variant="outline"
-          disabled={!offset}
-          onClick={() => setOffset(Math.max(0, offset - 30))}
-        >
-          السابق
-        </Button>
-        <Button
-          variant="outline"
-          disabled={offset + data.entries.length >= data.total}
-          onClick={() => setOffset(offset + 30)}
-        >
-          التالي
-        </Button>
-      </div>
+      <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} total={data.total} length={data.entries.length} disabled={query.isFetching} />
     </section>
   );
 }
