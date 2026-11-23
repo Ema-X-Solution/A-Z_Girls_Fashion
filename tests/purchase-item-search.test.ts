@@ -157,8 +157,9 @@ describe("purchase item search", () => {
         const dialog = page.getByRole("dialog");
         await dialog.locator('[name="supplierId"]').selectOption(supplierId);
         await dialog.locator('[name="locationId"]').selectOption(locationId);
-        const search = dialog.getByRole("searchbox", { name: "بحث عن الصنف" });
+        const search = dialog.getByRole("combobox", { name: "الصنف" });
         await ui(search).toBeVisible();
+        await search.click();
         const picker = dialog.locator('[name="v0"]');
         await ui(picker.locator("option")).toHaveCount(51);
         await dialog
@@ -193,12 +194,12 @@ describe("purchase item search", () => {
           dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
         ).toHaveText("1 نتيجة • صفحة 1");
         await picker.selectOption(targetId);
-        await ui(search).toHaveValue("");
+        await ui(search).not.toHaveValue("");
         await ui(dialog.locator('[name="c0"]')).toHaveValue("100");
         await search.fill("غير موجود نهائيا");
         await ui(
           dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
-        ).toContainText("لا توجد أصناف مطابقة");
+        ).toContainText("لا توجد نتائج مطابقة");
         await ui(picker).toHaveValue(targetId);
         await page.screenshot({
           path: `test-results/item-search/no-results-${width}.png`,
