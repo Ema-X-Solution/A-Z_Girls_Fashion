@@ -28,6 +28,15 @@ try {
           },
         },
       });
+    // Initialization is only allowed on an empty database. The deployment
+    // migration separately preserves existing Arabic-role permissions.
+    const arabicCashier = await tx.role.upsert({
+      where: { name: "كاشير" }, update: {}, create: { name: "كاشير" },
+    });
+    await tx.rolePermission.createMany({
+      data: roleDefaults.CASHIER.map(permissionKey => ({ roleId: arabicCashier.id, permissionKey })),
+      skipDuplicates: true,
+    });
     const owner = await tx.role.findUniqueOrThrow({ where: { name: "OWNER" } });
     const user = await tx.user.create({
       data: {

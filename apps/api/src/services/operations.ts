@@ -109,8 +109,8 @@ export async function stock(
 export async function activeShift(
   tx: Tx,
   shiftId: string,
-  actor: Actor,
-  own = true,
+  _actor: Actor,
+  _own = true,
 ) {
   await tx.$queryRaw`SELECT "id" FROM "CashShift" WHERE "id"=${shiftId}::uuid FOR UPDATE`;
   const shift = await tx.cashShift.findUnique({
@@ -118,12 +118,6 @@ export async function activeShift(
     include: { register: true },
   });
   assert(shift && !shift.closedAt, "SHIFT_CLOSED", "An open shift is required");
-  assert(
-    !own || shift.userId === actor.id,
-    "SHIFT_OWNER",
-    "Use your own shift",
-    403,
-  );
   return shift;
 }
 export const receiveSchema = z.object({

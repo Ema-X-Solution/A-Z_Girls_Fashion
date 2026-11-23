@@ -410,6 +410,7 @@ model LoyaltyEntry {
   @@index([customerId,createdAt])
 }
 model Sale {
+  operatorId String? @db.Uuid
   id String @id @default(uuid()) @db.Uuid
   number BigInt @unique @default(autoincrement())
   receiptNumber String? @unique

@@ -32,6 +32,7 @@ const auditActions: Record<string, string> = {
   LOGIN_FAILED: "محاولة دخول فاشلة",
   SHIFT_OPEN: "فتح وردية",
   SHIFT_CLOSE: "إغلاق وردية",
+  SHIFT_REOPEN: "إعادة فتح وردية الدرج",
   CASH_MOVEMENT: "حركة نقدية",
   NET_EXCHANGE: "استبدال صافي",
   CATEGORY_RENAME: "إعادة تسمية قسم",
@@ -215,6 +216,10 @@ export function Records({ kind }: { kind: string }) {
                     : "النظام")}
               </span>
             ),
+          },
+          {
+            label: "الكاشير على الفاتورة",
+            render: (r: Row) => r.details?.cashierName ?? "—",
           },
           { label: "المرجع", render: (r: Row) => <code>{r.reference}</code> },
         ]
@@ -461,4 +466,4 @@ export function Records({ kind }: { kind: string }) {
       </Modal>
     </>
   );
-                                }
+}

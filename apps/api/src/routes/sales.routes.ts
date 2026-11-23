@@ -3,12 +3,13 @@ import { requirePermission as can } from "../middleware/auth.js";
 import * as controllers from "../controllers/sales.controller.js";
 
 export const salesRouter = Router();
-
-salesRouter.post(
-  "/sales",
+salesRouter.get(
+  "/sales/cashiers",
   can("sales.create"),
-  controllers.handlePostSales,
+  controllers.handleGetSelectableCashiers,
 );
+
+salesRouter.post("/sales", can("sales.create"), controllers.handlePostSales);
 
 salesRouter.get(
   "/sales",

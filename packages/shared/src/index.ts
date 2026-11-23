@@ -100,6 +100,7 @@ export const checkoutSchema = z.object({
   requireCustomer: z.literal(true).optional(),
   loyaltyPoints: z.number().int().min(0).max(1000000).optional(),
   discountApprovalId: id.optional(),
+  cashierId: id.optional(),
   shiftId: id,
   customerId: id.optional(),
   items: z.array(saleLineSchema).min(1).max(200),

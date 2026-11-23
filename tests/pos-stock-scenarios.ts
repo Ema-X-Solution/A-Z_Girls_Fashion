@@ -3,7 +3,7 @@ import { emptyDraft } from "../apps/web/src/features/pos/workspace";
 
 export function registerPosStockTests(get: () => any) {
   it("sells the last piece despite legacy reservation rows, preserves their data and retires shared-cart endpoints", async () => {
-    const { db, owner, send, resetFixtureQuota } = get();
+    const { db, owner, cashier, send, resetFixtureQuota } = get();
     await resetFixtureQuota();
     const shift = (await owner.agent.get("/api/shifts/current")).body.data;
     expect(shift).not.toBeNull();
@@ -50,6 +50,7 @@ export function registerPosStockTests(get: () => any) {
     });
     const checkout = (quantity: number) => ({
       shiftId: shift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: variant.id, quantity }],
       payments: [{ method: "CASH", amount: String(quantity * 10) }],
     });

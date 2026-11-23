@@ -6,6 +6,7 @@ import { actor, type Actor } from "../middleware/auth.js";
 import { db, assert } from "../lib/db.js";
 import { dashboardData } from "../routes/reports.js";
 import { reportPdf } from "../utils/report-pdf.js";
+import { D } from "../utils/money.js";
 import { reportDate } from "../utils/report-date.js";
 
 const types = [
@@ -57,7 +58,7 @@ export const reportTitles: Record<string, string> = {
   expenses: "المصروفات",
   "gross-profit": "مجمل الربح",
   "net-profit": "صافي الربح",
-  shifts: "ورديات الكاشير",
+  shifts: "ورديات درج المحل",
 };
 
 function authority(kind: string, user: Actor) {
@@ -254,10 +255,10 @@ function queryFor(
       ),
     };
   return {
-    sql: Prisma.sql`SELECT r.name label,u.name cashier,s."openedAt" opened,s."closedAt" closed,s."openingCash"::text opening,s."expectedCash"::text expected,s."countedCash"::text counted,s.difference::text difference FROM "CashShift" s JOIN "User" u ON u.id=s."userId" JOIN "Register" r ON r.id=s."registerId" WHERE s."openedAt">=${from} AND s."openedAt"<=${to} ${user.permissions.includes("cash.view_all") ? Prisma.empty : Prisma.sql`AND s."userId"=${user.id}::uuid`}`,
+    sql: Prisma.sql`SELECT r.name label,u.name cashier,s."openedAt" opened,s."closedAt" closed,s."openingCash"::text opening,s."expectedCash"::text expected,s."countedCash"::text counted,s.difference::text difference FROM "CashShift" s JOIN "User" u ON u.id=s."userId" JOIN "Register" r ON r.id=s."registerId" WHERE s."openedAt">=${from} AND s."openedAt"<=${to} `,
     columns: columns(
       "label:الجهاز",
-      "cashier:الكاشير",
+      "cashier:فتح بواسطة",
       "opened:فتح",
       "closed:إغلاق",
       "opening:افتتاحي",
@@ -354,6 +355,18 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
           const rows = await tx.$queryRaw<Record<string, unknown>[]>(
             Prisma.sql`SELECT * FROM (${report.sql}) t ${filter} ORDER BY t.label::text, row_to_json(t)::text LIMIT ${take} OFFSET ${format === "json" ? offset : 0}`,
           );
+          if (kind === "cashier") {
+            const setting = await tx.systemSetting.findUnique({ where: { key: "store" } });
+            const rate = D(String((setting?.value as Record<string, unknown>)?.cashierCommissionRate ?? "1"));
+            return {
+              data: rows.map(row => {
+                // A negative net period (returns above sales) floors the commission at zero.
+                const base = D(String(row.total ?? "0"));
+                return {...row, commissionRate: rate.toFixed(2), commission: (base.isNegative() ? D(0) : base).mul(rate).div(100).toFixed(2)};
+              }),
+              total: Number(count[0]!.total), columns: [...report.columns, ...columns("commissionRate:العمولة (%)", "commission:قيمة العمولة")],
+            };
+          }
           return {
             data: rows,
             total: Number(count[0]!.total),
@@ -423,6 +436,8 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
       const numeric = new Set([
         "quantity",
         "net",
+        "commissionRate",
+        "commission",
         "tax",
         "total",
         "cost",

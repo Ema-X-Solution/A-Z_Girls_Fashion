@@ -33,3 +33,10 @@ shiftsRouter.post(
   can("cash.close_shift"),
   controllers.handlePostShiftsByIdClose,
 );
+
+shiftsRouter.post(
+  "/shifts/:id/reopen",
+  can("cash.open_shift"),
+  can("cash.close_shift"),
+  controllers.handlePostShiftsByIdReopen,
+);

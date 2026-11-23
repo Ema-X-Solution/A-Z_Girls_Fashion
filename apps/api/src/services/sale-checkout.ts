@@ -19,6 +19,26 @@ export async function checkout(
     "حدد رقم العميل قبل إتمام البيع، حتى مع الدفع النقدي",
     400,
   );
+  assert(
+    input.cashierId,
+    "CASHIER_REQUIRED",
+    "اختر اسم الكاشير قبل إتمام البيع.",
+    400,
+  );
+  const cashier = await tx.user.findFirst({
+    where: {
+      id: input.cashierId,
+      active: true,
+      roles: { some: { role: { name: "كاشير" } } },
+    },
+    select: { id: true, name: true, employeeCode: true },
+  });
+  assert(
+    cashier,
+    "CASHIER_INVALID",
+    "الكاشير غير متاح. اختر مستخدمًا نشطًا عليه دور كاشير.",
+    400,
+  );
   const shift = await activeShift(tx, input.shiftId, actor);
   if (input.customerId) await lockLoyalty(tx, input.customerId);
   const customer = input.customerId
@@ -85,10 +105,6 @@ export async function checkout(
       ),
     });
   }
-  const cashier = await tx.user.findUniqueOrThrow({
-    where: { id: actor.id },
-    select: { id: true, name: true, employeeCode: true },
-  });
   const branch = await tx.branch.findUniqueOrThrow({
       where: { id: shift.register.branchId },
     }),
@@ -102,7 +118,8 @@ export async function checkout(
   const sale = await tx.sale.create({
     data: {
       id: saleId,
-      userId: actor.id,
+      userId: cashier.id,
+      operatorId: actor.id,
       branchId: branch.id,
       shiftId: shift.id,
       customerId: input.customerId,
@@ -113,7 +130,11 @@ export async function checkout(
       receiptSnapshot: {
         ...snapshot,
         customer: customer
-          ? { name: customer.name, phone: customer.phone, address: customer.address }
+          ? {
+              name: customer.name,
+              phone: customer.phone,
+              address: customer.address,
+            }
           : null,
         promotion: pricing.promotion,
         customerDiscount: pricing.customerDiscount.toFixed(2),
@@ -162,7 +183,11 @@ export async function checkout(
   const receiptSnapshot = {
     ...snapshot,
     customer: customer
-      ? { name: customer.name, phone: customer.phone, address: customer.address }
+      ? {
+          name: customer.name,
+          phone: customer.phone,
+          address: customer.address,
+        }
       : null,
     promotion: pricing.promotion,
     customerDiscount: pricing.customerDiscount.toFixed(2),
@@ -210,6 +235,9 @@ export async function checkout(
     taxMode,
     taxRate,
     receiptNumber,
+    cashierId: cashier.id,
+    cashierName: cashier.name,
+    operatorId: actor.id,
   });
   return { ...sale, receiptNumber, receiptSnapshot };
-    }
+}

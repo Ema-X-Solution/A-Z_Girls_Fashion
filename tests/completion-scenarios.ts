@@ -50,19 +50,13 @@ export function registerCompletionTests(get: () => any) {
     const { send } = get();
     let shift = (await who.agent.get("/api/shifts/current")).body.data;
     if (!shift) {
-      const f = await fixture();
-      const reg = await send(get().owner, "/administration/registers", {
-        name: crypto.randomUUID(),
-        branchId: f.branch.id,
-        locationId: f.location.id,
+      // One shared drawer: reopen today's closed shift instead of opening new.
+      const latest = await get().db.cashShift.findFirstOrThrow({
+        orderBy: { openedAt: "desc" },
       });
-      expect(reg.status).toBe(201);
-      const result = await send(who, "/shifts/open", {
-        registerId: reg.body.data.id,
-        openingCash: "1000",
-      });
-      expect(result.status).toBe(201);
-      shift = result.body.data;
+      const reopened = await send(who, `/shifts/${latest.id}/reopen`, {});
+      expect(reopened.status).toBe(200);
+      shift = reopened.body.data;
     }
     return shift;
   }
@@ -236,42 +230,38 @@ export function registerCompletionTests(get: () => any) {
         locationId: f.destination.id,
       });
       expect(reg.status).toBe(201);
-      const opened = await send(who, "/shifts/open", {
-        registerId: reg.body.data.id,
-        openingCash: "0",
-      });
-      expect(opened.status).toBe(201);
       const patch = (path: string, body: any) =>
         owner.agent
           .patch(`/api${path}`)
           .set("Origin", get().origin())
           .set("X-CSRF-Token", owner.csrf)
           .send(body);
+      // The open shared-drawer shift guards its own register and branch.
+      const drawer = await get().drawerShift();
+      const drawerRegister = await db.register.findUniqueOrThrow({
+        where: { id: drawer.registerId },
+      });
+      const drawerBranch = await db.branch.findUniqueOrThrow({
+        where: { id: drawerRegister.branchId },
+      });
       expect(
         (
-          await patch(`/administration/registers/${reg.body.data.id}`, {
+          await patch(`/administration/registers/${drawerRegister.id}`, {
             name: "غير مسموح أثناء الوردية",
-            locationId: f.destination.id,
+            locationId: drawerRegister.locationId,
             active: false,
           })
         ).status,
       ).toBe(409);
       expect(
         (
-          await patch(`/administration/branches/${f.branch.id}`, {
-            name: f.branch.name,
+          await patch(`/administration/branches/${drawerBranch.id}`, {
+            name: drawerBranch.name,
             active: false,
           })
         ).status,
       ).toBe(409);
-      expect(
-        (
-          await send(who, `/shifts/${opened.body.data.id}/close`, {
-            countedCash: "0",
-            notes: "إغلاق اختبار",
-          })
-        ).status,
-      ).toBe(200);
+      // A register without an open shift can be deactivated...
       expect(
         (
           await patch(`/administration/registers/${reg.body.data.id}`, {
@@ -281,14 +271,13 @@ export function registerCompletionTests(get: () => any) {
           })
         ).status,
       ).toBe(200);
-      expect(
-        (
-          await send(who, "/shifts/open", {
-            registerId: reg.body.data.id,
-            openingCash: "0",
-          })
-        ).status,
-      ).toBe(400);
+      // ...but opening a shift on an inactive register is rejected.
+      const inactiveOpen = await send(who, "/shifts/open", {
+        registerId: reg.body.data.id,
+        openingCash: "0",
+      });
+      expect(inactiveOpen.status).toBe(400);
+      expect(inactiveOpen.body.error.code).toBe("REGISTER_INACTIVE");
       expect(
         (await cashier.agent.get("/api/administration/sessions")).status,
       ).toBe(403);
@@ -551,6 +540,7 @@ export function registerCompletionTests(get: () => any) {
       });
       const sold = await send(owner, "/sales", {
         shiftId: shift.id,
+        cashierId: get().cashier.user.id,
         customerId: customer.body.data.id,
         items: [{ variantId: f.variant.id, quantity: 1 }],
         payments: [{ method: "CASH", amount: "100" }],

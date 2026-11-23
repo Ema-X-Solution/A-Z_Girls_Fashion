@@ -110,6 +110,24 @@ async function resetFixtureQuota() {
   apiRateLimiter.resetKey("127.0.0.1");
   apiRateLimiter.resetKey("::ffff:127.0.0.1");
 }
+// One shared drawer per Cairo day: reuse the open shift or reopen today's.
+async function drawerShift() {
+  const open = await db.cashShift.findFirst({ where: { closedAt: null } });
+  if (open) return open;
+  const latest = await db.cashShift.findFirstOrThrow({
+    orderBy: { openedAt: "desc" },
+  });
+  const reopened = await send(owner, `/shifts/${latest.id}/reopen`, {});
+  expect(reopened.status).toBe(200);
+  return reopened.body.data;
+}
+// The cashier selected on the shared POS device (the user holding the exact
+// Arabic cashier role).
+async function pickPosCashier(page: Page) {
+  await page
+    .getByLabel("اسم الكاشير", { exact: true })
+    .selectOption(cashier.user.id);
+}
 beforeAll(async () => {
   pgPort = await new Promise<number>((resolvePort) => {
     const socket = createSocketServer();
@@ -315,6 +333,10 @@ describe.sequential("real PostgreSQL retail workflows", () => {
   });
   it("owner creates a manager and cashier with database roles", async () => {
     const roles = await db.role.findMany();
+    // The deployment migration provides the exact Arabic cashier role used by
+    // the shared-device picker; the test cashier holds both roles.
+    const arabicCashier = roles.find((v) => v.name === "كاشير");
+    expect(arabicCashier).toBeTruthy();
     for (const [name, email, role] of [
       ["Manager", "manager@example.test", "MANAGER"],
       ["Cashier", "cashier@example.test", "CASHIER"],
@@ -323,13 +345,21 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         name,
         email,
         password,
-        roleIds: [roles.find((v) => v.name === role)!.id],
+        roleIds: [
+          roles.find((v) => v.name === role)!.id,
+          ...(role === "CASHIER" ? [arabicCashier!.id] : []),
+        ],
       });
       expect(r.status).toBe(201);
       expect(r.body.data.passwordHash).toBeUndefined();
     }
     manager = await login("manager@example.test");
     cashier = await login("cashier@example.test");
+    expect(
+      (await cashier.agent.get("/api/sales/cashiers")).body.data.map(
+        (x: any) => x.id,
+      ),
+    ).toContain(cashier.user.id);
     expect((await send(cashier, "/users", {})).status).toBe(403);
     expect((await send(manager, "/roles", {})).status).toBe(403);
   });
@@ -643,18 +673,17 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     });
     expect(r.status).toBe(201);
     shift = r.body.data;
-    expect(
-      (
-        await send(owner, "/shifts/open", {
-          registerId: register.id,
-          openingCash: "0",
-        })
-      ).status,
-    ).toBe(409);
+    const second = await send(owner, "/shifts/open", {
+      registerId: register.id,
+      openingCash: "0",
+    });
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe("SHIFT_EXISTS");
   });
   it("checks discount limits and rolls back failed checkout", async () => {
     const body = {
       shiftId: shift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: variant.id, quantity: 1 }],
       payments: [{ method: "CASH", amount: "100" }],
       discount: "1",
@@ -675,6 +704,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
   it("checkout is atomic, idempotent, cash-correct and hides costs", async () => {
     const body = {
         shiftId: shift.id,
+        cashierId: cashier.user.id,
         items: [{ variantId: variant.id, quantity: 1 }],
         payments: [{ method: "CASH", amount: "120" }],
       },
@@ -698,20 +728,9 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect((await db.stockBalance.findFirstOrThrow()).quantity).toBe(2);
   });
   it("repeated refunds post once and cannot exceed original quantity", async () => {
-    const reg = await db.register.create({
-      data: {
-        name: "Manager register",
-        branchId: branch.id,
-        locationId: location.id,
-      },
-    });
-    const r = await send(manager, "/shifts/open", {
-        registerId: reg.id,
-        openingCash: "500",
-      }),
-      managerShift = r.body.data;
+    // One shared drawer: the manager refunds through the same open shift.
     const body = {
-        shiftId: managerShift.id,
+        shiftId: shift.id,
         reason: "Wrong size",
         method: "CASH",
         items: [{ saleItemId: sale.items[0].id, quantity: 1, sellable: true }],
@@ -736,24 +755,15 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       quantity: -2,
       reason: "Prepare last item",
     });
-    const reg = await db.register.create({
-      data: {
-        name: "Owner register",
-        branchId: branch.id,
-        locationId: location.id,
-      },
-    });
-    const r = await send(owner, "/shifts/open", {
-      registerId: reg.id,
-      openingCash: "0",
-    });
+    // One shared drawer: both sellers race on the same open shift.
     const body = {
+      cashierId: cashier.user.id,
       items: [{ variantId: variant.id, quantity: 1 }],
       payments: [{ method: "CARD", amount: "100" }],
     };
     const results = await Promise.all([
       send(cashier, "/sales", { ...body, shiftId: shift.id }),
-      send(owner, "/sales", { ...body, shiftId: r.body.data.id }),
+      send(owner, "/sales", { ...body, shiftId: shift.id }),
     ]);
     expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
     expect((await db.stockBalance.findFirstOrThrow()).quantity).toBe(0);
@@ -873,6 +883,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       (
         await send(cashier, "/sales", {
           shiftId: shift.id,
+          cashierId: cashier.user.id,
           items: [{ variantId: variant.id, quantity: 1 }],
           payments: [{ method: "CASH", amount: "100" }],
         })
@@ -922,15 +933,13 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         fullPage: true,
       });
       await openSidebarPage(page, "ورديات الكاشير");
+      // Today's drawer shift was closed in the previous test: reopen it.
       await page
-        .getByRole("button", { name: "فتح وردية", exact: true })
+        .getByRole("button", { name: "إعادة فتح وردية اليوم", exact: true })
         .click();
-      await page
-        .getByLabel("جهاز الكاشير", { exact: true })
-        .selectOption(register.id);
-      await page.getByLabel("النقد الافتتاحي").fill("100");
-      await page.getByRole("button", { name: "حفظ", exact: true }).click();
-      await browserExpect(page.getByRole("dialog")).toHaveCount(0);
+      await browserExpect(
+        page.getByRole("button", { name: "إغلاق الوردية", exact: true }),
+      ).toBeVisible();
       await openSidebarPage(page, "نقطة البيع");
       await page
         .getByRole("textbox", { name: "مسح الباركود" })
@@ -940,6 +949,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await page
         .getByLabel("المبلغ المستلم (فارغ = المبلغ المستحق)")
         .fill("100");
+      await pickPosCashier(page);
       await page.screenshot({ path: "test-results/pos.png", fullPage: true });
       await pickPosCustomer(page);
       await page
@@ -1201,11 +1211,10 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect(await db.auditLog.count()).toBeGreaterThan(10);
   });
   it("retired legacy exchange route returns 410 with zero writes", async () => {
-    const managerShift = await db.cashShift.findFirstOrThrow({
-      where: { userId: manager.user.id, closedAt: null },
-    });
+    const managerShift = await drawerShift();
     const original = await send(manager, "/sales", {
       shiftId: managerShift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: variant.id, quantity: 1 }],
       payments: [{ method: "CASH", amount: "100" }],
     });
@@ -1252,10 +1261,8 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect(await db.exchange.count()).toBe(exchangesBefore);
     expect(await db.cashMovement.count()).toBe(cashBefore);
   });
-  it("cash expenses debit the creating cashier shift exactly once", async () => {
-    const managerShift = await db.cashShift.findFirstOrThrow({
-        where: { userId: manager.user.id, closedAt: null },
-      }),
+  it("cash expenses debit the shared drawer shift exactly once", async () => {
+    const managerShift = await drawerShift(),
       before = await db.cashMovement.aggregate({
         where: { shiftId: managerShift.id },
         _sum: { amount: true },
@@ -1509,10 +1516,8 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       Number(before.body.data.netProfit) - Number(after.body.data.netProfit),
     ).toBe(20);
   });
-  it("supplier cash payments debit the correct open shift exactly once", async () => {
-    const shift = await db.cashShift.findFirstOrThrow({
-        where: { userId: manager.user.id, closedAt: null },
-      }),
+  it("supplier cash payments debit the shared drawer shift exactly once", async () => {
+    const shift = await drawerShift(),
       before = await db.cashMovement.aggregate({
         where: { shiftId: shift.id },
         _sum: { amount: true },
@@ -1592,9 +1597,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).rejects.toThrow();
   });
   it("net exchanges collect only the price difference and preserve internal credit", async () => {
-    const shift = await db.cashShift.findFirstOrThrow({
-        where: { userId: manager.user.id, closedAt: null },
-      }),
+    const shift = await drawerShift(),
       category = await db.category.findFirstOrThrow();
     const product = await send(manager, "/products", {
       nameAr: "أصناف استبدال",
@@ -1627,6 +1630,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ]) {
       const original = await send(manager, "/sales", {
         shiftId: shift.id,
+        cashierId: cashier.user.id,
         items: [
           {
             variantId: variants.find((v: any) => v.sku === "NET-100").id,
@@ -1655,6 +1659,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
           },
           replacement: {
             shiftId: shift.id,
+            cashierId: cashier.user.id,
             items: [
               {
                 variantId: variants.find((v: any) => v.sku === replacementSku)
@@ -1713,9 +1718,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     }
   });
   it("net exchanges settle 200 to 210 with only 10 tender and expose a receipt", async () => {
-    const shift = await db.cashShift.findFirstOrThrow({
-        where: { userId: manager.user.id, closedAt: null },
-      }),
+    const shift = await drawerShift(),
       category = await db.category.findFirstOrThrow();
     const product = await send(manager, "/products", {
       nameAr: "أصناف استبدال عشري",
@@ -1745,6 +1748,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const sell = (variantId: string, price: string) =>
         send(manager, "/sales", {
           shiftId: shift.id,
+          cashierId: cashier.user.id,
           items: [{ variantId, quantity: 1 }],
           payments: [{ method: "CASH", amount: price }],
         }),
@@ -1808,6 +1812,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         returned: refundOf(original.body.data),
         replacement: {
           shiftId: shift.id,
+          cashierId: cashier.user.id,
           items: [{ variantId: v210.id, quantity: 1 }],
           payments: [{ method: "CASH", amount: "5" }],
         },
@@ -1841,6 +1846,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
           returned: refundOf(original.body.data),
           replacement: {
             shiftId: shift.id,
+            cashierId: cashier.user.id,
             items: [{ variantId: v210.id, quantity: 1 }],
             payments: [{ method: "CASH", amount: "10" }],
           },
@@ -1888,6 +1894,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
           returned: refundOf(original2.body.data),
           replacement: {
             shiftId: shift.id,
+            cashierId: cashier.user.id,
             items: [{ variantId: v200.id, quantity: 1 }],
             payments: [],
           },
@@ -1921,9 +1928,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         },
       });
       const category = await db.category.findFirstOrThrow(),
-        shift = await db.cashShift.findFirstOrThrow({
-          where: { userId: owner.user.id, closedAt: null },
-        });
+        shift = await drawerShift();
       const product = await send(owner, "/products", {
         nameAr: "منتج ضريبة جزئية",
         sku: "VAT-PARTIAL",
@@ -1940,6 +1945,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       });
       const result = await send(owner, "/sales", {
         shiftId: shift.id,
+        cashierId: cashier.user.id,
         items: [{ variantId, quantity: 3 }],
         payments: [
           {
@@ -2000,9 +2006,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
   });
   it("enforces defect-only return rules from the original sale snapshot", async () => {
     const category = await db.category.findFirstOrThrow(),
-      shift = await db.cashShift.findFirstOrThrow({
-        where: { userId: manager.user.id, closedAt: null },
-      }),
+      shift = await drawerShift(),
       p = await send(manager, "/products", {
         nameAr: "صنف لعيب الصناعة فقط",
         sku: "DEFECT-ONLY",
@@ -2020,6 +2024,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     });
     const sold = await send(manager, "/sales", {
       shiftId: shift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: v.id, quantity: 1 }],
       payments: [{ method: "CASH", amount: "50" }],
     });
@@ -2054,9 +2059,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).toBe(200);
   });
   it("recovers checkout results, scopes attempts to the actor, and cancels delayed submissions atomically", async () => {
-    const ownerShift = await db.cashShift.findFirstOrThrow({
-      where: { userId: owner.user.id, closedAt: null },
-    });
+    const ownerShift = await drawerShift();
     const recoveryProduct = await send(owner, "/products", {
       nameAr: "اختبار استرجاع البيع",
       sku: "RECOVERY-TEST",
@@ -2077,6 +2080,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).toBe(200);
     const body = {
       shiftId: ownerShift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: v.id, quantity: 1 }],
       payments: [{ method: "CASH", amount: "100000" }],
     };
@@ -2141,9 +2145,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     );
   });
   it("binds discount approvals to the requester/cart, rechecks authority, and consumes approval atomically", async () => {
-    const requesterShift = await db.cashShift.findFirstOrThrow({
-      where: { userId: manager.user.id, closedAt: null },
-    });
+    const requesterShift = await drawerShift();
     const created = await send(owner, "/products", {
       nameAr: "اختبار موافقة الخصم",
       sku: "APPROVAL-TEST",
@@ -2160,6 +2162,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     });
     const body = {
       shiftId: requesterShift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: v.id, quantity: 1 }],
       discount: "25",
       payments: [{ method: "CASH", amount: "75" }],
@@ -2337,12 +2340,8 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).toBe(403);
   });
   it("applies automatic offers without cashier override and freezes bundle return policy", async () => {
-    const ownerShift = await db.cashShift.findFirstOrThrow({
-        where: { userId: owner.user.id, closedAt: null },
-      }),
-      managerShift = await db.cashShift.findFirstOrThrow({
-        where: { userId: manager.user.id, closedAt: null },
-      });
+    const ownerShift = await drawerShift(),
+      managerShift = ownerShift;
     const created = await send(owner, "/products", {
       nameAr: "أصناف العروض",
       sku: "PROMO-TEST",
@@ -2400,6 +2399,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const input = {
       ...quote,
       shiftId: managerShift.id,
+      cashierId: cashier.user.id,
       discount: "10",
       discountType: "PERCENT",
       payments: [{ method: "CASH", amount: "180" }],
@@ -2455,6 +2455,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect(sold.body.data.receiptSnapshot.promotion.name).toBe(campaign.name);
     const percentageSale = await send(manager, "/sales", {
       shiftId: managerShift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: a.id, quantity: 2 }],
       payments: [{ method: "CASH", amount: "150" }],
     });
@@ -2523,14 +2524,13 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     expect((await request(app).get("/api/branding")).body.data.logoUrl).toBe(
       logo.body.data.logoUrl,
     );
-    const shift = await db.cashShift.findFirstOrThrow({
-        where: { userId: owner.user.id, closedAt: null },
-      }),
+    const shift = await drawerShift(),
       v = await db.productVariant.findUniqueOrThrow({
         where: { sku: "PROMO-A" },
       });
     const sold = await send(owner, "/sales", {
       shiftId: shift.id,
+      cashierId: cashier.user.id,
       items: [{ variantId: v.id, quantity: 1 }],
       payments: [{ method: "CASH", amount: "100" }],
     });
@@ -2557,9 +2557,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       category = await db.category.findFirstOrThrow({
         where: { name: "ملابس" },
       }),
-      ownerShift = await db.cashShift.findFirstOrThrow({
-        where: { userId: owner.user.id, closedAt: null },
-      });
+      ownerShift = await drawerShift();
     await db.systemSetting.update({
       where: { key: "store" },
       data: {
@@ -2574,8 +2572,9 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         },
       },
     });
+    // The receipt shows the selected cashier's name and seller code.
     await db.user.update({
-      where: { id: owner.user.id },
+      where: { id: cashier.user.id },
       data: { name: "أحمد محمود", employeeCode: "SELLER-001" },
     });
     const first = await send(owner, "/products", {
@@ -2787,6 +2786,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByRole("textbox", { name: "مسح الباركود" })
         .press("Enter");
       await browserExpect(managerPage.locator(".cart-line")).toHaveCount(1);
+      await pickPosCashier(managerPage);
       await pickPosCustomer(managerPage);
       await managerPage
         .getByLabel("خصم على الفاتورة", { exact: true })
@@ -2878,6 +2878,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await browserExpect(
         page.getByRole("status").filter({ hasText: "عرض المتصفح 2+1" }),
       ).toBeVisible();
+      await pickPosCashier(page);
       await pickPosCustomer(page);
       await page
         .getByRole("button", { name: "إتمام البيع", exact: true })
@@ -3192,6 +3193,9 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByLabel("الصنف البديل 1", { exact: true })
         .selectOption(a.id);
       await page
+        .getByLabel("اسم الكاشير للفاتورة البديلة", { exact: true })
+        .selectOption(cashier.user.id);
+      await page
         .getByRole("button", { name: "اعتماد الاستبدال", exact: true })
         .click();
       await browserExpect(page.locator(".receipt-preview")).toContainText(
@@ -3319,9 +3323,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     });
     expect(created.status).toBe(201);
     const customer = created.body.data;
-    const historyShift = await db.cashShift.findFirstOrThrow({
-      where: { userId: owner.user.id, closedAt: null },
-    });
+    const historyShift = await drawerShift();
     const historyProduct = await send(owner, "/products", {
       nameAr: "History item",
       sku: "HIST",
@@ -3342,6 +3344,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).toBe(200);
     const sold = await send(owner, "/sales", {
       shiftId: historyShift.id,
+      cashierId: cashier.user.id,
       customerId: customer.id,
       items: [{ variantId: historyVariant.id, quantity: 2 }],
       payments: [{ method: "CASH", amount: "1000" }],
@@ -3578,11 +3581,10 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         })
       ).status,
     ).toBe(200);
-    const ownShift = await db.cashShift.findFirstOrThrow({
-      where: { userId: owner.user.id, closedAt: null },
-    });
+    const ownShift = await drawerShift();
     const body = {
       shiftId: ownShift.id,
+      cashierId: cashier.user.id,
       customerId: c.id,
       items: [{ variantId: v.id, quantity: 2 }],
       payments: [{ method: "CASH", amount: "1000" }],
@@ -3720,9 +3722,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     const v = await db.productVariant.findUniqueOrThrow({
       where: { sku: "LOYALTY-V1" },
     });
-    const ownShift = await db.cashShift.findFirstOrThrow({
-      where: { userId: owner.user.id, closedAt: null },
-    });
+    const ownShift = await drawerShift();
     const c = (
       await send(owner, "/customers", {
         name: "Loyalty debt customer",
@@ -3731,6 +3731,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).body.data;
     const body = {
       shiftId: ownShift.id,
+      cashierId: cashier.user.id,
       customerId: c.id,
       items: [{ variantId: v.id, quantity: 1 }],
       payments: [{ method: "CASH", amount: "1000" }],
@@ -3856,28 +3857,12 @@ describe.sequential("real PostgreSQL retail workflows", () => {
     ).body.data;
     const concurrentBody = { ...body, customerId: concurrent.id };
     expect((await send(owner, "/sales", concurrentBody)).status).toBe(201);
-    let managerShift = await db.cashShift.findFirst({
-      where: { userId: manager.user.id, closedAt: null },
-    });
-    if (!managerShift) {
-      const register = await db.register.create({
-        data: {
-          name: "Concurrent loyalty register",
-          branchId: branch.id,
-          locationId: location.id,
-        },
-      });
-      const opened = await send(manager, "/shifts/open", {
-        registerId: register.id,
-        openingCash: "100",
-      });
-      expect(opened.status).toBe(201);
-      managerShift = opened.body.data;
-    }
+    // One shared drawer: both actors race on the same open shift.
+    const managerShift = await drawerShift();
     const attempts = await Promise.all([
       send(manager, "/sales", {
         ...concurrentBody,
-        shiftId: managerShift!.id,
+        shiftId: managerShift.id,
         loyaltyPoints: 10,
       }),
       send(owner, "/sales", { ...concurrentBody, loyaltyPoints: 10 }),
@@ -4119,6 +4104,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByRole("textbox", { name: "مسح الباركود", exact: true })
         .press("Enter");
       await browserExpect(page.locator(".cart-line")).toHaveCount(1);
+      await pickPosCashier(page);
       await pickPosCustomer(page, customer.phone);
       await page.getByLabel("نقاط الولاء للاستبدال", { exact: true }).fill("5");
       await browserExpect(page.getByText(/المتاح: 9 نقطة/)).toBeVisible();
@@ -4297,6 +4283,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByRole("textbox", { name: "مسح الباركود", exact: true })
         .press("Enter");
       await browserExpect(page.locator(".cart-line")).toHaveCount(1);
+      await pickPosCashier(page);
       await browserExpect(
         page.getByRole("button", { name: "إتمام البيع", exact: true }),
       ).toBeDisabled();
@@ -4429,10 +4416,12 @@ registerCompletionTests(() => ({
   send,
   login,
   resetFixtureQuota,
+  drawerShift,
   password,
   origin: () => process.env.APP_ORIGIN ?? origin,
   availablePort,
 }));
 
-registerRound2Tests(() => ({ db, app, owner, manager, cashier, send, login, resetFixtureQuota, password, origin: () => process.env.APP_ORIGIN ?? origin, availablePort }));
+registerRound2Tests(() => ({ db, app, owner, manager, cashier, send, login, resetFixtureQuota, drawerShift, password, origin: () => process.env.APP_ORIGIN ?? origin, availablePort }));
+
 

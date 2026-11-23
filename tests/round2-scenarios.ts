@@ -11,16 +11,15 @@ export function registerRound2Tests(get: () => any) {
     "round2 data-preservation and display regressions",
     () => {
       it("returns a two-cent four-unit line repeatedly without overrefund or constraint failure", async () => {
-        const { db, owner, send } = get();
+        const { db, owner, cashier, send, drawerShift } = get();
+        // One shared drawer: reuse or reopen today's single shift.
         const openShift = await db.cashShift.findFirstOrThrow({
-          where: { userId: owner.user.id, closedAt: null },
+          where: { id: (await drawerShift()).id },
           include: { register: true },
         });
         const location = { id: openShift.register.locationId };
         const category = await db.category.findFirstOrThrow(),
-          open = await db.cashShift.findFirstOrThrow({
-            where: { userId: owner.user.id, closedAt: null },
-          });
+          open = openShift;
         const product = await send(owner, "/products", {
           nameAr: "TEST tiny partial return",
           sku: "TEST-TINY-RETURN",
@@ -38,6 +37,7 @@ export function registerRound2Tests(get: () => any) {
         });
         const created = await send(owner, "/sales", {
           shiftId: open.id,
+          cashierId: cashier.user.id,
           items: [{ variantId, quantity: 4 }],
           discount: "0.02",
           payments: [{ method: "CASH", amount: "1" }],
@@ -383,7 +383,6 @@ export function registerRound2Tests(get: () => any) {
           db,
           app,
           owner,
-          send,
           password,
           availablePort,
           resetFixtureQuota,
@@ -424,27 +423,8 @@ export function registerRound2Tests(get: () => any) {
             endsAt: new Date(Date.now() + 3600000),
           },
         });
-        const existingShift = await db.cashShift.findFirst({
-          where: { userId: owner.user.id, closedAt: null },
-        });
-        if (!existingShift) {
-          const location = await db.stockLocation.findFirstOrThrow();
-          const register = await db.register.create({
-            data: {
-              name: "Round2 browser register",
-              branchId: location.branchId,
-              locationId: location.id,
-            },
-          });
-          expect(
-            (
-              await send(owner, "/shifts/open", {
-                registerId: register.id,
-                openingCash: "0",
-              })
-            ).status,
-          ).toBe(201);
-        }
+        // One shared drawer: reuse the open shift or reopen today's.
+        await get().drawerShift();
         const http = app.listen(0, "127.0.0.1");
         await new Promise<void>((resolve) => http.once("listening", resolve));
         const apiPort = (http.address() as { port: number }).port;

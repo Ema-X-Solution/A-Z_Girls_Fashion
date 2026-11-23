@@ -60,6 +60,18 @@ export function StoreSettings() {
                 label: "المنطقة الزمنية",
                 options: [{ value: "Africa/Cairo", label: "القاهرة" }],
               },
+              {
+                ...simple(
+                  "cashierCommissionRate",
+                  "عمولة الكاشير (%)",
+                  "number",
+                ),
+                default: "1",
+                min: 0,
+                max: 100,
+                step: "0.01",
+                hint: "على إجمالي الفواتير شامل الضريبة بعد خصم المرتجعات. الافتراضي 1%.",
+              },
               { ...simple("taxRate", "نسبة الضريبة (%)", "number"), max: 100 },
               {
                 key: "taxMode",

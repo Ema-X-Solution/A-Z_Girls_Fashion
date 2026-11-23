@@ -36,6 +36,12 @@ export const handlePatchSettingsStore: RequestHandler = route(
           (v) => D(v).lte(100),
           "نسبة الضريبة يجب أن تكون من 0 إلى 100.",
         ),
+        cashierCommissionRate: money
+          .refine(
+            (v) => /^\d{1,10}(\.\d{1,2})?$/.test(v) && D(v).lte(100),
+            "نسبة عمولة الكاشير يجب أن تكون من 0 إلى 100 بمنزلتين عشريتين بحد أقصى.",
+          )
+          .optional(),
         returnDays: z
           .number()
           .int("فترة الاسترجاع يجب أن تكون عددًا صحيحًا من 0 إلى 365 يومًا.")
@@ -69,6 +75,7 @@ export const handlePatchSettingsStore: RequestHandler = route(
         where: { key: "store" },
       });
       const value = {
+        cashierCommissionRate: "1",
         taxMode: "EXCLUSIVE",
         showTaxOnInvoice: true,
         invoicePrefix: "INV",

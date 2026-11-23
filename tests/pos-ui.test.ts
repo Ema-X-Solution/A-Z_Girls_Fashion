@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   chromium,
   expect as ui,
@@ -78,6 +78,7 @@ async function mount({
   const context = await browser.newContext({ viewport: { width, height } });
   contexts.push(context);
   const draft = emptyWorkspace();
+  draft.active.cashierId = userId;
   if (filled)
     draft.active.items = [
       {
@@ -130,6 +131,8 @@ async function mount({
         csrf: "fixture-csrf",
         discountLimit: "100",
       };
+    else if (path === "/sales/cashiers")
+      data = [{ id: userId, name: "TEST Cashier" }];
     else if (path === "/shifts/current")
       data = shift
         ? { id: shiftId, register: { id: "register", locationId } }
@@ -232,6 +235,9 @@ beforeAll(async () => {
     headless: true,
   });
   await mkdir("test-results/pos", { recursive: true });
+});
+afterEach(async () => {
+  for (const context of contexts.splice(0)) await context.close();
 });
 afterAll(async () => {
   for (const context of contexts) await context.close();
