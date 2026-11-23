@@ -43,12 +43,7 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
   );
   const rows: Record<string, unknown>[] = order.items.map((item) => ({
     item: item.variant
-      ? [
-          item.variant.product.nameAr || item.variant.sku,
-          ...Object.values(
-            (item.variant.options ?? {}) as Record<string, unknown>,
-          ),
-        ].join(" / ")
+      ? `${item.variant.product.nameAr || item.variant.sku}\n${Object.entries((item.variant.options ?? {}) as Record<string, unknown>).map(([key, value]) => `${key === "size" ? "المقاس" : key === "color" ? "اللون" : key}: ${String(value)}`).join(" • ")}`
       : item.variantId,
     quantity: item.quantity,
     received: item.received,
@@ -94,6 +89,7 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
     {
       filename: `purchase-${order.id}.pdf`,
       disposition: "inline",
+      centerNumericCells: true,
       metadata: [
         `المورد: ${order.supplier.name}`,
         `المخزن: ${order.location?.name ?? "—"}`,
