@@ -1,6 +1,8 @@
 import { locationLabels } from "../services/location-labels.js";
 import { page } from "../utils/http.js";
 import { listResult } from "../utils/pagination.js";
+import { originalSlices } from "../services/fifo.js";
+import { D } from "../utils/money.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id } from "@az/shared";
@@ -369,12 +371,16 @@ export const handlePostInventoryHoldsByIdResolve: RequestHandler = async (req, r
             "HOLD_QUANTITY",
             "الكمية أكبر من المتبقي",
           );
+          const history = await tx.stockCostFlow.count({where:{reference:hold.id,type:"QUARANTINE_OUT",variantId:hold.variantId}});
+          const layers = history ? await originalSlices(tx,hold.id,"QUARANTINE_OUT",hold.variantId,hold.released+hold.disposed,input.quantity) : [{quantity:input.quantity,unitCost:hold.unitCost,acquiredAt:hold.createdAt}];
+          const exactCost=layers.reduce((s,l)=>s.plus(l.unitCost.mul(l.quantity)),D(0));
           if (input.action === "RELEASE")
             await stock(tx, actor(req), {
               variantId: hold.variantId,
               locationId: hold.locationId,
               quantity: input.quantity,
               cost: hold.unitCost,
+              layers,
               type: "QUARANTINE_RELEASE",
               reference: hold.id,
               reason: input.reason,
@@ -390,14 +396,14 @@ export const handlePostInventoryHoldsByIdResolve: RequestHandler = async (req, r
                 sourceId: hold.locationId,
                 reason: `حجر ${hold.id}: ${input.reason}`,
                 createdBy: actor(req).id,
-                totalCost: round(hold.unitCost.mul(input.quantity)),
+                totalCost: round(exactCost),
                 items: {
                   create: {
                     variantId: hold.variantId,
                     name: variant.product.nameAr,
                     sku: variant.sku,
                     quantity: input.quantity,
-                    unitCost: hold.unitCost,
+                    unitCost: exactCost.div(input.quantity).toDecimalPlaces(4),
                   },
                 },
               },
