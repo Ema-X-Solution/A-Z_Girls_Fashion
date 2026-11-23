@@ -56,7 +56,13 @@ export function POS() {
   const scanInput = useRef<HTMLInputElement>(null);
   const { discount, discountType, itemDiscounts, payments, customer, notes } =
     workspace.active;
-  const selectedCashier = workspace.active.cashierId ?? "";
+  const canSellAsSelf =
+    user?.roles.some(
+      (role: string) => role === "OWNER" || role === "MANAGER",
+    ) ?? false;
+  const selectedCashier = canSellAsSelf
+    ? ""
+    : (workspace.active.cashierId ?? "");
   const cashiers = useQuery({
     queryKey: ["pos-cashiers", selectedCashier],
     queryFn: () =>
@@ -340,13 +346,14 @@ export function POS() {
             ? "جارٍ التحقق من الوردية..."
             : !shift.data?.data
               ? "افتح وردية أولًا لإتمام البيع."
-              : !selectedCashier ||
-                  !(
-                    cashiers.data?.selected?.id === selectedCashier ||
-                    cashiers.data?.data.some(
-                      (c: Row) => c.id === selectedCashier,
-                    )
-                  )
+              : (!selectedCashier && !canSellAsSelf) ||
+                  (!!selectedCashier &&
+                    !(
+                      cashiers.data?.selected?.id === selectedCashier ||
+                      cashiers.data?.data.some(
+                        (c: Row) => c.id === selectedCashier,
+                      )
+                    ))
                 ? "اختر اسم الكاشير قبل إتمام البيع."
                 : !cart.items.length
                   ? "أضف صنفًا إلى الفاتورة أولًا."
@@ -1079,36 +1086,41 @@ export function POS() {
                 <h3 className="pos-section-heading">
                   <CreditCard size={15} /> طريقة الدفع
                 </h3>
-                <Field label="اسم الكاشير">
-                  {(id) => (
-                    <SmartSelect
-                      id={id}
-                      name="cashierId"
-                      label="اسم الكاشير"
-                      placeholder="ابحث باسم الكاشير"
-                      value={selectedCashier}
-                      disabled={frozen}
-                      endpoint="/sales/cashiers"
-                      optionLabel={(row) => row.name}
-                      onChange={(row) =>
-                        field("cashierId", row.id || undefined)
-                      }
-                    />
-                  )}
-                </Field>
-                {cashiers.error ? (
-                  <ErrorMessage message="تعذر تحميل أسماء الكاشيرين. أعد تحميل الصفحة قبل البيع." />
-                ) : !cashiers.isLoading && !cashiers.data?.data?.length ? (
-                  <ErrorMessage
-                    message={
-                      'مفيش كاشير متاح. من المستخدمين، اربط مستخدمًا نشطًا بدور "كاشير".'
-                    }
-                  />
-                ) : (
-                  <p className="note">
-                    الاسم هيتسجل على الفاتورة. آخر اختيار محفوظ على الجهاز، من
-                    غير PIN.
-                  </p>
+                {!canSellAsSelf && (
+                  <>
+                    <Field label="اسم الكاشير">
+                      {(id) => (
+                        <SmartSelect
+                          id={id}
+                          name="cashierId"
+                          required={!canSellAsSelf}
+                          label="اسم الكاشير"
+                          placeholder="ابحث باسم الكاشير"
+                          value={selectedCashier}
+                          disabled={frozen}
+                          endpoint="/sales/cashiers"
+                          optionLabel={(row) => row.name}
+                          onChange={(row) =>
+                            field("cashierId", row.id || undefined)
+                          }
+                        />
+                      )}
+                    </Field>
+                    {cashiers.error ? (
+                      <ErrorMessage message="تعذر تحميل أسماء الكاشيرين. أعد تحميل الصفحة قبل البيع." />
+                    ) : !cashiers.isLoading && !cashiers.data?.data?.length ? (
+                      <ErrorMessage
+                        message={
+                          'مفيش كاشير متاح. من المستخدمين، اربط مستخدمًا نشطًا بدور "كاشير".'
+                        }
+                      />
+                    ) : (
+                      <p className="note">
+                        الاسم هيتسجل على الفاتورة. آخر اختيار محفوظ على الجهاز،
+                        من غير PIN.
+                      </p>
+                    )}
+                  </>
                 )}
                 <PaymentEditor
                   value={payments}
@@ -1197,4 +1209,4 @@ export function POS() {
       </Modal>
     </div>
   );
-      }
+    }

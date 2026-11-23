@@ -1,3 +1,4 @@
+import { selectableCashierScope } from "../services/cashier-selection.js";
 import { userOptions } from "../services/user-options.js";
 import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
@@ -33,7 +34,8 @@ function safeSale(s: any, costs: boolean) {
     for (const key of Object.keys(v)) {
       if (
         key === "passwordHash" ||
-        (!costs && ["unitCost", "cost", "inventoryCost", "costTotal"].includes(key))
+        (!costs &&
+          ["unitCost", "cost", "inventoryCost", "costTotal"].includes(key))
       )
         delete v[key];
       else scrub(v[key]);
@@ -86,7 +88,13 @@ export const handleGetSales: RequestHandler = route(async (req, res) => {
     }),
     db.sale.count({ where }),
   ]);
-  res.json(listResult(req.query, data.map((s) => safeSale(s, hasCosts(req))), total));
+  res.json(
+    listResult(
+      req.query,
+      data.map((s) => safeSale(s, hasCosts(req))),
+      total,
+    ),
+  );
 });
 
 export const handleGetSalesById: RequestHandler = route(async (req, res) => {
@@ -148,11 +156,18 @@ export const handlePostSalesByIdExchanges: RequestHandler = route(() => {
 
 export const handleGetSelectableCashiers: RequestHandler = route(
   async (req, res) => {
-    const scope={active:true,roles:{some:{role:{name:"كاشير"}}}};
-    if(req.query.offset!==undefined || req.query.q!==undefined || req.query.selected!==undefined) { res.json(await userOptions(req.query,scope));return; }
+    const scope = selectableCashierScope(actor(req));
+    if (
+      req.query.offset !== undefined ||
+      req.query.q !== undefined ||
+      req.query.selected !== undefined
+    ) {
+      res.json(await userOptions(req.query, scope));
+      return;
+    }
     res.json({
       data: await db.user.findMany({
-        where: { active: true, roles: { some: { role: { name: "كاشير" } } } },
+        where: scope,
         select: { id: true, name: true, employeeCode: true },
         orderBy: { name: "asc" },
       }),

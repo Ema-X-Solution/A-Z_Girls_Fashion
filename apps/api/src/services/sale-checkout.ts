@@ -1,3 +1,4 @@
+import { canSellAsSelf, selectableCashierScope } from "./cashier-selection.js";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { checkoutSchema } from "@az/shared";
@@ -19,24 +20,24 @@ export async function checkout(
     "حدد رقم العميل قبل إتمام البيع، حتى مع الدفع النقدي",
     400,
   );
+  const cashierId =
+    input.cashierId ?? (canSellAsSelf(actor) ? actor.id : undefined);
   assert(
-    input.cashierId,
+    cashierId,
     "CASHIER_REQUIRED",
     "اختر اسم الكاشير قبل إتمام البيع.",
     400,
   );
   const cashier = await tx.user.findFirst({
     where: {
-      id: input.cashierId,
-      active: true,
-      roles: { some: { role: { name: "كاشير" } } },
+      AND: [selectableCashierScope(actor), { id: cashierId }],
     },
     select: { id: true, name: true, employeeCode: true },
   });
   assert(
     cashier,
     "CASHIER_INVALID",
-    "الكاشير غير متاح. اختر مستخدمًا نشطًا عليه دور كاشير.",
+    "الاسم المختار غير متاح لهذا الحساب. اختر اسمًا من قائمة الكاشير.",
     400,
   );
   const shift = await activeShift(tx, input.shiftId, actor);
@@ -87,8 +88,14 @@ export async function checkout(
       reference: saleId,
       reason: "Checkout",
     });
-    const consumed = await tx.stockCostFlow.findMany({ where: { reference: saleId, type: "SALE", variantId: line.variantId }, include: { batch: true } });
-    const costTotal = consumed.reduce((sum, flow) => sum.plus(flow.batch.unitCost.mul(-flow.quantity)), D(0));
+    const consumed = await tx.stockCostFlow.findMany({
+      where: { reference: saleId, type: "SALE", variantId: line.variantId },
+      include: { batch: true },
+    });
+    const costTotal = consumed.reduce(
+      (sum, flow) => sum.plus(flow.batch.unitCost.mul(-flow.quantity)),
+      D(0),
+    );
     items.push({
       variantId: line.variantId,
       name: line.variant.product.nameAr,
@@ -243,4 +250,4 @@ export async function checkout(
     operatorId: actor.id,
   });
   return { ...sale, receiptNumber, receiptSnapshot };
-      }
+}
