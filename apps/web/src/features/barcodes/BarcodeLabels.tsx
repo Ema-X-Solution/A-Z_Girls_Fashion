@@ -30,6 +30,7 @@ type Line = {
 };
 type Job = { storeName: string; items: Line[] };
 const presets: Record<string, { width: number; height: number }> = {
+  "40x25": { width: 40, height: 25 },
   "40x30": { width: 40, height: 30 },
   "50x30": { width: 50, height: 30 },
   "60x40": { width: 60, height: 40 },
@@ -53,15 +54,24 @@ function Label({
   line,
   storeName,
   price,
+  compact,
 }: {
   line: Line;
   storeName: string;
   price: boolean;
+  compact: boolean;
 }) {
   return (
-    <article className="retail-label" data-barcode={line.barcode} dir="ltr" lang="en">
+    <article
+      className={`retail-label${compact ? " retail-label-40x25" : ""}${compact && !price ? " retail-label-no-price" : ""}`}
+      data-barcode={line.barcode}
+      dir="ltr"
+      lang="en"
+    >
       <strong className="label-store">{storeName}</strong>
-      <div className="label-name">{line.name}</div>
+      <div className="label-name" dir={compact ? "auto" : undefined}>
+        {line.name}
+      </div>
       <div className="label-options">
         {formatDigits(Object.values(line.options).join(" / ")) || line.sku}
       </div>
@@ -83,16 +93,32 @@ function Label({
           });
           const w = svg.getAttribute("width"),
             h = svg.getAttribute("height");
-          svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+          svg.setAttribute(
+            "viewBox",
+            compact
+              ? `0 0 ${Number.parseFloat(w ?? "0")} ${Number.parseFloat(h ?? "0")}`
+              : `0 0 ${w} ${h}`,
+          );
           svg.removeAttribute("width");
           svg.removeAttribute("height");
-          svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+          svg.setAttribute(
+            "preserveAspectRatio",
+            compact ? "none" : "xMidYMid meet",
+          );
         }}
       />
       <div className="label-number" dir="ltr">
         {line.barcode}
       </div>
-      {price && <b className="label-price">{new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(line.price))} EGP</b>}
+      {price && (
+        <b className="label-price">
+          {new Intl.NumberFormat("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }).format(Number(line.price))}{" "}
+          EGP
+        </b>
+      )}
     </article>
   );
 }
@@ -113,7 +139,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         ]),
       ),
     ),
-    [preset, setPreset] = useState("50x30"),
+    [preset, setPreset] = useState("40x25"),
     [customWidth, setCustomWidth] = useState(50),
     [customHeight, setCustomHeight] = useState(30),
     [paper, setPaper] = useState("thermal"),
@@ -312,7 +338,9 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                         <td>
                           <strong>{p.nameAr}</strong>
                           <small>
-                            {formatDigits(Object.values(v.options).join(" / ")) || v.sku}
+                            {formatDigits(
+                              Object.values(v.options).join(" / "),
+                            ) || v.sku}
                           </small>
                         </td>
                         <td>
@@ -422,6 +450,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                 value={preset}
                 onChange={(e) => setPreset(e.target.value)}
               >
+                <option value="40x25">40 × 25 مم</option>
                 <option value="40x30">40 × 30 مم</option>
                 <option value="50x30">50 × 30 مم</option>
                 <option value="60x40">60 × 40 مم</option>
@@ -547,6 +576,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                 line={c.line}
                 storeName={job.storeName}
                 price={showPrice}
+                compact={size.width === 40 && size.height === 25}
               />
             ))}
           </div>
@@ -572,6 +602,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                 line={c.line}
                 storeName={job.storeName}
                 price={showPrice}
+                compact={size.width === 40 && size.height === 25}
               />
             ))}
           </div>,
@@ -579,4 +610,4 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         )}
     </div>
   );
-      }
+            }
