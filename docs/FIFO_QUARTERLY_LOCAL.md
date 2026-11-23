@@ -1,8 +1,8 @@
-# FIFO costing and quarterly closing, local implementation
+# FIFO costing and quarterly closing
 
-Base: Ema-X-Solution/A-Z_Girls_Fashion, commit 01851ecabc49cb3e068d65492754d6bec9bef721.
+Original implementation base: 01851ecabc49cb3e068d65492754d6bec9bef721. Publication rebase: main 91daa4b35371801619f52890c27417b4d202f649, retaining the SQL dashboard aggregation and pagination changes.
 
-Nothing was pushed, uploaded to GitHub, merged, deployed, or run against production. No production database or credentials were copied. Receipt, invoice, privacy and policy templates were not changed. The VAT setting was not changed for the new scenarios: the initial local store setting is 14% inclusive, so a 171 EGP item has 150 EGP revenue before VAT.
+The implementation and test history below was first completed locally. It is now submitted for publication in PR #35. No tests were run against production. No production database or credentials were copied. Receipt, invoice, privacy and policy templates were not changed. The VAT setting was not changed for the new scenarios: the initial local store setting is 14% inclusive, so a 171 EGP item has 150 EGP revenue before VAT.
 
 ## What changed
 
@@ -56,9 +56,9 @@ BROWSER_CHANNEL=chrome npx vitest run tests/fifo-quarter.test.ts
 
 The new integration suite creates disposable local PostgreSQL databases. Its historical fixture dates use controlled backdating only inside those disposable databases while the new closed-period guard remains active. It temporarily disables existing immutable-date triggers for fixture setup, then re-enables them. This is not a production editing feature.
 
-## Before any future deployment
+## Deployment and operational limits
 
-Deployment needs separate owner approval. Take and verify a backup, reconcile stock balances, choose an operational cutover time, and test migration on a restored copy first. FIFO starts from the opening balances and cannot recover unknown historical batch prices. Actual partner names/percentages must be entered by the owner before closing a real period.
+The owner approved publication and the production migration without waiting for a backup. The main-branch workflow runs Prisma migrations before rebuilding and restarting the application. No production sign-in or manual data edit is part of this change. For future migrations, the recommended process remains a verified backup, restored-copy rehearsal, stock reconciliation and a planned cutover. FIFO starts from the opening balances and cannot recover unknown historical batch prices. Actual partner names/percentages must be entered by the owner before closing a real period.
 
 The new batch display is capped at 200 rows and needs pagination for large history. Stock operations and closing share a database lock for correctness; load-test the throughput if multiple busy tills will run concurrently. Closing freezes the quarterly screen/snapshot; ordinary detailed reports continue to show live underlying ledgers. No reopen or historical profit redistribution was added. Existing four-decimal per-unit shipment/quarantine display summaries can have tiny rounding differences from exact cost layers; the sale COGS and close calculations use exact recorded totals.
 
@@ -70,4 +70,8 @@ Quarterly closing was moved out of Reports to its own Finance and Reports menu e
 
 The separate closing page shows net sales VAT and two comparison figures: base net profit + net sales VAT, and base net profit - net sales VAT. These are arithmetic display alternatives, not income-tax calculations. Base profit is already exclusive of sales VAT. Partner shares still use base net profit. Saved invoice/return VAT is used, not a newly assumed rate or today's store setting. Existing frozen snapshots derive these display values from their saved figures without altering the snapshot.
 
-Example: 14% inclusive sales, 171 gross = 150 net + 21 VAT per unit. Invoice VAT 525 minus return VAT 105 = quarter VAT 420. Base profit 700 gives 1,120 and 280. The 15 FIFO/closing tests, including actual browser assertions, pass. Build, typecheck and lint pass. The meaning remains for owner confirmation; nothing has been pushed or deployed.
+Example: 14% inclusive sales, 171 gross = 150 net + 21 VAT per unit. Invoice VAT 525 minus return VAT 105 = quarter VAT 420. Base profit 700 gives 1,120 and 280. The 15 FIFO/closing tests, including actual browser assertions, pass. Build, typecheck and lint pass. The owner approved publishing these views.
+
+## Publication validation
+
+After rebasing on main 91daa4b: typecheck, lint and production build passed; 15 FIFO/closing, 16 dashboard aggregation and one cashier VAT test passed; the retail suite passed 61 tests with its existing one skip. The dashboard fixture now seeds matching FIFO layers because it inserts stock balances directly instead of using stock posting. All 21 uploaded file contents were read back; editor-only whitespace was synchronized before the final focused checks.
