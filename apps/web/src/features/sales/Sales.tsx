@@ -43,7 +43,7 @@ export function Sales() {
           بيع جديد
         </Link>
       </Header>
-      <section className="panel">
+      <section className="panel sales-panel">
         <div className="toolbar">
           <div className="search">
             <Search size={18} />
