@@ -1,3 +1,4 @@
+import { SmartSelect } from "../../components/application/SmartSelect";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../../api";
@@ -7,7 +8,6 @@ import { Modal, Field, ErrorMessage } from "../shared/Controls";
 import { ReceiptView } from "../receipts/ReceiptView";
 import { PaymentEditor, emptyPayment, resolvedPayments } from "./PaymentEditor";
 import { cents, decimal } from "./money";
-import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 type Row = Record<string, any>;
 export function ExchangeDialog({
   sale,
@@ -24,7 +24,6 @@ export function ExchangeDialog({
       { variant?: Row; quantity: number }[]
     >([{ quantity: 1 }]),
     [cashierId, setCashierId] = useState(""),
-    [q, setQ] = useState(""),
     [reason, setReason] = useState(""),
     [reasonType, setReasonType] = useState("CHANGE_MIND"),
     [method, setMethod] = useState("CASH"),
@@ -35,29 +34,17 @@ export function ExchangeDialog({
     [error, setError] = useState(""),
     [done, setDone] = useState<Row | null>(null),
     [key, setKey] = useState(() => crypto.randomUUID());
-  const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
   const cashiers = useQuery({
-    queryKey: ["pos-cashiers"],
-    queryFn: () => api("/sales/cashiers"),
+    queryKey: ["pos-cashiers", cashierId],
+    queryFn: () =>
+      api(
+        `/sales/cashiers?offset=0${cashierId ? `&selected=${cashierId}` : ""}`,
+      ),
   });
   const shift = useQuery({
-      queryKey: ["exchange-shift"],
-      queryFn: () => api("/shifts/current"),
-    }),
-    catalog = useQuery({
-      queryKey: ["exchange-catalog", debouncedQ],
-      queryFn: ({ signal }) =>
-        api(`/products?q=${encodeURIComponent(debouncedQ)}&limit=100`, {
-          signal,
-        }),
-      enabled: !searchPending,
-    });
-  const variants: Row[] =
-    catalog.data?.data.flatMap((p: Row) =>
-      p.variants
-        .filter((v: Row) => v.active && p.status === "ACTIVE")
-        .map((v: Row) => ({ ...v, name: p.nameAr })),
-    ) ?? [];
+    queryKey: ["exchange-shift"],
+    queryFn: () => api("/shifts/current"),
+  });
   const body = {
     returned: {
       shiftId: shift.data?.data?.id,
@@ -163,19 +150,17 @@ export function ExchangeDialog({
           )}
           <Field label="اسم الكاشير للفاتورة البديلة">
             {(id) => (
-              <select
+              <SmartSelect
                 id={id}
+                name="cashierId"
+                label="اسم الكاشير للفاتورة البديلة"
                 value={cashierId}
                 disabled={busy}
-                onChange={(e) => setCashierId(e.target.value)}
-              >
-                <option value="">اختر اسم الكاشير</option>
-                {(cashiers.data?.data ?? []).map((c: Row) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                endpoint="/sales/cashiers"
+                placeholder="ابحث باسم الكاشير"
+                optionLabel={(row) => row.name}
+                onChange={(row) => setCashierId(row.id)}
+              />
             )}
           </Field>
           {!cashiers.isLoading && !cashiers.data?.data?.length && (
@@ -261,58 +246,28 @@ export function ExchangeDialog({
             </Field>
           </div>
           <h3>الأصناف البديلة</h3>
-          <Field label="بحث الأصناف البديلة">
-            {(id) => (
-              <input
-                id={id}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="اسم المنتج أو كوده"
-              />
-            )}
-          </Field>
-          {catalog.error && <ErrorMessage message="تعذر تحميل المنتجات" />}
           {replacement.map((row, index) => {
-            const options = row.variant
-              ? [
-                  ...variants.filter((v) => v.id !== row.variant!.id),
-                  row.variant,
-                ]
-              : variants;
             return (
               <div className="exchange-replacement" key={index}>
                 <Field label={`الصنف البديل ${index + 1}`}>
                   {(id) => (
-                    <select
+                    <SmartSelect
                       id={id}
+                      name={`replacement-${index}`}
+                      label={`الصنف البديل ${index + 1}`}
+                      endpoint="/variant-options"
                       value={row.variant?.id ?? ""}
-                      disabled={searchPending || catalog.isFetching}
-                      onChange={(e) =>
+                      optionLabel={(v) =>
+                        `${v.name} • ${v.sku} • ${fm(v.price)}`
+                      }
+                      onChange={(v) =>
                         setReplacement((old) =>
                           old.map((r, j) =>
-                            j === index
-                              ? {
-                                  ...r,
-                                  variant: options.find(
-                                    (v) => v.id === e.target.value,
-                                  ),
-                                }
-                              : r,
+                            j === index ? { ...r, variant: v } : r,
                           ),
                         )
                       }
-                    >
-                      <option value="">اختر الصنف والمقاس...</option>
-                      {options.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name} •{" "}
-                          {formatDigits(
-                            Object.values(v.options ?? {}).join(" / "),
-                          )}{" "}
-                          • {v.sku} • {fm(v.price)}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   )}
                 </Field>
                 <Field label={`كمية البديل ${index + 1}`}>
@@ -457,4 +412,4 @@ export function ExchangeDialog({
       )}
     </Modal>
   );
-}
+                    }
