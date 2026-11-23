@@ -1,4 +1,8 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
 import { formatDigits } from "../../i18n";
+import { SmartSelect } from "../../components/application/SmartSelect";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Header, Modal, ErrorMessage } from "../shared/Controls";
 import {
@@ -6,39 +10,21 @@ import {
   useRows,
   useTask,
   save,
-  Pagination,
   FormField,
   PageState,
   when,
   allowed,
   type Row,
 } from "./Tools";
-import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import "./management.css";
 export function AdvancedInventory() {
   const [tab, setTab] = useState("shipments"),
-    [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
-    [search, setSearch] = useState(""),
     [lines, setLines] = useState([{ variantId: "", quantity: 1 }]);
-  const { debounced, searchPending } = useDebouncedSearch(search),
-    task = useTask(),
-    query = useRows(`/inventory/${tab}?offset=${offset}`),
-    locations = useRows("/locations"),
-    products = useRows(
-      `/products?q=${encodeURIComponent(debounced)}&limit=100`,
-      !searchPending,
-    );
-  const variants: Row[] =
-    products.data?.data.flatMap((p: Row) =>
-      p.variants.map((v: Row) => ({
-        ...v,
-        label: `${p.nameAr} • ${v.sku} • ${formatDigits(Object.values(v.options).join(" / "))}`,
-      })),
-    ) ?? [];
-  const location = (id: string) =>
-    locations.data?.data.find((l: Row) => l.id === id)?.name ?? id;
+  const task = useTask(),
+    paging = usePagination(tab),
+    query = useRows(`/inventory/${tab}?${paging.query}`);
   return (
     <>
       <Header
@@ -68,7 +54,6 @@ export function AdvancedInventory() {
             className={`btn ${tab === key ? "btn-primary" : "btn-outline"}`}
             onClick={() => {
               setTab(key!);
-              setOffset(0);
             }}
           >
             {label}
@@ -83,8 +68,14 @@ export function AdvancedInventory() {
             tab === "shipments"
               ? [
                   { label: "التاريخ", render: (r) => when(r.createdAt) },
-                  { label: "المصدر", render: (r) => location(r.sourceId) },
-                  { label: "الوجهة", render: (r) => location(r.destinationId) },
+                  {
+                    label: "المصدر",
+                    render: (r) => r.sourceName ?? r.sourceId,
+                  },
+                  {
+                    label: "الوجهة",
+                    render: (r) => r.destinationName ?? r.destinationId,
+                  },
                   {
                     label: "الحالة",
                     render: (r) =>
@@ -116,11 +107,16 @@ export function AdvancedInventory() {
                 ]
               : [
                   { label: "التاريخ", render: (r) => when(r.createdAt) },
-                  { label: "المخزن", render: (r) => location(r.locationId) },
+                  {
+                    label: "المخزن",
+                    render: (r) => r.locationName ?? r.locationId,
+                  },
                   {
                     label: "الصنف",
                     render: (r) =>
-                      formatDigits(r.variantLabel ?? `صنف غير متاح (${r.variantId})`),
+                      formatDigits(
+                        r.variantLabel ?? `صنف غير متاح (${r.variantId})`,
+                      ),
                   },
                   { label: "السبب", render: (r) => r.reason },
                   {
@@ -142,9 +138,13 @@ export function AdvancedInventory() {
           }
         />
         <Pagination
-          offset={offset}
-          onChange={setOffset}
+          page={paging.page}
+          pageSize={paging.pageSize}
+          onPageChange={paging.setPage}
+          onPageSizeChange={paging.setPageSize}
           total={query.data?.total ?? 0}
+          length={query.data?.data.length ?? 0}
+          disabled={query.isFetching}
         />
       </section>
       <Modal
@@ -178,56 +178,43 @@ export function AdvancedInventory() {
           }}
         >
           <FormField label="المخزن المصدر">
-            <select name="sourceId" required>
-              <option value="">اختر...</option>
-              {locations.data?.data.map((l: Row) => (
-                <option key={l.id} value={l.id}>
-                  {l.branch?.name} • {l.name}
-                </option>
-              ))}
-            </select>
+            <EntitySelect
+              kind="locations"
+              name="sourceId"
+              id="advanced-sourceId"
+              label="المخزن المصدر"
+            />
           </FormField>
           {tab === "shipments" && (
             <FormField label="المخزن المستلم">
-              <select name="destinationId" required>
-                <option value="">اختر...</option>
-                {locations.data?.data.map((l: Row) => (
-                  <option key={l.id} value={l.id}>
-                    {l.branch?.name} • {l.name}
-                  </option>
-                ))}
-              </select>
+              <EntitySelect
+                kind="locations"
+                name="destinationId"
+                id="advanced-destinationId"
+                label="المخزن المستلم"
+              />
             </FormField>
           )}
-          <FormField label="بحث عن صنف بالاسم أو SKU">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} />
-          </FormField>
           {lines.map((line, index) => (
             <div className="management-tools" key={index}>
               <FormField label="الصنف">
-                <select
-                  required
+                <SmartSelect
+                  name={`variant-${index}`}
+                  label="الصنف"
+                  searchLabel={
+                    index === 0 ? "بحث عن صنف بالاسم أو SKU" : undefined
+                  }
                   value={line.variantId}
-                  onChange={(e) =>
+                  endpoint="/variant-options"
+                  optionLabel={(v) => `${v.productNameAr} • ${v.sku}`}
+                  onChange={(v) =>
                     setLines((rows) =>
                       rows.map((r, i) =>
-                        i === index ? { ...r, variantId: e.target.value } : r,
+                        i === index ? { ...r, variantId: v.id } : r,
                       ),
                     )
                   }
-                >
-                  <option value="">اختر...</option>
-                  {line.variantId &&
-                    !variants.some((v) => v.id === line.variantId) && (
-                      <option value={line.variantId}>{line.variantId}</option>
-                    )}
-                  {!searchPending &&
-                    variants.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.label}
-                      </option>
-                    ))}
-                </select>
+                />
               </FormField>
               <FormField label="الكمية">
                 <input
@@ -273,10 +260,7 @@ export function AdvancedInventory() {
           <FormField label="السبب">
             <textarea name="reason" required minLength={3} maxLength={1000} />
           </FormField>
-          <button
-            className="btn btn-primary"
-            disabled={task.busy || searchPending}
-          >
+          <button className="btn btn-primary" disabled={task.busy}>
             {tab === "shipments" ? "شحن وخصم من المصدر" : "نقل إلى الحجر"}
           </button>
         </form>
@@ -295,8 +279,9 @@ export function AdvancedInventory() {
           (tab === "shipments" ? (
             <>
               <p>
-                {location(selected.sourceId)} ←{" "}
-                {location(selected.destinationId)} • {selected.reason}
+                {selected.sourceName ?? selected.sourceId} ←{" "}
+                {selected.destinationName ?? selected.destinationId} •{" "}
+                {selected.reason}
               </p>
               <form
                 onSubmit={(e) => {
@@ -393,4 +378,4 @@ export function AdvancedInventory() {
       </Modal>
     </>
   );
-                  }
+      }
