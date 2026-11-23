@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "@fontsource/cairo/400.css";
+@import "@fontsource/cairo/500.css";
+@import "@fontsource/cairo/600.css";
+@import "@fontsource/cairo/700.css";
 
 .customer-picker {
   margin-bottom: 18px;
@@ -103,7 +107,7 @@
   justify-self: start;
 }
 :root {
-  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  font-family: "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
   color: #24272c;
   background: #f7f8fa;
   font-synthesis: none;
@@ -553,7 +557,7 @@ svg {
   padding: 10px 17px;
   min-height: 41px;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
   border: 1px solid transparent;
@@ -782,7 +786,7 @@ svg {
   outline: none;
 }
 .muted-text {
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
 }
 .table-wrap {
@@ -792,14 +796,14 @@ table {
   border-collapse: collapse;
   width: 100%;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 th {
   text-align: right;
-  font-weight: 500;
+  font-weight: 600;
   color: #92959c;
   background: #fcfcfd;
-  font-size: 10px;
+  font-size: 11px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
 }
@@ -830,7 +834,7 @@ tr:last-child td {
   place-items: center;
 }
 .badge {
-  font-size: 10px;
+  font-size: 11px;
   display: inline-block;
   padding: 4px 10px;
   background: #eff8f1;
@@ -840,24 +844,6 @@ tr:last-child td {
 .badge.muted {
   background: #f6f1e7;
   color: #a3823c;
-}
-.pager {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 7px;
-  padding: 16px 21px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: #999;
-}
-.pager > span {
-  margin-left: auto;
-}
-.pager .btn {
-  min-height: 30px;
-  font-size: 10px;
-  padding: 5px 10px;
 }
 .inline-actions {
   display: flex;
@@ -1145,21 +1131,13 @@ tr:last-child td {
 }
 .catalog-art {
   height: 105px;
-  background: linear-gradient(145deg, #f7f4ed, #edebe7);
-  border-radius: 5px;
+  background: linear-gradient(145deg, #f6f1e3, #ede4cd);
+  border-radius: 8px;
   position: relative;
   display: grid;
   place-items: center;
-  color: #c7b99b;
+  color: #a4823c;
   margin-bottom: 12px;
-}
-.catalog-item:nth-child(3n + 2) .catalog-art {
-  background: linear-gradient(145deg, #f8efed, #f1e8e6);
-  color: #c8aaa3;
-}
-.catalog-item:nth-child(3n + 3) .catalog-art {
-  background: linear-gradient(145deg, #f0f1ed, #e4e8e2);
-  color: #a4b19c;
 }
 .catalog-art span {
   position: absolute;
@@ -1186,13 +1164,20 @@ tr:last-child td {
   font-size: 11px;
 }
 .add-circle {
-  border: 1px solid #e6e3da;
+  border: 1px solid #d8cba4;
   border-radius: 50%;
-  width: 23px;
-  height: 23px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  color: #a48b51;
+  color: #8a6d2f;
+  background: #fbf8ef;
+  transition: 0.15s;
+}
+.catalog-item:hover .add-circle {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
 }
 .cart .panel-title {
   padding: 17px 20px;
@@ -2258,3 +2243,272 @@ tr:last-child td {
   }
 }
 
+
+/* --- Design polish (2026-11-24 review): shared patterns + page fixes --- */
+
+/* Administration: keep tabs and actions on one tidy row */
+.workspace .management-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.workspace .management-tabs .inline-actions {
+  margin-inline-start: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* Settings: loyalty enable row uses the shared switch control */
+.settings-panel .loyalty-enable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 16px;
+  cursor: pointer;
+}
+
+/* Sales on small screens: stacked invoice cards, no horizontal scroll */
+@media (max-width: 700px) {
+  .sales-panel .table-wrap {
+    overflow: visible;
+  }
+  .sales-panel table,
+  .sales-panel tbody,
+  .sales-panel td {
+    display: block;
+  }
+  .sales-panel thead {
+    display: none;
+  }
+  .sales-panel tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    margin: 10px 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+  }
+  .sales-panel td {
+    white-space: normal;
+    padding: 0;
+    border: 0;
+  }
+  .sales-panel th:nth-child(4),
+  .sales-panel td:nth-child(4),
+  .sales-panel th:nth-child(6),
+  .sales-panel td:nth-child(6) {
+    display: none;
+  }
+  /* Row 1: invoice number (start) + total (end) */
+  .sales-panel td:nth-child(1) {
+    grid-area: 1 / 1;
+    align-self: center;
+    font-size: 14px;
+  }
+  .sales-panel td:nth-child(5) {
+    grid-area: 1 / 2;
+    align-self: center;
+    font-size: 15px;
+  }
+  /* Row 2: date + status badge */
+  .sales-panel td:nth-child(2) {
+    grid-area: 2 / 1;
+    align-self: center;
+    color: #92959c;
+    font-size: 12px;
+  }
+  .sales-panel td:nth-child(7) {
+    grid-area: 2 / 2;
+    justify-self: end;
+  }
+  /* Row 3: item names, barcode chips hidden */
+  .sales-panel td:nth-child(3) {
+    grid-area: 3 / 1 / 3 / 3;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+  }
+  .sales-panel td:nth-child(3) > div {
+    max-width: none !important;
+  }
+  .sales-panel td:nth-child(3) code {
+    display: none;
+  }
+  /* Row 4: tidy action buttons */
+  .sales-panel td:nth-child(8) {
+    grid-area: 4 / 1 / 4 / 3;
+    margin-top: 8px;
+  }
+  .sales-row-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .sales-row-actions .btn {
+    min-height: 34px;
+    min-width: 34px;
+    padding: 6px;
+  }
+}
+
+
+/* Shared switch control (same look as the settings switches) */
+input[role="switch"].switch {
+  appearance: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  background:
+    radial-gradient(circle at 12px center, white 8px, transparent 9px), #a5b0aa;
+  cursor: pointer;
+}
+input[role="switch"].switch:checked {
+  background:
+    radial-gradient(circle at 30px center, white 8px, transparent 9px), #45835a;
+}
+input[role="switch"].switch:focus-visible {
+  outline: 2px solid #45835a;
+  outline-offset: 3px;
+}
+
+/* Inventory on small screens: scrollable tab row + stacked stock cards */
+@media (max-width: 700px) {
+  .inventory-panel .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 18px;
+    padding: 0 16px;
+    scrollbar-width: none;
+  }
+  .inventory-panel .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .inventory-panel .tabs > button {
+    flex: none;
+    white-space: nowrap;
+    padding: 14px 2px;
+  }
+  .inventory-panel .table-wrap {
+    overflow: visible;
+  }
+  .inventory-panel table,
+  .inventory-panel tbody,
+  .inventory-panel td {
+    display: block;
+  }
+  .inventory-panel thead {
+    display: none;
+  }
+  .inventory-panel tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    margin: 10px 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+  }
+  .inventory-panel td {
+    white-space: normal;
+    padding: 0;
+    border: 0;
+  }
+  /* Row 1: product name + variant */
+  .inventory-panel td:nth-child(1) {
+    grid-area: 1 / 1 / 1 / 3;
+  }
+  .inventory-panel td:nth-child(1) strong {
+    font-size: 14px;
+  }
+  .inventory-panel td:nth-child(1) small {
+    display: block;
+    color: #92959c;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  /* Row 2: barcode + warehouse */
+  .inventory-panel td:nth-child(2) {
+    grid-area: 2 / 1;
+    align-self: center;
+  }
+  .inventory-panel td:nth-child(3) {
+    grid-area: 2 / 2;
+    justify-self: end;
+    align-self: center;
+    color: #6b7078;
+    font-size: 12.5px;
+  }
+  /* Row 3: available + minimum with their labels */
+  .inventory-panel td:nth-child(4),
+  .inventory-panel td:nth-child(5) {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    font-weight: 600;
+  }
+  .inventory-panel td:nth-child(4) {
+    grid-area: 3 / 1;
+  }
+  .inventory-panel td:nth-child(5) {
+    grid-area: 3 / 2;
+    justify-self: end;
+  }
+  .inventory-panel td:nth-child(4)::before,
+  .inventory-panel td:nth-child(5)::before {
+    content: attr(data-label);
+    color: #92959c;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  /* Row 4: details action */
+  .inventory-panel td:nth-child(6) {
+    grid-area: 4 / 1 / 4 / 3;
+    margin-top: 8px;
+  }
+  .inventory-panel td:nth-child(6) .btn {
+    min-height: 34px;
+    padding: 6px 14px;
+  }
+}
+
+/* Inventory filter area on small screens: stacked, full-width, no redundant label */
+@media (max-width: 700px) {
+  .inventory-panel .toolbar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+  .inventory-panel .toolbar > .search {
+    min-width: 0 !important;
+  }
+  .inventory-panel .toolbar > div:nth-child(2) {
+    min-width: 0 !important;
+    gap: 0 !important;
+  }
+  .inventory-panel .toolbar > div:nth-child(2) > span {
+    display: none;
+  }
+  .inventory-panel .toolbar > div:nth-child(2) > div {
+    min-width: 0 !important;
+  }
+  .inventory-panel .toolbar > label.checkbox {
+    align-self: flex-start;
+    margin-top: 2px !important;
+  }
+}
