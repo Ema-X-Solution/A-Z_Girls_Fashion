@@ -8,7 +8,8 @@ import { patch, post } from "../../api";
 import { useRoles, usePermissions } from "./queries";
 import type { Role } from "./types";
 import { useAction } from "../../app/notifications";
-import { Header, Loading, ErrorState, Table, Modal, Field } from "../../components/application/Primitives";
+import { Header, ErrorState, Table, Modal, Field } from "../../components/application/Primitives";
+import { TableSkeleton } from "../../components/application/Skeleton";
 
 export function RolesPage() {
   const action = useAction();
@@ -33,7 +34,7 @@ export function RolesPage() {
       </Header>
       <section className="panel">
         {query.isLoading ? (
-          <Loading />
+          <TableSkeleton columns={3} label="جارٍ تحميل الأدوار" />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
