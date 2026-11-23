@@ -1,0 +1,297 @@
+.partner-settings {
+  margin: 20px 0 28px;
+  border: 1px solid #e5d6b0;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #fffdf7, #fff 60%);
+  overflow: hidden;
+}
+.partner-settings-header {
+  padding: 20px 22px 12px;
+  border-top: 3px solid var(--gold);
+}
+.partner-settings-header h3 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+.partner-settings-header p {
+  margin: 5px 0;
+  color: #6b6b72;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.partner-settings-content {
+  padding: 0 22px 20px;
+}
+.partner-settings label {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.partner-settings input {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  box-sizing: border-box;
+}
+.partner-settings-status {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f5f5f6;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.partner-settings .partner-settings-success {
+  background: #edf8f0;
+  color: #246a3c;
+  border: 1px solid #cce6d3;
+}
+@media (max-width: 600px) {
+  .partner-settings-header {
+    padding: 16px 14px 10px;
+  }
+  .partner-settings-content {
+    padding: 0 14px 16px;
+  }
+}
+
+.partner-settings-total {
+  padding: 16px 0 8px;
+}
+.partner-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 600px) {
+  .partner-settings-actions .btn {
+    flex: 1 1 100%;
+  }
+}
+
+.closing-period-controls > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.closing-period-controls input,
+.closing-period-controls select {
+  min-height: 44px;
+  border: 1px solid #ddd6c5;
+  border-radius: 9px;
+  background-color: #fff;
+  padding: 10px 14px;
+  font: inherit;
+  box-shadow: 0 2px 4px #00000004;
+}
+.closing-period-controls select {
+  cursor: pointer;
+  min-width: 190px;
+}
+.closing-period-controls input {
+  width: 125px;
+  font-variant-numeric: tabular-nums;
+}
+.closing-period-controls strong {
+  padding-bottom: 12px;
+}
+.closing-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.closing-metric > div {
+  min-height: 44px;
+  line-height: 1.6;
+  font-size: 13px;
+}
+.closing-metric > strong {
+  margin-top: auto;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.closing-batches {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.closing-batches > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 16px 18px;
+  background: #faf9f5;
+  font-weight: 600;
+  list-style: none;
+}
+.closing-batches > summary::-webkit-details-marker {
+  display: none;
+}
+.closing-batches > summary::after {
+  content: "⌄";
+  color: #967b3f;
+  font-size: 22px;
+  line-height: 1;
+}
+.closing-batches[open] > summary::after {
+  transform: rotate(180deg);
+}
+.closing-batches > summary:hover {
+  background: #f4f0e5;
+}
+.partner-settings-actions .btn {
+  min-height: 44px;
+  padding: 10px 20px;
+}
+@media (max-width: 600px) {
+  .closing-period-controls > label {
+    flex: 1 1 120px;
+  }
+  .closing-period-controls input,
+  .closing-period-controls select {
+    width: 100%;
+    min-width: 0;
+  }
+  .closing-period-controls strong {
+    padding-bottom: 0;
+  }
+}
+
+.partner-settings-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 0 10px;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.partner-settings-title {
+  display: block;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.partner-settings-hint {
+  display: block;
+  color: #777;
+  margin-top: 5px;
+  font-size: 12px;
+}
+.partner-settings-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #80652f;
+  white-space: nowrap;
+  padding: 9px 12px;
+  border: 1px solid #e5d6b0;
+  border-radius: 8px;
+  background: #fffdf7;
+}
+.partner-settings-toggle-label > span {
+  font-size: 20px;
+}
+@media (max-width: 600px) {
+  .partner-settings-toggle {
+    align-items: start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .partner-settings-title {
+    font-size: 17px;
+  }
+}
+
+.partner-settings-toggle-label {
+  width: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .partner-settings-toggle {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  .partner-settings-toggle-label {
+    flex: 0 0 38px;
+  }
+}
+
+/* Quarterly closing polish (2026-11-24 review) */
+.quarterly-closing .closing-metric {
+  padding: 16px 18px !important;
+}
+.quarterly-closing .closing-metric > div {
+  color: #6b7078;
+  font-size: 12.5px;
+  min-height: 0;
+}
+.quarterly-closing .closing-metric > strong {
+  font-size: 18px !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.quarterly-closing .closing-note {
+  color: #92959c;
+  font-size: 12.5px;
+  line-height: 1.9;
+  margin: 2px 0 6px;
+  max-width: 74ch;
+  text-align: start;
+}
+.quarterly-closing > h3 {
+  margin: 22px 0 10px;
+  font-size: 15.5px;
+  text-align: start;
+}
+.quarterly-closing .data-table {
+  border-collapse: collapse;
+}
+.quarterly-closing .data-table th {
+  text-align: start;
+  font-size: 11px;
+  font-weight: 600;
+  color: #92959c;
+  background: #fcfcfd;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.quarterly-closing .data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.quarterly-closing .closing-empty {
+  margin: 12px 0 0;
+  padding: 22px;
+  text-align: center;
+  color: #92959c;
+  font-size: 12.5px;
+  background: #fcfcfd;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
