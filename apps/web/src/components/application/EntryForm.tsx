@@ -1,3 +1,4 @@
+import { SmartSelect } from "./SmartSelect";
 import { validationMessage } from "./arabicFormValidation";
 import { useState } from "react";
 import { CircleAlert, Eye, EyeOff } from "lucide-react";
@@ -11,6 +12,7 @@ export type FieldSpec = {
   label: string;
   type?: string;
   required?: boolean;
+  pickerEndpoint?: string;
   options?: { value: string; label: string }[];
   default?: string;
   min?: number;
@@ -38,6 +40,7 @@ export function EntryForm({
   const [visiblePasswords, setVisiblePasswords] = useState<
     Record<string, boolean>
   >({});
+  const [picked, setPicked] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   return (
     <form
@@ -69,7 +72,22 @@ export function EntryForm({
       <div className="form-grid">
         {fields.map((f) => (
           <Field key={f.key} label={f.label} hint={f.hint}>
-            {f.options ? (
+            {f.pickerEndpoint ? (
+              <SmartSelect
+                id={f.key}
+                name={f.key}
+                required={f.required !== false}
+                label={f.label}
+                value={picked[f.key] ?? initial[f.key] ?? ""}
+                endpoint={f.pickerEndpoint}
+                optionLabel={(v) =>
+                  v.sku ? `${v.productNameAr ?? v.name} • ${v.sku}` : v.name
+                }
+                onChange={(v) =>
+                  setPicked((old) => ({ ...old, [f.key]: v.id }))
+                }
+              />
+            ) : f.options ? (
               <select
                 name={f.key}
                 required={f.required !== false}
