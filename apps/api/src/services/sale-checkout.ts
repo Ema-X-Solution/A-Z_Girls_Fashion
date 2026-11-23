@@ -87,6 +87,8 @@ export async function checkout(
       reference: saleId,
       reason: "Checkout",
     });
+    const consumed = await tx.stockCostFlow.findMany({ where: { reference: saleId, type: "SALE", variantId: line.variantId }, include: { batch: true } });
+    const costTotal = consumed.reduce((sum, flow) => sum.plus(flow.batch.unitCost.mul(-flow.quantity)), D(0));
     items.push({
       variantId: line.variantId,
       name: line.variant.product.nameAr,
@@ -97,6 +99,7 @@ export async function checkout(
       returnRule: line.variant.product.returnRule,
       unitPrice: line.variant.price,
       unitCost: cost,
+      costTotal,
       quantity: line.quantity,
       discount: discounts[i]!,
       tax: taxes[i]!,
@@ -240,4 +243,4 @@ export async function checkout(
     operatorId: actor.id,
   });
   return { ...sale, receiptNumber, receiptSnapshot };
-}
+      }
