@@ -1,11 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Eye, Printer, Trash2 } from "lucide-react";
+import { Plus, Eye, Printer, Trash2, FileText } from "lucide-react";
 import { post } from "../../api";
-import { formatDigits, ar, formatDate as baseDate, formatMoney as baseMoney } from "../../i18n";
+import {
+  formatDigits,
+  ar,
+  formatDate as baseDate,
+  formatMoney as baseMoney,
+} from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import {
+  Loading,
+  ErrorState,
+  Modal,
+  Field,
+  Header,
+  Badge,
+  Table,
+  Pager,
+} from "../../components/application/Primitives";
 import { type Row } from "../../app/types";
 import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 
@@ -20,10 +34,7 @@ const itemName = (i: Row) => {
 };
 
 const orderTotal = (r: Row) =>
-  r.items.reduce(
-    (s: number, i: Row) => s + Number(i.unitCost) * i.quantity,
-    0,
-  );
+  r.items.reduce((s: number, i: Row) => s + Number(i.unitCost) * i.quantity, 0);
 
 const percent = (v: number) =>
   `${new Intl.NumberFormat("ar-EG-u-nu-latn", { maximumFractionDigits: 1 }).format(v)}٪`;
@@ -159,14 +170,26 @@ export function Purchases() {
         {preview && (
           <>
             <PurchaseInvoice order={preview} />
-            <Button
-              className="no-print"
-              variant="outline"
-              onClick={() => window.print()}
-            >
-              <Printer size={17} />
-              طباعة الفاتورة
-            </Button>
+            <div className="purchase-invoice-actions no-print">
+              <Button
+                className="no-print"
+                variant="outline"
+                onClick={() => window.print()}
+              >
+                <Printer size={17} />
+                طباعة الفاتورة
+              </Button>
+              <Button asChild variant="outline">
+                <a
+                  href={`/api/purchases/${preview.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FileText size={17} />
+                  عرض PDF
+                </a>
+              </Button>
+            </div>
           </>
         )}
       </Modal>
@@ -317,10 +340,7 @@ function ReceiveForm({
 }
 
 function PurchaseInvoice({ order }: { order: Row }) {
-  const totalQty = order.items.reduce(
-      (s: number, i: Row) => s + i.quantity,
-      0,
-    ),
+  const totalQty = order.items.reduce((s: number, i: Row) => s + i.quantity, 0),
     totalReceived = order.items.reduce(
       (s: number, i: Row) => s + i.received,
       0,
@@ -368,8 +388,16 @@ function PurchaseInvoice({ order }: { order: Row }) {
               <td>{itemName(i)}</td>
               <td>{i.quantity}</td>
               <td>{i.received}</td>
-              <td>{fm(i.unitCost)}</td>
-              <td>{fm(Number(i.unitCost) * i.quantity)}</td>
+              <td>
+                <span className="invoice-money" dir="ltr">
+                  {fm(i.unitCost)}
+                </span>
+              </td>
+              <td>
+                <span className="invoice-money" dir="ltr">
+                  {fm(Number(i.unitCost) * i.quantity)}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -379,17 +407,65 @@ function PurchaseInvoice({ order }: { order: Row }) {
             <td>{totalQty}</td>
             <td>{totalReceived}</td>
             <td></td>
-            <td>{fm(orderTotal(order))}</td>
+            <td>
+              <span className="invoice-money" dir="ltr">
+                {fm(orderTotal(order))}
+              </span>
+            </td>
           </tr>
         </tfoot>
       </table>
+      <div className="invoice-mobile-items">
+        {order.items.map((i: Row) => (
+          <article className="invoice-item-card" key={i.id}>
+            <strong className="invoice-item-name">{itemName(i)}</strong>
+            <dl>
+              <div>
+                <dt>الكمية</dt>
+                <dd>{i.quantity}</dd>
+              </div>
+              <div>
+                <dt>تم استلامه</dt>
+                <dd>{i.received}</dd>
+              </div>
+              <div>
+                <dt>سعر الشراء</dt>
+                <dd>
+                  <span className="invoice-money" dir="ltr">
+                    {fm(i.unitCost)}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>الإجمالي</dt>
+                <dd>
+                  <span className="invoice-money" dir="ltr">
+                    {fm(Number(i.unitCost) * i.quantity)}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+        <div className="invoice-mobile-total">
+          <strong>الإجمالي</strong>
+          <span>
+            الكمية: {totalQty} • تم استلامه: {totalReceived}
+          </span>
+          <strong className="invoice-money" dir="ltr">
+            {fm(orderTotal(order))}
+          </strong>
+        </div>
+      </div>
       {order.receipts?.length > 0 && (
         <div className="invoice-receipts">
           <h3>سجل الاستلام</h3>
           {order.receipts.map((rc: Row) => (
             <div className="receipt-line" key={rc.id}>
               <span>{formatDate(rc.createdAt)}</span>
-              <strong>{fm(rc.total)}</strong>
+              <strong className="invoice-money" dir="ltr">
+                {fm(rc.total)}
+              </strong>
             </div>
           ))}
         </div>
