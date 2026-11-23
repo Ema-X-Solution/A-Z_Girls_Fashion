@@ -69,6 +69,7 @@ model StockLocation {
   branchId String @db.Uuid
   name String
   branch Branch @relation(fields:[branchId], references:[id])
+  fifoBatches StockBatch[]
   balances StockBalance[]
   movements StockMovement[]
   registers Register[]
@@ -163,6 +164,7 @@ model ProductVariant {
   reorderQuantity Int @default(5)
   active Boolean @default(true)
   product Product @relation(fields:[productId], references:[id])
+  fifoBatches StockBatch[]
   balances StockBalance[]
   movements StockMovement[]
   saleItems SaleItem[]
@@ -456,6 +458,7 @@ model SaleItem {
   unitCost Decimal @db.Decimal(18,4)
   quantity Int
   returned Int @default(0)
+  costTotal Decimal? @db.Decimal(22,4)
   discount Decimal @db.Decimal(18,2)
   tax Decimal @db.Decimal(18,2)
   total Decimal @db.Decimal(18,2)
@@ -672,4 +675,42 @@ model IdempotencyKey {
   hash String
   response Json
   createdAt DateTime @default(now())
+}
+
+model StockBatch {
+ id String @id @default(uuid()) @db.Uuid
+ variantId String @db.Uuid
+ locationId String @db.Uuid
+ quantity Int
+ remaining Int
+ unitCost Decimal @db.Decimal(18,4)
+ acquiredAt DateTime @default(now())
+ createdAt DateTime @default(now())
+ reference String
+ type String
+ variant ProductVariant @relation(fields:[variantId], references:[id], map:"fifo_batch_variant")
+ location StockLocation @relation(fields:[locationId], references:[id], map:"fifo_batch_location")
+ flows StockCostFlow[]
+ @@index([variantId,locationId,acquiredAt])
+}
+model StockCostFlow {
+ id String @id @default(uuid()) @db.Uuid
+ batchId String @db.Uuid
+ variantId String @db.Uuid
+ reference String
+ type String
+ quantity Int
+ sequence Int
+ createdAt DateTime @default(now())
+ batch StockBatch @relation(fields:[batchId],references:[id])
+ @@index([reference,type,variantId])
+}
+model AccountingClose {
+ id String @id @default(uuid()) @db.Uuid
+ startsAt DateTime
+ endsAt DateTime
+ snapshot Json
+ createdBy String @db.Uuid
+ createdAt DateTime @default(now())
+ @@unique([startsAt,endsAt])
 }

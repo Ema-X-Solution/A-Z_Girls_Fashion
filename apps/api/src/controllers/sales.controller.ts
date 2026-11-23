@@ -33,7 +33,7 @@ function safeSale(s: any, costs: boolean) {
     for (const key of Object.keys(v)) {
       if (
         key === "passwordHash" ||
-        (!costs && ["unitCost", "cost", "inventoryCost"].includes(key))
+        (!costs && ["unitCost", "cost", "inventoryCost", "costTotal"].includes(key))
       )
         delete v[key];
       else scrub(v[key]);

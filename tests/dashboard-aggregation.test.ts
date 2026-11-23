@@ -254,6 +254,13 @@ beforeAll(async () => {
       averageCost: "7.1234",
     })),
   });
+  // These fixtures bypass stock posting, so seed the matching FIFO layers too.
+  await db.stockBatch.createMany({
+    data: locations.map((locationId, i) => ({
+      locationId, variantId, quantity: i ? 7 : 2, remaining: i ? 7 : 2,
+      unitCost: "7.1234", acquiredAt: from, type: "TEST", reference: "dashboard-fixture",
+    })),
+  });
   for (const status of ["SHIPPED", "PARTIAL", "RECEIVED"])
     await db.shipment.create({
       data: {

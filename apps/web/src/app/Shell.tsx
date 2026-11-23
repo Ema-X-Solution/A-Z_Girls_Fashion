@@ -14,6 +14,7 @@ import { BarcodeLabels } from "../features/barcodes/BarcodeLabels";
 import { Suppliers, SupplierDetails } from "../features/suppliers/Suppliers";
 import { Expenses } from "../features/management/Expenses";
 import { Administration } from "../features/management/Administration";
+import { QuarterlyClosing } from "../features/management/QuarterlyClosing";
 import { Reports } from "../features/management/Reports";
 import { AdvancedInventory } from "../features/management/AdvancedInventory";
 import { notify, readableError } from "./notifications";
@@ -223,6 +224,14 @@ export function Shell() {
               element={
                 <Gate permission="cash.close_shift">
                   <Shifts />
+                </Gate>
+              }
+            />
+            <Route
+              path="/quarterly-closing"
+              element={
+                <Gate permission="reports.profit">
+                  <QuarterlyClosing />
                 </Gate>
               }
             />

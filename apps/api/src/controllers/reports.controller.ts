@@ -60,7 +60,7 @@ export async function dashboardData(
       (SELECT COUNT(*)::int FROM returns) AS "returnCount",
       (SELECT COALESCE(SUM(i.tax), 0) FROM "SaleReturnItem" i
         JOIN returns r ON r.id = i."returnId") AS "taxReturned",
-      (SELECT COALESCE(SUM(i."unitCost" * i.quantity), 0)
+      (SELECT COALESCE(SUM(COALESCE(i."costTotal", i."unitCost" * i.quantity)), 0)
         FROM "SaleItem" i JOIN sales s ON s.id = i."saleId") AS "soldCost",
       (SELECT COALESCE(SUM(i.cost), 0) FROM "SaleReturnItem" i
         JOIN returns r ON r.id = i."returnId" WHERE i.sellable) AS "returnedCost"
@@ -179,7 +179,7 @@ export async function dashboardData(
       }[]
     >(Prisma.sql`
       SELECT COUNT(*) FILTER (WHERE b.quantity <= v."minStock")::int AS "lowStock",
-        COALESCE(SUM(b."averageCost" * b.quantity), 0) AS value
+        (SELECT COALESCE(SUM(sb."unitCost" * sb.remaining), 0) FROM "StockBatch" sb WHERE sb.remaining > 0) AS value
       FROM "StockBalance" b JOIN "ProductVariant" v ON v.id = b."variantId"
     `);
     result.lowStock = stock!.lowStock;

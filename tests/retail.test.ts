@@ -4003,10 +4003,11 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       items: [{ variantId: v.id, quantity: 2 }],
     });
     expect(damage.status).toBe(201);
-    expect(damage.body.data.totalCost).toBe("64");
+    // FIFO retains the source batch age: transferred 40-cost units precede the destination 20-cost batch.
+    expect(damage.body.data.totalCost).toBe("80");
     expect((await balance(dest.id)).quantity).toBe(3);
     const report = await owner.agent.get("/api/reports/dashboard");
-    expect(report.body.data.stockDamageCost).toBe("64.00");
+    expect(report.body.data.stockDamageCost).toBe("80.00");
     await expect(
       db.stockDocument.update({
         where: { id: doc.id },
@@ -4420,5 +4421,4 @@ registerCompletionTests(() => ({
 }));
 
 registerRound2Tests(() => ({ db, app, owner, manager, cashier, send, login, resetFixtureQuota, drawerShift, password, origin: () => process.env.APP_ORIGIN ?? origin, availablePort }));
-
 

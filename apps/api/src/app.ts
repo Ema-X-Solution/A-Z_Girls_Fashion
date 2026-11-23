@@ -1,3 +1,4 @@
+import { accounting } from "./routes/accounting.js";
 import * as authControllers from "./controllers/auth.controller.js";
 import * as systemControllers from "./controllers/system.controller.js";
 import express from "express";
@@ -132,6 +133,7 @@ app.use("/api", settingsRouter);
 app.use("/api", auditRouter);
 
 app.use("/api/reports", reports);
+app.use("/api", accounting);
 
 app.use("/api/barcodes", barcodes);
 
@@ -206,6 +208,9 @@ app.use(
         .status(err.status)
         .json({ error: { code: err.code, message: err.message } });
       return;
+    }
+    if (String(err?.message).includes("ACCOUNTING_PERIOD_CLOSED")) {
+      res.status(409).json({error:{code:"PERIOD_CLOSED",message:"الفترة مقفلة، لا يمكن تعديل بياناتها"}}); return;
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       const code = err.code;
