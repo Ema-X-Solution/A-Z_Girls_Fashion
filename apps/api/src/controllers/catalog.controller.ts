@@ -1,3 +1,4 @@
+import { pagination, paginated,usesPagination,listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { randomInt } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -89,15 +90,11 @@ const safeProduct = (value: any, financial: boolean): any => {
   return out;
 };
 
-export const handleGetCategories: RequestHandler = route(async (req, res) => {
-    const archived = z.enum(["1", "true"]).optional().parse(req.query.archived);
-    res.json({
-      data: await db.category.findMany({
-        where: archived ? { archivedAt: { not: null } } : { archivedAt: null },
-        orderBy: archived ? { archivedAt: "desc" } : { name: "asc" },
-      }),
-    });
-  });
+export const handleGetCategories: RequestHandler = route(async(req,res)=>{
+ const archived=z.enum(["1","true"]).optional().parse(req.query.archived);
+ const where=archived?{archivedAt:{not:null}}:{archivedAt:null};
+ const [data,total]=await Promise.all([db.category.findMany({where,orderBy:archived?[{archivedAt:"desc"},{id:"desc"}]:[{name:"asc"},{id:"asc"}],...(usesPagination(req.query)?page(req.query):{})}),db.category.count({where})]);res.json(listResult(req.query,data,total));
+});
 
 export const handlePostCategories: RequestHandler = route(async (req, res) => {
     const input = z
@@ -219,30 +216,46 @@ export const handlePostBrands: RequestHandler = route(async (req, res) =>
   );
 
 export const handleGetProducts: RequestHandler = route(async (req, res) => {
-    const q = z.string().max(200).default("").parse(req.query.q),
-      archived = z.enum(["1", "true"]).optional().parse(req.query.archived),
-      where: Prisma.ProductWhereInput = {
-        status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
-        ...(q
-          ? {
-              OR: [
-                { nameAr: { contains: q, mode: "insensitive" } },
-                { sku: { contains: q, mode: "insensitive" } },
-                { variants: { some: { barcode: q } } },
-              ],
-            }
-          : {}),
-      };
-    const [data, total] = await Promise.all([
-      db.product.findMany({
-        where,
-        include: { category: true, variants: { include: { balances: { include: { location: true } } } } },        orderBy: { createdAt: "desc" },
-        ...page(req.query),
-      }),
-      db.product.count({ where }),
-    ]);
-    res.json({ data: data.map((p) => safeProduct(p, hasCosts(req))), total });
-  });
+  const q = z.string().max(200).default("").parse(req.query.q),
+    archived = z.enum(["1", "true"]).optional().parse(req.query.archived),
+    where: Prisma.ProductWhereInput = {
+      status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
+      ...(q
+        ? {
+            OR: [
+              { nameAr: { contains: q, mode: "insensitive" } },
+              { sku: { contains: q, mode: "insensitive" } },
+              { variants: { some: { barcode: q } } },
+            ],
+          }
+        : {}),
+    };
+  // Keep legacy offset/limit callers unchanged until their screens migrate.
+  const current =
+    req.query.page !== undefined || req.query.pageSize !== undefined
+      ? pagination(req.query)
+      : null;
+  const window = current ?? page(req.query);
+  const reads = [
+    db.product.findMany({
+      where,
+      include: {
+        category: true,
+        variants: { include: { balances: { include: { location: true } } } },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      ...(current ? { skip: current.skip, take: current.take } : window),
+    }),
+    db.product.count({ where }),
+  ] as const;
+  const [data, total] = current
+    ? await db.$transaction([...reads], {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      })
+    : await Promise.all(reads);
+  const safe = data.map((p) => safeProduct(p, hasCosts(req)));
+  res.json(current ? paginated(safe, total, current) : { data: safe, total });
+});
 
 export const handlePostProducts: RequestHandler = route(async (req, res) => {
     const { imageDataUrl, ...input } = productSchema
