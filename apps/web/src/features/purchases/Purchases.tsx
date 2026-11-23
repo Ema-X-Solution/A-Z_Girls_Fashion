@@ -3,6 +3,7 @@ import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Eye, Printer, Trash2, FileText } from "lucide-react";
 import { post } from "../../api";
+import { SmartSelect } from "../../components/application/SmartSelect";
 import {
   formatDigits,
   ar,
@@ -46,7 +47,6 @@ export function Purchases() {
     query = useData(`/purchases?offset=${offset}`),
     suppliers = useData("/suppliers?limit=100"),
     locations = useData("/locations"),
-    products = useData("/products?limit=100"),
     outsideHandler = useRef<() => void>(() => {}),
     [open, setOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
@@ -149,7 +149,6 @@ export function Purchases() {
         <PurchaseForm
           suppliers={suppliers.data?.data ?? []}
           locations={locations.data?.data ?? []}
-          products={products.data?.data ?? []}
           busy={action.busy}
           registerOutside={(fn) => (outsideHandler.current = fn)}
           close={() => setOpen(false)}
@@ -513,6 +512,9 @@ function PurchaseInvoice({ order }: { order: Row }) {
   );
 }
 
+const purchaseOptionLabel = (variant: Row) =>
+  `${variant.productNameAr} • ${formatDigits(Object.values(variant.options ?? {}).join(" / ")) || "بدون مقاس أو لون"}`;
+
 const DRAFT_KEY = "azs.purchaseDraft.v1";
 
 type LineValues = { v?: string; q: string; c: string; sp: string; ms?: string };
@@ -546,7 +548,6 @@ function clearPurchaseDraft() {
 export function PurchaseForm({
   suppliers,
   locations,
-  products,
   busy,
   submit,
   close,
@@ -554,7 +555,6 @@ export function PurchaseForm({
 }: {
   suppliers: Row[];
   locations: Row[];
-  products: Row[];
   busy: boolean;
   submit: (v: Row) => void;
   close: () => void;
@@ -589,16 +589,11 @@ export function PurchaseForm({
     });
   }, [registerOutside]);
 
-  const allVariants = products.flatMap((p: Row) =>
-    p.variants.map((v: Row) => ({ ...v, productNameAr: p.nameAr })),
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, Row>>(
+    {},
   );
-
-  const variantLabel = (variantId: string) => {
-    const v = allVariants.find((x) => x.id === variantId);
-    if (!v) return "";
-    const options = formatDigits(Object.values(v.options ?? {}).join(" / "));
-    return `${v.productNameAr ?? v.sku ?? "صنف"}${options ? ` • ${options}` : ""}`;
-  };
+  const variantLabel = (variantId: string) =>
+    selectedVariants[variantId]?.productNameAr ?? variantId;
 
   const setLineValue = (
     i: number,
@@ -610,8 +605,9 @@ export function PurchaseForm({
       [i]: { q: "1", c: "", sp: "", ...prev[i], [key]: value },
     }));
 
-  const handleVariantChange = (lineIndex: number, variantId: string) => {
-    const variant = allVariants.find((v) => v.id === variantId);
+  const handleVariantChange = (lineIndex: number, variant: Row) => {
+    const variantId = variant.id;
+    setSelectedVariants((prev) => ({ ...prev, [variantId]: variant }));
     setLineValues((prev) => ({
       ...prev,
       [lineIndex]: {
@@ -825,24 +821,14 @@ export function PurchaseForm({
               </Button>
             )}
             <Field label={`الصنف ${i + 1}`}>
-              <select
+              <SmartSelect
+                endpoint="/purchases/item-options"
+                label="الصنف"
+                optionLabel={purchaseOptionLabel}
                 name={`v${id}`}
-                required
-                defaultValue={lineValues[id]?.v ?? ""}
-                onChange={(e) => handleVariantChange(id, e.target.value)}
-              >
-                <option value="">اختر...</option>
-                {products.flatMap((p) =>
-                  p.variants.map((v: Row) => (
-                    <option key={v.id} value={v.id}>
-                      {p.nameAr} •{" "}
-                      {formatDigits(
-                        Object.values(v.options ?? {}).join(" / "),
-                      ) || "بدون مقاس أو لون"}
-                    </option>
-                  )),
-                )}
-              </select>
+                value={lineValues[id]?.v ?? ""}
+                onChange={(value) => handleVariantChange(id, value)}
+              />
             </Field>
             <div className="line-grid">
               <Field label={ar.quantity}>
@@ -950,4 +936,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-       }
+              }
