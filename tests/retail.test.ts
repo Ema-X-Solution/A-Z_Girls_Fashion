@@ -1059,14 +1059,14 @@ describe.sequential("real PostgreSQL retail workflows", () => {
           width: el.getBoundingClientRect().width,
           height: el.getBoundingClientRect().height,
         }));
-      expect(labelSize.width).toBeCloseTo((50 * 96) / 25.4, 0);
-      expect(labelSize.height).toBeCloseTo((30 * 96) / 25.4, 0);
+      expect(labelSize.width).toBeCloseTo((40 * 96) / 25.4, 0);
+      expect(labelSize.height).toBeCloseTo((25 * 96) / 25.4, 0);
       await page
         .locator("#az-label-print-root .retail-label")
         .first()
         .screenshot({ path: "test-results/barcode-label.png" });
       const thermalPdf = await page.pdf({
-        path: "test-results/barcode-50x30.pdf",
+        path: "test-results/barcode-40x25.pdf",
         preferCSSPageSize: true,
         printBackground: true,
       });
