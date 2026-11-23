@@ -10,13 +10,13 @@ import { useAction, readableError } from "../../app/notifications";
 import { ErrorMessage } from "../shared/Controls";
 import { useData } from "../../hooks/useData";
 import {
-  Loading,
   ErrorState,
   Modal,
   Header,
   Badge,
   Table,
 } from "../../components/application/Primitives";
+import { TableSkeleton } from "../../components/application/Skeleton";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 import { type Row } from "../../app/types";
 
@@ -83,7 +83,7 @@ export function Shifts() {
       )}
       <section className="panel">
         {query.isLoading ? (
-          <Loading />
+          <TableSkeleton columns={7} label="جارٍ تحميل الورديات" />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
