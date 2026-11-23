@@ -63,6 +63,7 @@ export async function reportPdf(
   columns: { key: string; label: string }[],
   rows: Record<string, unknown>[],
   period: string,
+  options: { filename?: string; disposition?: "inline" | "attachment"; metadata?: string[] } = {},
 ) {
   const pdf = new PDFDocument({
     size: "A4",
@@ -78,7 +79,7 @@ export async function reportPdf(
   });
   res.set({
     "Content-Type": "application/pdf",
-    "Content-Disposition": "attachment; filename=az-report.pdf",
+    "Content-Disposition": `${options.disposition ?? "attachment"}; filename=${options.filename ?? "az-report.pdf"}`,
     "Cache-Control": "no-store",
   });
   pdf.pipe(res);
@@ -119,6 +120,14 @@ export async function reportPdf(
     text(title, 32, 51, width, 15);
     text(period, 32, 76, width, 10);
     y = 105;
+    for (const value of options.metadata ?? []) {
+      pdf.fontSize(10);
+      for (const line of wrap(value, width - 12)) {
+        text(line, 32, y, width, 10);
+        y += lineHeight;
+      }
+    }
+    if (options.metadata?.length) y += 6;
     pdf.fontSize(11);
     const labels = columns.map((c) => wrap(c.label));
     const height = Math.max(...labels.map((l) => l.length)) * lineHeight + 8;
@@ -136,13 +145,13 @@ export async function reportPdf(
     );
     y += height + 4;
   }
-  function wrap(value: unknown) {
+  function wrap(value: unknown, availableWidth = cw - 12) {
     const words = normalizeReportText(String(value ?? "—")).split(/\s+/),
       lines: string[] = [];
     let line = "";
     for (const word of words) {
       const candidate = (line ? line + " " : "") + word;
-      if (measure(candidate) <= cw - 12) {
+      if (measure(candidate) <= availableWidth) {
         line = candidate;
         continue;
       }
@@ -151,7 +160,7 @@ export async function reportPdf(
         line = "";
       }
       for (const char of word) {
-        if (line && measure(line + char) > cw - 12) {
+        if (line && measure(line + char) > availableWidth) {
           lines.push(line);
           line = char;
         } else line += char;
@@ -207,4 +216,4 @@ export async function reportPdf(
   }
   pdf.end();
   await done;
-      }
+}
