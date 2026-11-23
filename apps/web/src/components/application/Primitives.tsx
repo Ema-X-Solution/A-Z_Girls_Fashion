@@ -195,6 +195,7 @@ export function Table<T extends { id?: string } = Row>({
               {columns.map((c, j) => (
                 <td
                   key={j}
+                  data-label={c.label}
                   onClick={(e) => {
                     if (
                       (e.target as HTMLElement).closest(
