@@ -1,4 +1,5 @@
 import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
 import { usePagination } from "../../hooks/usePagination";
 import { useId, useState, type ReactNode, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -133,13 +134,15 @@ function DataState({
   loading,
   error,
   retry,
+  columns = 5,
 }: {
   loading: boolean;
   error: unknown;
   retry: () => void;
+  columns?: number;
 }) {
   return loading ? (
-    <p className="barcode-help">جارٍ التحميل...</p>
+    <TableSkeleton columns={columns} label="جارٍ تحميل بيانات الموردين" />
   ) : error ? (
     <div className="empty">
       <p>تعذر تحميل البيانات.</p>
@@ -526,6 +529,7 @@ export function SupplierDetails() {
         </div>
         <DataState
           loading={loading}
+          columns={tab === "statement" ? 6 : 5}
           error={error}
           retry={() =>
             void (tab === "statement"
