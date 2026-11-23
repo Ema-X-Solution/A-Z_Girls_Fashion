@@ -167,7 +167,7 @@ export function DiscountApprovals() {
                         <td>{formatMoney(display?.unitPrice ?? 0)}</td>
                         <td>
                           {i.discount}{" "}
-                          {i.discountType === "PERCENT" ? "%" : "ج.م"}
+                          {i.discountType === "PERCENT" ? "%" : "EGP"}
                         </td>
                       </tr>
                     );

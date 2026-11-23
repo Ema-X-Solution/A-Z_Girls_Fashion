@@ -1,11 +1,26 @@
+import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Eye, Printer, Trash2 } from "lucide-react";
+import { Plus, Eye, Printer, Trash2, FileText } from "lucide-react";
 import { post } from "../../api";
-import { formatDigits, ar, formatDate as baseDate, formatMoney as baseMoney } from "../../i18n";
+import {
+  formatDigits,
+  ar,
+  formatDate as baseDate,
+  formatMoney as baseMoney,
+} from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import {
+  Loading,
+  ErrorState,
+  Modal,
+  Field,
+  Header,
+  Badge,
+  Table,
+  Pager,
+} from "../../components/application/Primitives";
 import { type Row } from "../../app/types";
 import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 
@@ -20,10 +35,7 @@ const itemName = (i: Row) => {
 };
 
 const orderTotal = (r: Row) =>
-  r.items.reduce(
-    (s: number, i: Row) => s + Number(i.unitCost) * i.quantity,
-    0,
-  );
+  r.items.reduce((s: number, i: Row) => s + Number(i.unitCost) * i.quantity, 0);
 
 const percent = (v: number) =>
   `${new Intl.NumberFormat("ar-EG-u-nu-latn", { maximumFractionDigits: 1 }).format(v)}٪`;
@@ -159,14 +171,26 @@ export function Purchases() {
         {preview && (
           <>
             <PurchaseInvoice order={preview} />
-            <Button
-              className="no-print"
-              variant="outline"
-              onClick={() => window.print()}
-            >
-              <Printer size={17} />
-              طباعة الفاتورة
-            </Button>
+            <div className="purchase-invoice-actions no-print">
+              <Button
+                className="no-print"
+                variant="outline"
+                onClick={() => window.print()}
+              >
+                <Printer size={17} />
+                طباعة الفاتورة
+              </Button>
+              <Button asChild variant="outline">
+                <a
+                  href={`/api/purchases/${preview.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FileText size={17} />
+                  عرض PDF
+                </a>
+              </Button>
+            </div>
           </>
         )}
       </Modal>
@@ -316,11 +340,29 @@ function ReceiveForm({
   );
 }
 
+function InvoiceItemName({ item }: { item: Row }) {
+  const variant = item.variant;
+  return (
+    <>
+      <span className="invoice-product-name">
+        {variant?.product?.nameAr ?? variant?.sku ?? item.variantId}
+      </span>
+      {variant && (
+        <span className="invoice-variant">
+          {Object.entries(variant.options ?? {}).map(([key, value]) => (
+            <span key={key}>
+              {key === "size" ? "المقاس" : key === "color" ? "اللون" : key}:{" "}
+              <bdi>{formatDigits(String(value))}</bdi>
+            </span>
+          ))}
+        </span>
+      )}
+    </>
+  );
+}
+
 function PurchaseInvoice({ order }: { order: Row }) {
-  const totalQty = order.items.reduce(
-      (s: number, i: Row) => s + i.quantity,
-      0,
-    ),
+  const totalQty = order.items.reduce((s: number, i: Row) => s + i.quantity, 0),
     totalReceived = order.items.reduce(
       (s: number, i: Row) => s + i.received,
       0,
@@ -356,6 +398,8 @@ function PurchaseInvoice({ order }: { order: Row }) {
         <thead>
           <tr>
             <th>الصنف</th>
+            <th>المقاس</th>
+            <th>اللون</th>
             <th>الكمية</th>
             <th>تم استلامه</th>
             <th>سعر الشراء</th>
@@ -365,31 +409,99 @@ function PurchaseInvoice({ order }: { order: Row }) {
         <tbody>
           {order.items.map((i: Row) => (
             <tr key={i.id}>
-              <td>{itemName(i)}</td>
+              <td>
+                {i.variant?.product?.nameAr ?? i.variant?.sku ?? i.variantId}
+              </td>
+              <td>
+                <bdi>
+                  {formatDigits(String(i.variant?.options?.size ?? "—"))}
+                </bdi>
+              </td>
+              <td>{i.variant?.options?.color ?? "—"}</td>
               <td>{i.quantity}</td>
               <td>{i.received}</td>
-              <td>{fm(i.unitCost)}</td>
-              <td>{fm(Number(i.unitCost) * i.quantity)}</td>
+              <td>
+                <span className="invoice-money" dir="ltr">
+                  {fm(i.unitCost)}
+                </span>
+              </td>
+              <td>
+                <span className="invoice-money" dir="ltr">
+                  {fm(Number(i.unitCost) * i.quantity)}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
             <td>الإجمالي</td>
+            <td></td>
+            <td></td>
             <td>{totalQty}</td>
             <td>{totalReceived}</td>
             <td></td>
-            <td>{fm(orderTotal(order))}</td>
+            <td>
+              <span className="invoice-money" dir="ltr">
+                {fm(orderTotal(order))}
+              </span>
+            </td>
           </tr>
         </tfoot>
       </table>
+      <div className="invoice-mobile-items">
+        {order.items.map((i: Row) => (
+          <article className="invoice-item-card" key={i.id}>
+            <strong className="invoice-item-name">
+              <InvoiceItemName item={i} />
+            </strong>
+            <dl>
+              <div>
+                <dt>الكمية</dt>
+                <dd>{i.quantity}</dd>
+              </div>
+              <div>
+                <dt>تم استلامه</dt>
+                <dd>{i.received}</dd>
+              </div>
+              <div>
+                <dt>سعر الشراء</dt>
+                <dd>
+                  <span className="invoice-money" dir="ltr">
+                    {fm(i.unitCost)}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>الإجمالي</dt>
+                <dd>
+                  <span className="invoice-money" dir="ltr">
+                    {fm(Number(i.unitCost) * i.quantity)}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+        <div className="invoice-mobile-total">
+          <strong>الإجمالي</strong>
+          <span>
+            الكمية: {totalQty} • تم استلامه: {totalReceived}
+          </span>
+          <strong className="invoice-money" dir="ltr">
+            {fm(orderTotal(order))}
+          </strong>
+        </div>
+      </div>
       {order.receipts?.length > 0 && (
         <div className="invoice-receipts">
           <h3>سجل الاستلام</h3>
           {order.receipts.map((rc: Row) => (
             <div className="receipt-line" key={rc.id}>
               <span>{formatDate(rc.createdAt)}</span>
-              <strong>{fm(rc.total)}</strong>
+              <strong className="invoice-money" dir="ltr">
+                {fm(rc.total)}
+              </strong>
             </div>
           ))}
         </div>
@@ -509,8 +621,7 @@ export function PurchaseForm({
     }));
   };
 
-  const addLine = () =>
-    setLineIds((prev) => [...prev, nextLineId.current++]);
+  const addLine = () => setLineIds((prev) => [...prev, nextLineId.current++]);
 
   const removeLine = (id: number) => {
     setLineIds((prev) =>
@@ -541,13 +652,15 @@ export function PurchaseForm({
     };
   };
 
-  const totals = lineIds.map((id) => lineNumbers(id)).reduce(
-    (t, n) => ({
-      cost: t.cost + n.totalCost,
-      profit: t.profit + (n.ready ? n.totalProfit : 0),
-    }),
-    { cost: 0, profit: 0 },
-  );
+  const totals = lineIds
+    .map((id) => lineNumbers(id))
+    .reduce(
+      (t, n) => ({
+        cost: t.cost + n.totalCost,
+        profit: t.profit + (n.ready ? n.totalProfit : 0),
+      }),
+      { cost: 0, profit: 0 },
+    );
 
   // Same variant entered on more than one row with a different cost price.
   const conflictingVariant = (() => {
@@ -720,8 +833,9 @@ export function PurchaseForm({
                   p.variants.map((v: Row) => (
                     <option key={v.id} value={v.id}>
                       {p.nameAr} •{" "}
-                      {formatDigits(Object.values(v.options ?? {}).join(" / ")) ||
-                        "بدون مقاس أو لون"}
+                      {formatDigits(
+                        Object.values(v.options ?? {}).join(" / "),
+                      ) || "بدون مقاس أو لون"}
                     </option>
                   )),
                 )}
@@ -783,9 +897,7 @@ export function PurchaseForm({
                   </span>
                   <span>
                     نسبة الربح على التكلفة{" "}
-                    <strong>
-                      {n.pct === null ? "—" : percent(n.pct)}
-                    </strong>
+                    <strong>{n.pct === null ? "—" : percent(n.pct)}</strong>
                   </span>
                 </>
               ) : (
@@ -797,8 +909,8 @@ export function PurchaseForm({
       })}
       {conflictingVariant && (
         <p className="form-error" role="alert">
-          الصنف "{variantLabel(conflictingVariant)}" مدخل أكثر من مرة بسعر
-          تكلفة مختلف. صحّح السعر أو احذف الصف الزائد.
+          الصنف "{variantLabel(conflictingVariant)}" مدخل أكثر من مرة بسعر تكلفة
+          مختلف. صحّح السعر أو احذف الصف الزائد.
         </p>
       )}
       {dupWarning && (
@@ -818,7 +930,9 @@ export function PurchaseForm({
         <div>
           <span>نسبة الربح الإجمالية</span>
           <strong>
-            {totals.cost > 0 ? percent((totals.profit / totals.cost) * 100) : "—"}
+            {totals.cost > 0
+              ? percent((totals.profit / totals.cost) * 100)
+              : "—"}
           </strong>
         </div>
       </div>
@@ -826,15 +940,11 @@ export function PurchaseForm({
         التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُحدَّث به سعر المنتج
         فوراً.
       </p>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={addLine}
-      >
+      <Button type="button" variant="outline" onClick={addLine}>
         <Plus size={16} />
         صنف آخر
       </Button>
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-      }
+}

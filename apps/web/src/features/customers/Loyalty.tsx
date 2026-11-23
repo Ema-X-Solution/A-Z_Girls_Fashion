@@ -58,14 +58,14 @@ export function LoyaltySettings() {
           {[
             [
               "spendPerPoint",
-              "مبلغ الشراء لكل نقطة (ج.م)",
+              "مبلغ الشراء لكل نقطة (EGP)",
               1,
               "0.01",
               undefined,
             ],
             [
               "pointValue",
-              "قيمة النقطة عند الاستبدال (ج.م)",
+              "قيمة النقطة عند الاستبدال (EGP)",
               0.01,
               "0.01",
               100,
@@ -174,4 +174,4 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
       </div>
     </section>
   );
-        }
+}

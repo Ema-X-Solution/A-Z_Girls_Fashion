@@ -236,7 +236,7 @@ export function Reports() {
                         </span>
                         <span>
                           قيمة العمولة:{" "}
-                          <b>{String(row.commission ?? "0.00")} ج.م.</b>
+                          <b>{String(row.commission ?? "0.00")} EGP</b>
                         </span>
                       </p>
                       <Grid

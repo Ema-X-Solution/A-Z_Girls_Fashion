@@ -159,7 +159,7 @@ export function PaymentEditor({
       {change > 0n && (
         <div className="summary-row">
           <span>الباقي النقدي</span>
-          <b>{decimal(change)} ج.م</b>
+          <b>{decimal(change)} EGP</b>
         </div>
       )}
       <p className="note">

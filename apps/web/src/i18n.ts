@@ -68,11 +68,11 @@ export const formatDigits = (value: string) =>
 export const displayLocale = "ar-EG-u-nu-latn";
 
 export const formatMoney = (v: unknown, numberingSystem: "latn" = "latn") =>
-  new Intl.NumberFormat(displayLocale, {
-    style: "currency",
-    currency: "EGP",
+  new Intl.NumberFormat("en-EG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
     numberingSystem,
-  }).format(Number(v ?? 0));
+  }).format(Number(v ?? 0)).concat(" EGP");
 export const formatDate = (v: unknown, numberingSystem: "latn" = "latn") =>
   v
     ? new Intl.DateTimeFormat(displayLocale, {

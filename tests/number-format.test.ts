@@ -7,12 +7,14 @@ import {
 } from "../apps/web/src/i18n.js";
 
 describe("English digits throughout the Arabic UI", () => {
-  it("uses English digits for positive, negative and zero amounts without changing Arabic currency labels", () => {
+  it("uses English digits for positive, negative and zero amounts with the EGP currency code", () => {
     for (const amount of [0, 1234.56, -987.65]) {
       const result = formatMoney(amount);
       expect(result).not.toMatch(/[\u0660-\u0669\u06f0-\u06f9]/);
       expect(result).toMatch(/[0-9]/);
-      expect(result).toContain("ج.م.");
+      expect(result).toMatch(/^-?[0-9,]+\.[0-9]{2} EGP$/);
+      expect((result.match(/EGP/g) ?? []).length).toBe(1);
+      expect(result).not.toMatch(/ج\.م/);
     }
   });
   it("uses English digits in Cairo dates and direct date-only formatting", () => {

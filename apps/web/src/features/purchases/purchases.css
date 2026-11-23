@@ -1,0 +1,149 @@
+/* Purchase preview: readable item cards on phones; keep the original print table. */
+.purchase-invoice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.invoice-money {
+  display: inline-block;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+.invoice-mobile-items {
+  display: none;
+}
+@media screen and (max-width: 640px) {
+  .purchase-invoice .invoice-table {
+    display: none;
+  }
+  .purchase-invoice {
+    padding: 12px;
+    min-width: 0;
+  }
+  .purchase-invoice .invoice-brand {
+    font-size: 16px;
+  }
+  .purchase-invoice .invoice-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .purchase-invoice .invoice-meta {
+    padding: 10px;
+    gap: 12px;
+  }
+  .purchase-invoice .invoice-meta > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .invoice-mobile-items {
+    display: grid;
+    gap: 10px;
+  }
+  .invoice-item-card {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 0;
+  }
+  .invoice-item-name {
+    display: block;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .invoice-item-card dl {
+    margin: 10px 0 0;
+    display: grid;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .invoice-item-card dl > div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 10px;
+  }
+  .invoice-item-card dt {
+    color: #747880;
+  }
+  .invoice-item-card dd {
+    margin: 0;
+    font-weight: 600;
+  }
+  .invoice-mobile-total {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    background: #faf8f2;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .invoice-mobile-total > span {
+    font-size: 12px;
+    color: #747880;
+  }
+  .invoice-mobile-total .invoice-money {
+    justify-self: start;
+  }
+  .purchase-invoice .receipt-line {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+.invoice-product-name {
+  display: block;
+}
+.invoice-variant {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #747880;
+  font-weight: 400;
+}
+.purchase-invoice .invoice-table td {
+  vertical-align: middle;
+}
+
+.purchase-invoice .invoice-table {
+  table-layout: fixed;
+  font-family: Arial, sans-serif;
+}
+.purchase-invoice .invoice-table th,
+.purchase-invoice .invoice-table td {
+  vertical-align: middle;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.purchase-invoice .invoice-table th:first-child {
+  width: 28%;
+}
+.purchase-invoice .invoice-table th:nth-child(2) {
+  width: 7%;
+}
+.purchase-invoice .invoice-table th:nth-child(3) {
+  width: 11%;
+}
+.purchase-invoice .invoice-table th:nth-child(4) {
+  width: 7%;
+}
+.purchase-invoice .invoice-table th:nth-child(5) {
+  width: 10%;
+}
+.purchase-invoice .invoice-table th:nth-child(6) {
+  width: 17%;
+}
+.purchase-invoice .invoice-table th:nth-child(7) {
+  width: 20%;
+}
+
+.purchase-invoice .invoice-table th,
+.purchase-invoice .invoice-table td {
+  white-space: normal;
+}
+.purchase-invoice .invoice-table bdi {
+  display: inline-block;
+  vertical-align: baseline;
+}
