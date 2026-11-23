@@ -164,7 +164,7 @@ describe.sequential(
       expect(after.value.taxRate).toBe(original.taxRate);
       expect(after.value.taxMode).toBe(original.taxMode);
     });
-    it("uses only active users with the exact Arabic cashier role", async () => {
+    it("lists active assigned cashiers and the administrative session itself", async () => {
       const roles = await db.role.findMany({ include: { permissions: true } });
       const base = roles.find((r: any) => r.name === "CASHIER");
       const role = await db.role.findUniqueOrThrow({
@@ -187,10 +187,9 @@ describe.sequential(
       b = await login("b@example.test");
       const list = await owner.agent.get("/api/sales/cashiers");
       expect(list.status).toBe(200);
-      expect(list.body.data.map((x: any) => x.name).sort()).toEqual([
-        "أحمد",
-        "منى",
-      ]);
+      expect(list.body.data.map((x: any) => x.id).sort()).toEqual(
+        [a.user.id, b.user.id, owner.user.id].sort(),
+      );
     });
     it("lets either cashier use the same shift and rejects a second opening", async () => {
       const openings = await Promise.all([
@@ -246,9 +245,9 @@ describe.sequential(
       items: [{ variantId: variant.id, quantity: 1 }],
       payments: [{ method, amount: "100" }],
     });
-    it("rejects missing, malformed, unassigned and inactive cashiers without writes", async () => {
+    it("rejects malformed, unassigned and inactive cashiers without writes", async () => {
       const count = await db.sale.count();
-      for (const id of [undefined, "bad", owner.user.id, crypto.randomUUID()]) {
+      for (const id of ["bad", crypto.randomUUID()]) {
         const r = await send(owner, "/sales", body(id));
         expect(r.status).toBe(400);
       }
@@ -370,14 +369,13 @@ describe.sequential(
         await page.waitForURL((u) => !u.pathname.includes("login"));
         await page.goto(url + "/pos");
         const select = page.getByLabel("اسم الكاشير", { exact: true });
-        await ui(select).toBeVisible();
-        await select.selectOption(a.user.id);
+        await ui(select).toHaveCount(0);
         await page.screenshot({
           path: "test-results/shared-drawer/03-after-pos-cashier.png",
           fullPage: true,
         });
         await page.reload();
-        await ui(select).toHaveValue(a.user.id);
+        await ui(select).toHaveCount(0);
         await page.goto(url + "/shifts");
         await page
           .getByRole("button", { name: "إغلاق الوردية", exact: true })
@@ -495,7 +493,10 @@ describe.sequential(
           data: { active: false },
         });
         await page.goto(url + "/pos");
-        await ui(page.getByText(/مفيش كاشير متاح/)).toBeVisible();
+        await ui(page.getByLabel("اسم الكاشير", { exact: true })).toHaveCount(
+          0,
+        );
+        await ui(page.getByText(/مفيش كاشير متاح/)).toHaveCount(0);
         await page.screenshot({
           path: "test-results/shared-drawer/07-no-cashiers.png",
           fullPage: true,
@@ -542,7 +543,7 @@ describe.sequential(
         {
           returned: {
             shiftId: shift.id,
-            reason: "اختيار مفقود",
+            reason: "اختيار غير صالح",
             method: "CASH",
             items: [
               {
@@ -552,7 +553,7 @@ describe.sequential(
               },
             ],
           },
-          replacement: { ...body(), payments: [] },
+          replacement: { ...body(crypto.randomUUID()), payments: [] },
         },
       );
       expect(invalid.status).toBe(400);
@@ -803,7 +804,9 @@ describe.sequential(
       await new Promise((r) => http.once("listening", r));
       let web: any, browser: any;
       try {
-        expect((await patchStore({ taxRate: "14", showTaxOnInvoice: true })).status).toBe(200);
+        expect(
+          (await patchStore({ taxRate: "14", showTaxOnInvoice: true })).status,
+        ).toBe(200);
         expect(
           (
             await send(owner, "/inventory/adjustments", {
@@ -835,9 +838,11 @@ describe.sequential(
         const url = `http://127.0.0.1:${web.httpServer.address().port}`;
         process.env.APP_ORIGIN = url;
         browser = await chromium.launch({ channel: "chrome", headless: true });
-        const page = await (await browser.newContext({
-          viewport: { width: 390, height: 844 },
-        })).newPage();
+        const page = await (
+          await browser.newContext({
+            viewport: { width: 390, height: 844 },
+          })
+        ).newPage();
         const openReceipt = async () => {
           await page.goto(url + "/sales");
           await page
@@ -856,19 +861,27 @@ describe.sequential(
         await ui(
           page.getByText("VAT (14% added)", { exact: true }).first(),
         ).toBeVisible();
-        await ui(page.getByText("14.00 EGP", { exact: true }).first()).toBeVisible();
-        await ui(page.getByText("114.00 EGP", { exact: true }).first()).toBeVisible();
+        await ui(
+          page.getByText("14.00 EGP", { exact: true }).first(),
+        ).toBeVisible();
+        await ui(
+          page.getByText("114.00 EGP", { exact: true }).first(),
+        ).toBeVisible();
         await page.screenshot({
           path: "test-results/shared-drawer/16-receipt-vat-shown.png",
           fullPage: true,
         });
-        expect((await patchStore({ showTaxOnInvoice: false })).status).toBe(200);
+        expect((await patchStore({ showTaxOnInvoice: false })).status).toBe(
+          200,
+        );
         await openReceipt();
         await ui(
           page.getByText("Amount due", { exact: true }).first(),
         ).toBeVisible();
         await ui(page.getByText(/VAT/)).toHaveCount(0);
-        await ui(page.getByText("114.00 EGP", { exact: true }).first()).toBeVisible();
+        await ui(
+          page.getByText("114.00 EGP", { exact: true }).first(),
+        ).toBeVisible();
         await page.screenshot({
           path: "test-results/shared-drawer/17-receipt-vat-hidden.png",
           fullPage: true,
@@ -879,7 +892,8 @@ describe.sequential(
       } finally {
         await patchStore(original);
         await browser?.close();
-        if (web) await new Promise<void>((r) => web.httpServer.close(() => r()));
+        if (web)
+          await new Promise<void>((r) => web.httpServer.close(() => r()));
         await new Promise<void>((r) => http.close(() => r()));
         process.env.APP_ORIGIN = origin;
       }
