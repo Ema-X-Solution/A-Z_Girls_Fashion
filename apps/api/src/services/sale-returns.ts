@@ -1,3 +1,4 @@
+import { originalSlices } from "./fifo.js";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { id, paymentMethods } from "@az/shared";
@@ -128,6 +129,9 @@ export async function refund(
               .div(original.total),
           ),
       tax = targetTax.minus(original.refundedTax);
+    const history = await tx.stockCostFlow.count({ where: {reference: saleId, type: "SALE", variantId:original.variantId} });
+    const layers = history ? await originalSlices(tx, saleId, "SALE", original.variantId, original.returned, line.quantity) : [{quantity:line.quantity, unitCost: original.unitCost, acquiredAt: sale.createdAt}];
+    const returnCost = layers.reduce((sum, layer) => sum.plus(layer.unitCost.mul(layer.quantity)), D(0));
     await tx.saleItem.update({
       where: { id: original.id },
       data: {
@@ -142,6 +146,7 @@ export async function refund(
         locationId: sale.shift.register.locationId,
         quantity: line.quantity,
         cost: original.unitCost,
+        layers,
         type: "SALE_RETURN",
         reference: returnId,
         reason: input.reason,
@@ -150,7 +155,7 @@ export async function refund(
       ...line,
       amount,
       tax,
-      cost: original.unitCost.mul(line.quantity),
+      cost: returnCost,
     });
   }
   const creditAmount =
