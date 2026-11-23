@@ -110,3 +110,6 @@ export const checkoutSchema = z.object({
   payments: z.array(paymentSchema).min(1).max(4),
   notes: z.string().max(1000).default(""),
 });
+
+export { PAGE_SIZES, DEFAULT_PAGE_SIZE, MAX_PAGE } from "./pagination.js";
+export type { PageSize, PaginatedResult } from "./pagination.js";
