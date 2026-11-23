@@ -21,3 +21,7 @@
   .invoice-mobile-total .invoice-money { justify-self: start; }
   .purchase-invoice .receipt-line { flex-wrap: wrap; gap: 6px; }
 }
+
+.invoice-product-name { display: block; }
+.invoice-variant { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 11px; color: #747880; font-weight: 400; }
+.purchase-invoice .invoice-table td { vertical-align: middle; }
