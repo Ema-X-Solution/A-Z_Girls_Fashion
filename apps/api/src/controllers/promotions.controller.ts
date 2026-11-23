@@ -1,3 +1,5 @@
+import { page } from "../utils/http.js";
+import { listResult, usesPagination } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id, money } from "@az/shared";
@@ -26,14 +28,10 @@ const schema = z
     path: ["percent"],
   });
 
-export const handleGetPromotions: RequestHandler = async (_req, res, next) => {
+export const handleGetPromotions: RequestHandler = async (req, res, next) => {
   try {
-    res.json({
-      data: await db.promotion.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 100,
-      }),
-    });
+    const [data,total]=await Promise.all([db.promotion.findMany({orderBy:[{createdAt:"desc"},{id:"desc"}],...(usesPagination(req.query)?page(req.query):{take:100,skip:0})}),db.promotion.count()]);
+    res.json(listResult(req.query,data,total));
   } catch (e) {
     next(e);
   }
