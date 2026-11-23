@@ -42,9 +42,13 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
     new Prisma.Decimal(0),
   );
   const rows: Record<string, unknown>[] = order.items.map((item) => ({
-    item: item.variant
-      ? `${item.variant.product.nameAr || item.variant.sku}\n${Object.entries((item.variant.options ?? {}) as Record<string, unknown>).map(([key, value]) => `${key === "size" ? "المقاس" : key === "color" ? "اللون" : key}: ${String(value)}`).join(" • ")}`
-      : item.variantId,
+    item: item.variant?.product.nameAr || item.variant?.sku || item.variantId,
+    size: String(
+      (item.variant?.options as Record<string, unknown> | null)?.size ?? "—",
+    ),
+    color: String(
+      (item.variant?.options as Record<string, unknown> | null)?.color ?? "—",
+    ),
     quantity: item.quantity,
     received: item.received,
     cost: money(item.unitCost),
@@ -52,6 +56,8 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
   }));
   rows.push({
     item: "الإجمالي",
+    size: "",
+    color: "",
     quantity: order.items.reduce((sum, item) => sum + item.quantity, 0),
     received: order.items.reduce((sum, item) => sum + item.received, 0),
     cost: "",
@@ -60,6 +66,8 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
   if (order.receipts.length) {
     rows.push({
       item: "سجل الاستلام",
+      size: "",
+      color: "",
       quantity: "",
       received: "",
       cost: "",
@@ -68,6 +76,8 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
     for (const receipt of order.receipts)
       rows.push({
         item: date(receipt.createdAt),
+        size: "",
+        color: "",
         quantity: "",
         received: "",
         cost: "",
@@ -78,18 +88,21 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
     res,
     "فاتورة مشتريات",
     [
-      { key: "item", label: "الصنف" },
-      { key: "quantity", label: "الكمية" },
-      { key: "received", label: "تم استلامه" },
-      { key: "cost", label: "سعر الشراء" },
-      { key: "total", label: "الإجمالي" },
+      { key: "item", label: "الصنف", width: 0.28 },
+      { key: "size", label: "المقاس", width: 0.075 },
+      { key: "color", label: "اللون", width: 0.115 },
+      { key: "quantity", label: "الكمية", width: 0.075 },
+      { key: "received", label: "تم استلامه", width: 0.095 },
+      { key: "cost", label: "سعر الشراء", width: 0.17 },
+      { key: "total", label: "الإجمالي", width: 0.19 },
     ],
     rows,
     date(order.createdAt),
     {
       filename: `purchase-${order.id}.pdf`,
       disposition: "inline",
-      centerNumericCells: true,
+      centerCells: true,
+      unifiedFont: true,
       metadata: [
         `المورد: ${order.supplier.name}`,
         `المخزن: ${order.location?.name ?? "—"}`,
