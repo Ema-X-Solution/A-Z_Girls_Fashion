@@ -1127,10 +1127,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .click();
       await browserExpect(page.getByRole("dialog")).toHaveCount(0);
       await browserExpect(page.locator(".stat-card.featured")).toContainText(
-        new Intl.NumberFormat("ar-EG-u-nu-latn", {
-          style: "currency",
-          currency: "EGP",
-        }).format(70),
+        "70.00 EGP",
       );
       await page.screenshot({
         path: "test-results/supplier-statement.png",
