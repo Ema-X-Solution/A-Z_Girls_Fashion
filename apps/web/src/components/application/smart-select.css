@@ -1,33 +1,220 @@
 .smart-select {
-  display: grid;
-  gap: 8px;
+  position: relative;
   min-width: 0;
-}
-.smart-select .smart-select-label {
-  font-size: 12px;
-  color: #747880;
-}
-.smart-select input,
-.smart-select select {
   width: 100%;
+  color: #30312f;
+  font-size: 13px;
+}
+.smart-select-control {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  gap: 8px;
+  padding-inline: 12px 7px;
+  border: 1px solid #dddfe3;
+  border-radius: 11px;
+  background: #fff;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+.smart-select-control:hover {
+  border-color: #c6b88f;
+}
+.smart-select-control:focus-within,
+.smart-select.is-open .smart-select-control {
+  border-color: #a8893d;
+  box-shadow: 0 0 0 3px #b69a501a;
+}
+.smart-select-control:has([aria-invalid="true"]) {
+  border-color: #b33f38;
+}
+.smart-select-search-icon {
+  flex: none;
+  color: #a49262;
+}
+.smart-select input.smart-select-input {
+  flex: 1;
   min-width: 0;
-  font-size: 16px;
+  width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  color: #30312f;
+  text-overflow: ellipsis;
+  font-size: 13px;
 }
-.smart-select select[size] {
-  height: auto;
-  padding: 6px;
+.smart-select-input::placeholder {
+  color: #91938f;
+  opacity: 1;
 }
-.smart-select option {
-  padding: 10px 8px;
+.smart-select-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 32px;
+  padding: 0;
+  border-radius: 7px;
+  color: #85867e;
 }
-.smart-select small {
+.smart-select-icon-button:hover {
+  background: #f5f3ec;
+  color: #806626;
+}
+.smart-select-icon-button:focus-visible {
+  outline: 2px solid #a8893d;
+  outline-offset: 1px;
+}
+.smart-select-toggle svg {
+  transition: transform 150ms;
+}
+.smart-select.is-open .smart-select-toggle svg {
+  transform: rotate(180deg);
+}
+.smart-select.is-disabled {
+  opacity: 0.55;
+}
+.smart-select.is-disabled .smart-select-control {
+  background: #f6f6f5;
+}
+.smart-select.is-disabled input {
+  cursor: not-allowed;
+}
+.smart-select select.smart-select-native {
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.smart-select-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 5px;
+  box-sizing: border-box;
+  overflow: auto;
+  border: 1px solid #e6e3da;
+  border-radius: 13px;
+  background: #fff;
+  color: #30312f;
+  font-family: inherit;
+  font-size: 13px;
+  box-shadow:
+    0 12px 36px #25200f1c,
+    0 2px 6px #25200f08;
+}
+.smart-select-popup::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+.smart-select-status {
+  display: grid;
+  gap: 4px;
+  padding: 10px 10px 9px;
+  color: #8b8c86;
+  font-size: 11px;
   overflow-wrap: anywhere;
 }
-
+.smart-select-current {
+  color: #8b7136;
+}
+.smart-select-options {
+  max-height: 220px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.smart-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 43px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.smart-select-option span {
+  min-width: 0;
+}
+.smart-select-option svg {
+  flex: none;
+  color: #947635;
+}
+.smart-select-option[aria-selected="true"] {
+  background: #f7f3e8;
+  color: #806626;
+  font-weight: 600;
+}
+.smart-select-option.is-active {
+  background: #f3f2ee;
+  outline: 1px solid #e5dfcd;
+  outline-offset: -1px;
+}
 .smart-select-pages {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
   gap: 8px;
+  padding: 9px 5px 4px;
+  margin-top: 5px;
+  border-top: 1px solid #f0efeb;
+  color: #8b8c86;
+  font-size: 11px;
+}
+.smart-select-pages button {
+  min-height: 32px;
+  height: auto;
+  font-size: 11px;
+  padding: 4px 11px;
+}
+.smart-select-empty,
+.smart-select-loading {
+  padding: 10px;
+}
+@media (max-width: 600px) {
+  .smart-select input.smart-select-input {
+    font-size: 16px;
+  }
+  .smart-select-option {
+    min-height: 46px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .smart-select-control,
+  .smart-select-toggle svg {
+    transition: none;
+  }
+}
+.smart-select-validation {
+  display: block;
+  margin-top: 6px;
+  color: #b33f38;
+  font-size: 11px;
+}
+.smart-select-popup:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+.smart-select-status,
+.smart-select-pages {
+  flex: none;
+}
+.smart-select-options {
+  min-height: 0;
+  flex: 0 1 auto;
 }
