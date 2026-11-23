@@ -1,3 +1,4 @@
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id, money } from "@az/shared";
@@ -79,16 +80,9 @@ export const handleGetShiftsCurrent: RequestHandler = route(async (req, res) =>
   }),
 );
 
-export const handleGetShifts: RequestHandler = route(async (req, res) =>
-  res.json({
-    data: await db.cashShift.findMany({
-      where: {},
-      include: { register: true },
-      orderBy: { openedAt: "desc" },
-      ...page(req.query),
-    }),
-  }),
-);
+export const handleGetShifts: RequestHandler = route(async(req,res)=>{
+const [data,total]=await Promise.all([db.cashShift.findMany({include:{register:true},orderBy:[{openedAt:"desc"},{id:"desc"}],...page(req.query)}),db.cashShift.count()]);const latest=await db.cashShift.findFirst({where:{closedAt:{not:null}},orderBy:[{openedAt:"desc"},{id:"desc"}],include:{register:true}});res.json({...listResult(req.query,data,total),todayClosed:latest&&cairoDay(latest.openedAt)===cairoDay(new Date())?latest:null});
+});
 
 export const handlePostShiftsByIdCashMovements: RequestHandler = route(
   async (req, res) => {
