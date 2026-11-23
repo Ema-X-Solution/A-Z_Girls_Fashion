@@ -1,3 +1,4 @@
+import { pagination, paginated } from "../utils/pagination.js";
 import { Router } from "express";
 import { z } from "zod";
 import { actor, requirePermission } from "../middleware/auth.js";
@@ -267,24 +268,33 @@ accounting.post("/accounting/close", async (req, res, next) => {
     next(e);
   }
 });
-accounting.get("/accounting/batches", async (_req, res, next) => {
+accounting.get("/accounting/batches", async (req, res, next) => {
   try {
-    const rows = await db.stockBatch.findMany({
-      orderBy: [{ acquiredAt: "asc" }, { createdAt: "asc" }],
-      take: 200,
-    });
+    const paging = pagination(req.query);
+    const [rows, total] = await db.$transaction([
+      db.stockBatch.findMany({
+        orderBy: [{ acquiredAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+        skip: paging.skip,
+        take: paging.take,
+      }),
+      db.stockBatch.count(),
+    ]);
     const ids = [...new Set(rows.map((r) => r.variantId))];
     const variants = await db.productVariant.findMany({
       where: { id: { in: ids } },
       include: { product: { select: { nameAr: true } } },
     });
-    res.json({
-      data: rows.map((r) => ({
-        ...r,
-        name: variants.find((v) => v.id === r.variantId)?.product.nameAr,
-        sku: variants.find((v) => v.id === r.variantId)?.sku,
-      })),
-    });
+    res.json(
+      paginated(
+        rows.map((r) => ({
+          ...r,
+          name: variants.find((v) => v.id === r.variantId)?.product.nameAr,
+          sku: variants.find((v) => v.id === r.variantId)?.sku,
+        })),
+        total,
+        paging,
+      ),
+    );
   } catch (e) {
     next(e);
   }
