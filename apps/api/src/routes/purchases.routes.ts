@@ -1,8 +1,15 @@
+import { handlePurchaseItemOptions } from "../controllers/purchase-item-options.controller.js";
 import { Router } from "express";
 import { requirePermission as can } from "../middleware/auth.js";
 import * as controllers from "../controllers/purchases.controller.js";
 
 export const purchasesRouter = Router();
+
+purchasesRouter.get(
+  "/purchases/item-options",
+  can("purchases.create"),
+  handlePurchaseItemOptions,
+);
 
 purchasesRouter.get(
   "/purchases",
