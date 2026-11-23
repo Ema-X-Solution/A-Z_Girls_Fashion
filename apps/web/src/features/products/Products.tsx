@@ -1,7 +1,25 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, X, Printer, Pencil, Trash2, Check, Archive, RotateCcw } from "lucide-react";
-import { ProductImage, ProductImageEditor, ProductImagePicker } from "../shared/ProductImage";
+import {
+  Plus,
+  Search,
+  X,
+  Printer,
+  Pencil,
+  Trash2,
+  Check,
+  Archive,
+  RotateCcw,
+} from "lucide-react";
+import {
+  ProductImage,
+  ProductImageEditor,
+  ProductImagePicker,
+} from "../shared/ProductImage";
 import { patch, post } from "../../api";
 import { formatDigits, ar, formatMoney as fm } from "../../i18n";
 import { Button } from "../../components/ui/button";
@@ -9,28 +27,37 @@ import { BarcodeLabels } from "../barcodes/BarcodeLabels";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import { useAction, readableError } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import {
+  Loading,
+  ErrorState,
+  Modal,
+  Field,
+  Header,
+  Badge,
+  Table,
+} from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 import { type Row } from "../../app/types";
 
 export function Products() {
   const [q, setQ] = useState(""),
     { debounced: debouncedQ, searchPending } = useDebouncedSearch(q),
-    [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
     [label, setLabel] = useState<Row | null>(null),
     [categoryOpen, setCategoryOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
     [productTab, setProductTab] = useState<"active" | "archived">("active"),
-    [statusChange, setStatusChange] = useState<{ product: Row; restore: boolean } | null>(null),
+    paging = usePagination(`${q.trim()}|${productTab}`),
+    [statusChange, setStatusChange] = useState<{
+      product: Row;
+      restore: boolean;
+    } | null>(null),
     [statusError, setStatusError] = useState(""),
     query = useData(
-      `/products?q=${encodeURIComponent(debouncedQ)}&offset=${offset}${productTab === "archived" ? "&archived=1" : ""}`,
+      `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${productTab === "archived" ? "&archived=1" : ""}`,
       true,
       searchPending,
     ),
-    categories = useData("/categories"),
-    brands = useData("/brands"),
     action = useAction(),
     create = useAllowed("products.create"),
     edit = useAllowed("products.update"),
@@ -41,8 +68,13 @@ export function Products() {
     [editingName, setEditingName] = useState(""),
     [confirmRemoveCat, setConfirmRemoveCat] = useState<string | null>(null),
     [catTab, setCatTab] = useState<"active" | "archived">("active"),
+    categoryPaging = usePagination(catTab, categoryOpen, "local"),
+    activeCategories = useData(
+      `/categories?${categoryPaging.query}`,
+      categoryOpen && catTab === "active",
+    ),
     archivedCategories = useData(
-      "/categories?archived=1",
+      `/categories?archived=1&${categoryPaging.query}`,
       categoryOpen && catTab === "archived",
     );
   return (
@@ -64,16 +96,25 @@ export function Products() {
       </Header>
       <section className="panel">
         {archive && (
-          <div className="cat-tabs" style={{ padding: "18px 22px 0" }} role="group" aria-label="عرض المنتجات">
+          <div
+            className="cat-tabs"
+            style={{ padding: "18px 22px 0" }}
+            role="group"
+            aria-label="عرض المنتجات"
+          >
             <Button
               variant={productTab === "active" ? "default" : "outline"}
-              onClick={() => { setProductTab("active"); setOffset(0); }}
+              onClick={() => {
+                setProductTab("active");
+              }}
             >
               المنتجات الحالية
             </Button>
             <Button
               variant={productTab === "archived" ? "default" : "outline"}
-              onClick={() => { setProductTab("archived"); setOffset(0); }}
+              onClick={() => {
+                setProductTab("archived");
+              }}
             >
               أرشيف المنتجات
             </Button>
@@ -87,14 +128,13 @@ export function Products() {
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
-                setOffset(0);
               }}
             />
           </div>
           <span className="muted-text">{query.data?.total ?? 0} منتج</span>
         </div>
         {query.isLoading ? (
-          <Loading />
+          <TableSkeleton columns={7} label="جارٍ تحميل المنتجات" />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
@@ -157,9 +197,19 @@ export function Products() {
                         <Button
                           variant="ghost"
                           disabled={action.busy}
-                          onClick={() => { setStatusError(""); setStatusChange({ product: r, restore: productTab === "archived" }); }}
+                          onClick={() => {
+                            setStatusError("");
+                            setStatusChange({
+                              product: r,
+                              restore: productTab === "archived",
+                            });
+                          }}
                         >
-                          {productTab === "archived" ? <RotateCcw size={16} /> : <Archive size={16} />}
+                          {productTab === "archived" ? (
+                            <RotateCcw size={16} />
+                          ) : (
+                            <Archive size={16} />
+                          )}
                           {productTab === "archived" ? "استعادة" : "أرشفة"}
                         </Button>
                       )}
@@ -168,11 +218,15 @@ export function Products() {
                 },
               ]}
             />
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              onPageChange={paging.setPage}
+              onPageSizeChange={paging.setPageSize}
               length={query.data?.data.length ?? 0}
-              total={query.data?.total}
+              total={query.data?.total ?? 0}
+              disabled={query.isFetching || searchPending}
+              unit="منتج"
             />
           </>
         )}
@@ -180,37 +234,66 @@ export function Products() {
       <Modal
         title={statusChange?.restore ? "استعادة المنتج" : "أرشفة المنتج"}
         open={!!statusChange}
-        onClose={() => { if (!action.busy) setStatusChange(null); }}
+        onClose={() => {
+          if (!action.busy) setStatusChange(null);
+        }}
       >
         {statusChange && (
           <>
-            <p><strong>{statusChange.product.nameAr}</strong></p>
+            <p>
+              <strong>{statusChange.product.nameAr}</strong>
+            </p>
             <p className="note">
               {statusChange.restore
                 ? "سيظهر المنتج في قائمة المنتجات والبيع من جديد، مع الاحتفاظ بسجلاته السابقة."
                 : "يمكن أرشفة المنتج فقط إذا كانت كمية كل مقاس ولون في كل المخازن صفرًا، ولا توجد كميات قيد التحويل أو محجورة. لن تُحذف الفواتير أو المشتريات السابقة."}
             </p>
-            {statusError && <p role="alert" className="form-error">{statusError}</p>}
-            <div className="inline-actions" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, maxWidth: 320, marginTop: 18 }}>
+            {statusError && (
+              <p role="alert" className="form-error">
+                {statusError}
+              </p>
+            )}
+            <div
+              className="inline-actions"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 12,
+                maxWidth: 320,
+                marginTop: 18,
+              }}
+            >
               <Button
                 disabled={action.busy}
-                onClick={() => void action.run(
-                  async () => {
-                    setStatusError("");
-                    try {
-                      const result = await post(`/products/${statusChange.product.id}/${statusChange.restore ? "restore" : "archive"}`, {});
-                      return result?.data?.message;
-                    } catch (error) {
-                      setStatusError(readableError(error));
-                      throw error;
-                    }
-                  },
-                  () => { setStatusChange(null); setSelected(null); },
-                )}
+                onClick={() =>
+                  void action.run(
+                    async () => {
+                      setStatusError("");
+                      try {
+                        const result = await post(
+                          `/products/${statusChange.product.id}/${statusChange.restore ? "restore" : "archive"}`,
+                          {},
+                        );
+                        return result?.data?.message;
+                      } catch (error) {
+                        setStatusError(readableError(error));
+                        throw error;
+                      }
+                    },
+                    () => {
+                      setStatusChange(null);
+                      setSelected(null);
+                    },
+                  )
+                }
               >
                 {statusChange.restore ? "تأكيد الاستعادة" : "تأكيد الأرشفة"}
               </Button>
-              <Button variant="outline" disabled={action.busy} onClick={() => setStatusChange(null)}>
+              <Button
+                variant="outline"
+                disabled={action.busy}
+                onClick={() => setStatusChange(null)}
+              >
                 إلغاء
               </Button>
             </div>
@@ -219,8 +302,6 @@ export function Products() {
       </Modal>
       <Modal title="منتج جديد" open={open} onClose={() => setOpen(false)}>
         <ProductForm
-          categories={categories.data?.data ?? []}
-          brands={brands.data?.data ?? []}
           busy={action.busy}
           submit={(body) =>
             void action.run(
@@ -249,6 +330,24 @@ export function Products() {
             الأرشيف
           </Button>
         </div>
+        <Pagination
+          page={categoryPaging.page}
+          pageSize={categoryPaging.pageSize}
+          onPageChange={categoryPaging.setPage}
+          onPageSizeChange={categoryPaging.setPageSize}
+          total={
+            (catTab === "active" ? activeCategories : archivedCategories).data
+              ?.total ?? 0
+          }
+          length={
+            (catTab === "active" ? activeCategories : archivedCategories).data
+              ?.data.length ?? 0
+          }
+          disabled={
+            (catTab === "active" ? activeCategories : archivedCategories)
+              .isFetching
+          }
+        />
         {catTab === "archived" ? (
           <>
             <p className="note">
@@ -267,8 +366,19 @@ export function Products() {
             ) : (
               <ul className="list">
                 {(archivedCategories.data?.data ?? []).map((c: Row) => (
-                  <li key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 16, paddingBlock: 12 }}>
-                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{c.name}</span>
+                  <li
+                    key={c.id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto",
+                      alignItems: "center",
+                      gap: 16,
+                      paddingBlock: 12,
+                    }}
+                  >
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                      {c.name}
+                    </span>
                     {archive && (
                       <Button
                         variant="outline"
@@ -295,124 +405,154 @@ export function Products() {
           </>
         ) : (
           <>
-        <ul className="list">
-          {categories.data?.data.map((c: Row) => (
-            <li key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 16, paddingBlock: 12 }}>
-              {editingCat === c.id ? (
-                <div className="cat-edit-row" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "minmax(0, 1fr) 72px 64px", gap: 8 }}>
-                  <input
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    aria-label={`اسم القسم ${c.name}`}
-                    style={{ width: "100%", minWidth: 0, minHeight: 44 }}
-                  />
-                  <Button
-                    variant="outline"
-                    style={{ minHeight: 44, paddingInline: 8 }}
-                    disabled={action.busy || !editingName.trim()}
-                    onClick={() =>
-                      void action.run(
-                        () =>
-                          patch(`/categories/${c.id}`, {
-                            name: editingName.trim(),
-                          }),
-                        () => setEditingCat(null),
-                      )
-                    }
-                  >
-                    <Check size={16} />
-                    حفظ
-                  </Button>
-                  <Button
-                    variant="outline"
-                    style={{ minHeight: 44, paddingInline: 8 }}
-                    onClick={() => setEditingCat(null)}
-                  >
-                    إلغاء
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{c.name}</span>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", minWidth: 96 }}>
-                  {edit && (
-                    <Button
-                      variant="outline"
-                      style={{ width: 44, height: 44, padding: 0 }}
-                      title="تعديل اسم القسم"
-                      onClick={() => {
-                        setEditingCat(c.id);
-                        setEditingName(c.name);
-                        setConfirmRemoveCat(null);
+            <ul className="list">
+              {activeCategories.data?.data.map((c: Row) => (
+                <li
+                  key={c.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1fr) auto",
+                    alignItems: "center",
+                    gap: 16,
+                    paddingBlock: 12,
+                  }}
+                >
+                  {editingCat === c.id ? (
+                    <div
+                      className="cat-edit-row"
+                      style={{
+                        gridColumn: "1 / -1",
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1fr) 72px 64px",
+                        gap: 8,
                       }}
                     >
-                      <Pencil size={16} />
-                    </Button>
-                  )}
-                  {archive && (
-                    <Button
-                      variant={confirmRemoveCat === c.id ? "destructive" : "outline"}
-                      style={{ width: 44, height: 44, padding: 0 }}
-                      title={
-                        confirmRemoveCat === c.id
-                          ? "اضغط مرة أخرى للتأكيد"
-                          : "حذف أو أرشفة القسم"
-                      }
-                      onClick={() => {
-                        if (confirmRemoveCat !== c.id) {
-                          setConfirmRemoveCat(c.id);
-                          return;
+                      <input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        aria-label={`اسم القسم ${c.name}`}
+                        style={{ width: "100%", minWidth: 0, minHeight: 44 }}
+                      />
+                      <Button
+                        variant="outline"
+                        style={{ minHeight: 44, paddingInline: 8 }}
+                        disabled={action.busy || !editingName.trim()}
+                        onClick={() =>
+                          void action.run(
+                            () =>
+                              patch(`/categories/${c.id}`, {
+                                name: editingName.trim(),
+                              }),
+                            () => setEditingCat(null),
+                          )
                         }
-                        void action.run(
-                          async () => {
-                            const r = await post(
-                              `/categories/${c.id}/remove`,
-                              {},
-                            );
-                            return r?.data?.message;
-                          },
-                          () => setConfirmRemoveCat(null),
-                        );
-                      }}
-                    >
-                      {confirmRemoveCat === c.id ? "تأكيد؟" : <Trash2 size={16} />}
-                    </Button>
+                      >
+                        <Check size={16} />
+                        حفظ
+                      </Button>
+                      <Button
+                        variant="outline"
+                        style={{ minHeight: 44, paddingInline: 8 }}
+                        onClick={() => setEditingCat(null)}
+                      >
+                        إلغاء
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                        {c.name}
+                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          justifyContent: "flex-end",
+                          minWidth: 96,
+                        }}
+                      >
+                        {edit && (
+                          <Button
+                            variant="outline"
+                            style={{ width: 44, height: 44, padding: 0 }}
+                            title="تعديل اسم القسم"
+                            onClick={() => {
+                              setEditingCat(c.id);
+                              setEditingName(c.name);
+                              setConfirmRemoveCat(null);
+                            }}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                        )}
+                        {archive && (
+                          <Button
+                            variant={
+                              confirmRemoveCat === c.id
+                                ? "destructive"
+                                : "outline"
+                            }
+                            style={{ width: 44, height: 44, padding: 0 }}
+                            title={
+                              confirmRemoveCat === c.id
+                                ? "اضغط مرة أخرى للتأكيد"
+                                : "حذف أو أرشفة القسم"
+                            }
+                            onClick={() => {
+                              if (confirmRemoveCat !== c.id) {
+                                setConfirmRemoveCat(c.id);
+                                return;
+                              }
+                              void action.run(
+                                async () => {
+                                  const r = await post(
+                                    `/categories/${c.id}/remove`,
+                                    {},
+                                  );
+                                  return r?.data?.message;
+                                },
+                                () => setConfirmRemoveCat(null),
+                              );
+                            }}
+                          >
+                            {confirmRemoveCat === c.id ? (
+                              "تأكيد؟"
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </>
                   )}
-                  </div>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {create && (
-          <EntryForm
-            key={catFormKey}
-            fields={[
-              simple("name", ar.name),
-              {
-                key: "parentId",
-                label: "تصنيف رئيسي",
-                required: false,
-                options:
-                  categories.data?.data.map((c: Row) => ({
-                    value: c.id,
-                    label: c.name,
-                  })) ?? [],
-              },
-            ]}
-            busy={action.busy}
-            submit={(body) =>
-              void action.run(
-                () =>
-                  post("/categories", {
-                    name: body.name,
-                    ...(body.parentId ? { parentId: body.parentId } : {}),
-                  }),
-                () => setCatFormKey((k) => k + 1),
-              )
-            }
-          />
-        )}
+                </li>
+              ))}
+            </ul>
+            {create && (
+              <EntryForm
+                key={catFormKey}
+                fields={[
+                  simple("name", ar.name),
+                  {
+                    key: "parentId",
+                    label: "تصنيف رئيسي",
+                    required: false,
+                    pickerEndpoint: "/options/categories",
+                  },
+                ]}
+                busy={action.busy}
+                submit={(body) =>
+                  void action.run(
+                    () =>
+                      post("/categories", {
+                        name: body.name,
+                        ...(body.parentId ? { parentId: body.parentId } : {}),
+                      }),
+                    () => setCatFormKey((k) => k + 1),
+                  )
+                }
+              />
+            )}
           </>
         )}
       </Modal>
@@ -446,7 +586,8 @@ export function Products() {
                 { label: ar.sku, render: (r) => r.sku },
                 {
                   label: "المقاس / اللون",
-                  render: (r) => formatDigits(Object.values(r.options).join(" / ")) || "—",
+                  render: (r) =>
+                    formatDigits(Object.values(r.options).join(" / ")) || "—",
                 },
                 { label: ar.barcode, render: (r) => <code>{r.barcode}</code> },
                 { label: ar.price, render: (r) => fm(r.price) },
@@ -466,7 +607,9 @@ export function Products() {
                 },
               ]}
             />
-            <h4 style={{ margin: "1.2rem 0 0.5rem" }}>تفاصيل المخزون حسب المخزن</h4>
+            <h4 style={{ margin: "1.2rem 0 0.5rem" }}>
+              تفاصيل المخزون حسب المخزن
+            </h4>
             <Table
               rows={selected.variants.flatMap((v: Row) =>
                 (v.balances ?? []).map((b: Row) => ({ ...b, variant: v })),
@@ -475,7 +618,9 @@ export function Products() {
                 {
                   label: "المتغير",
                   render: (r) =>
-                    formatDigits(Object.values(r.variant.options).join(" / ")) || r.variant.sku,
+                    formatDigits(
+                      Object.values(r.variant.options).join(" / "),
+                    ) || r.variant.sku,
                 },
                 {
                   label: "المخزن",
@@ -535,7 +680,12 @@ export function Products() {
                     })),
                   },
                   simple("price", "سعر البيع الجديد", "number", false),
-                  simple("minStock", "الحد الأدنى للمخزون الجديد (ديناميكي)", "number", false),
+                  simple(
+                    "minStock",
+                    "الحد الأدنى للمخزون الجديد (ديناميكي)",
+                    "number",
+                    false,
+                  ),
                 ]}
                 busy={action.busy}
                 submit={(body) => {
@@ -570,13 +720,9 @@ export function Products() {
 }
 
 export function ProductForm({
-  categories,
-  brands,
   busy,
   submit,
 }: {
-  categories: Row[];
-  brands: Row[];
   busy: boolean;
   submit: (body: Row) => void;
 }) {
@@ -614,24 +760,21 @@ export function ProductForm({
           <input name="nameAr" required />
         </Field>
         <Field label={ar.category}>
-          <select name="categoryId" required>
-            <option value="">اختر...</option>
-            {categories.map((c) => (
-              <option value={c.id} key={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <EntitySelect
+            kind="categories"
+            id="product-category"
+            name="categoryId"
+            label={ar.category}
+          />
         </Field>
         <Field label="العلامة التجارية">
-          <select name="brandId">
-            <option value="">بدون علامة</option>
-            {brands.map((b) => (
-              <option value={b.id} key={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          <EntitySelect
+            kind="brands"
+            id="product-brand"
+            name="brandId"
+            label="العلامة التجارية"
+            required={false}
+          />
         </Field>
       </div>
       <p className="note">
@@ -654,31 +797,29 @@ export function ProductForm({
       </Field>
       {variants.map((v, i) => (
         <div className="variant-row" key={i}>
-          {(["size", "color"] as const).map(
-            (key) => (
-              <Field
-                key={key}
-                label={
-                  {
-                    size: ar.size,
-                    color: ar.color,
-                  }[key]
+          {(["size", "color"] as const).map((key) => (
+            <Field
+              key={key}
+              label={
+                {
+                  size: ar.size,
+                  color: ar.color,
+                }[key]
+              }
+            >
+              <input
+                value={v[key]}
+                type="text"
+                onChange={(e) =>
+                  setVariants((rows) =>
+                    rows.map((r, j) =>
+                      j === i ? { ...r, [key]: e.target.value } : r,
+                    ),
+                  )
                 }
-              >
-                <input
-                  value={v[key]}
-                  type="text"
-                  onChange={(e) =>
-                    setVariants((rows) =>
-                      rows.map((r, j) =>
-                        j === i ? { ...r, [key]: e.target.value } : r,
-                      ),
-                    )
-                  }
-                />
-              </Field>
-            ),
-          )}
+              />
+            </Field>
+          ))}
           <Field label="الحد الأدنى">
             <input
               value={v.minStock ?? "2"}
@@ -712,21 +853,15 @@ export function ProductForm({
         type="button"
         variant="outline"
         onClick={() =>
-          setVariants((v) => [
-            ...v,
-            { size: "", color: "", minStock: "2" },
-          ])
+          setVariants((v) => [...v, { size: "", color: "", minStock: "2" }])
         }
       >
         <Plus size={16} />
         مقاس / لون آخر
       </Button>
-      <Button
-        className="form-submit"
-        disabled={busy || imageBusy || !categories.length}
-      >
+      <Button className="form-submit" disabled={busy || imageBusy}>
         {ar.save}
       </Button>
     </form>
   );
-}
+                              }
