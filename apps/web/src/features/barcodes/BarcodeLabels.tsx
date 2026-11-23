@@ -195,6 +195,23 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         : (query.data?.data ?? []),
     size = presets[preset] ?? { width: customWidth, height: customHeight },
     total = Object.values(selected).reduce((s, i) => s + i.quantity, 0);
+  const visibleVariants = products.flatMap((p) =>
+    p.variants.filter((v) => v.active).map((variant) => ({ variant, name: p.nameAr })),
+  );
+  const visibleSelected = visibleVariants.filter(({ variant }) => !!selected[variant.id]).length;
+  const allVisibleSelected = visibleVariants.length > 0 && visibleSelected === visibleVariants.length;
+  function selectVisible(checked: boolean) {
+    setSelected((old) => {
+      const next = { ...old };
+      for (const { variant, name } of visibleVariants) {
+        if (checked) next[variant.id] ??= { variant, name, quantity: 1 };
+        else delete next[variant.id];
+      }
+      return next;
+    });
+    setJob(null);
+    setError("");
+  }
   const validSize =
     Number.isFinite(size.width) &&
     Number.isFinite(size.height) &&
@@ -309,7 +326,22 @@ export function BarcodeLabels({ product }: { product?: Product }) {
             <table>
               <thead>
                 <tr>
-                  <th>اختيار</th>
+                  <th>
+                    <label>
+                      <input
+                        className="label-select"
+                        type="checkbox"
+                        aria-label="اختيار كل الظاهر في الصفحة"
+                        checked={allVisibleSelected}
+                        disabled={!visibleVariants.length}
+                        ref={(input) => {
+                          if (input) input.indeterminate = visibleSelected > 0 && !allVisibleSelected;
+                        }}
+                        onChange={(e) => selectVisible(e.target.checked)}
+                      />{" "}
+                      اختيار كل الظاهر في الصفحة
+                    </label>
+                  </th>
                   <th>المنتج / المقاس / اللون</th>
                   <th>الباركود</th>
                   <th>عدد الملصقات</th>
@@ -600,4 +632,4 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         )}
     </div>
   );
-                  }
+}
