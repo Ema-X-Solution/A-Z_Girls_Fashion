@@ -1,3 +1,4 @@
+import { exactOutCost } from "./fifo.js";
 import { z } from "zod";
 import { id, money, paymentMethods } from "@az/shared";
 import { type Tx, assert, audit } from "../lib/db.js";
@@ -219,7 +220,13 @@ export async function returnPurchase(
       item.returnedAmount,
       line.quantity,
     );
-    const cost = await stock(tx, actor, {
+    const priorCost = await exactOutCost(
+      tx,
+      returnId,
+      "SUPPLIER_RETURN",
+      item.purchaseItem.variantId,
+    );
+    await stock(tx, actor, {
       variantId: item.purchaseItem.variantId,
       locationId: invoice.receipt.purchase.locationId,
       quantity: -line.quantity,
@@ -238,7 +245,14 @@ export async function returnPurchase(
       receiptItemId: item.id,
       quantity: line.quantity,
       amount,
-      inventoryCost: cost.mul(line.quantity),
+      inventoryCost: (
+        await exactOutCost(
+          tx,
+          returnId,
+          "SUPPLIER_RETURN",
+          item.purchaseItem.variantId,
+        )
+      ).minus(priorCost),
     });
     total = total.plus(amount);
   }
@@ -289,4 +303,4 @@ export async function supplierStatement(
     entries: data,
     total: 1 + counts.reduce((a, b) => a + b, 0),
   };
-}
+    }
