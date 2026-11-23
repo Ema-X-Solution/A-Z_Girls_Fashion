@@ -1,3 +1,7 @@
+import type { PaginatedResult } from "@az/shared";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { formatDigits } from "../../i18n";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
@@ -128,7 +132,6 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     receiptId = product ? null : params.get("receiptId"),
     [loadedReceipt, setLoadedReceipt] = useState<string | null>(null);
   const [q, setQ] = useState(""),
-    [offset, setOffset] = useState(0),
     [selected, setSelected] = useState<
       Record<string, { variant: Variant; name: string; quantity: number }>
     >(() =>
@@ -148,11 +151,12 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
+  const paging = usePagination(q.trim(), !product && !receiptId);
   const query = useQuery({
-    queryKey: ["barcode-catalog", debouncedQ, offset],
+    queryKey: ["barcode-catalog", debouncedQ, paging.page, paging.pageSize],
     queryFn: ({ signal }) =>
-      api<{ data: Product[]; total: number }>(
-        `/products?q=${encodeURIComponent(debouncedQ)}&offset=${offset}`,
+      api<PaginatedResult<Product>>(
+        `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}`,
         { signal },
       ),
     enabled: !product && !receiptId && !searchPending,
@@ -267,7 +271,6 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
-                  setOffset(0);
                 }}
               />
             </div>
@@ -288,7 +291,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         </div>
         {(receiptId ? receipt.isLoading : searchPending || query.isLoading) &&
         !product ? (
-          <p className="barcode-help">جارٍ تحميل المنتجات...</p>
+          <TableSkeleton columns={5} label="جارٍ تحميل منتجات الباركود" />
         ) : (receiptId ? receipt.error : query.error) && !product ? (
           <p role="alert" className="barcode-error">
             تعذر تحميل المنتجات.{" "}
@@ -408,23 +411,10 @@ export function BarcodeLabels({ product }: { product?: Product }) {
           </div>
         )}
         {!product && !receiptId && (
-          <div className="pager">
-            <span>{query.data?.total ?? 0} منتج</span>
-            <Button
-              variant="outline"
-              disabled={!offset}
-              onClick={() => setOffset((n) => Math.max(0, n - 30))}
-            >
-              السابق
-            </Button>
-            <Button
-              variant="outline"
-              disabled={(query.data?.data.length ?? 0) < 30}
-              onClick={() => setOffset((n) => n + 30)}
-            >
-              التالي
-            </Button>
-          </div>
+          <Pagination page={paging.page} pageSize={paging.pageSize}
+            onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize}
+            length={query.data?.data.length ?? 0} total={query.data?.total ?? 0}
+            disabled={query.isFetching || searchPending} unit="منتج" />
         )}
       </section>
       <section className="panel barcode-settings">
@@ -610,4 +600,4 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         )}
     </div>
   );
-            }
+                  }
