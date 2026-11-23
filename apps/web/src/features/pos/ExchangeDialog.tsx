@@ -375,7 +375,7 @@ export function ExchangeDialog({
                   value={discountType}
                   onChange={(e) => setDiscountType(e.target.value)}
                 >
-                  <option value="FIXED">جنيه</option>
+                  <option value="FIXED">EGP</option>
                   <option value="PERCENT">نسبة %</option>
                 </select>
               )}
