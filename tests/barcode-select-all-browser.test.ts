@@ -13,7 +13,7 @@ beforeAll(async () => {
 afterAll(async () => { await browser?.close(); await new Promise<void>((done) => web?.httpServer.close(() => done())); });
 it("selects only visible active variants, retains quantities/off-page choices and clears stale preview", async () => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
-  const variant = (i: number, active = true) => ({ id: String(i), sku: `VAR-${i}`, barcode: `20123456789${i}`, price: "100.00", active, options: {}, balances: [{ quantity: 10 }] });
+  const variant = (i: number, active = true) => ({ id: String(i), sku: `VAR-${i}`, barcode: `20123456789${i}`, price: "100.00", active, options: {}, balances: [{ quantity: 1 }] });
   let printed: any[] = [];
   await page.route("**/api/**", async (route) => {
     const req = new URL(route.request().url()), path = req.pathname;
