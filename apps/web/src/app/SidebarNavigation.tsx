@@ -102,6 +102,7 @@ export const nav = [
     permission: "reports.sales",
     icon: ChartNoAxesCombined,
   },
+  { path: "/quarterly-closing", title: "إقفال الأرباح ربع السنوي", permission: "reports.profit", icon: Wallet },
   { path: "/users", title: ar.users, permission: "users.manage", icon: Users },
   {
     path: "/roles",
@@ -157,7 +158,7 @@ export const navGroups = [
     id: "finance",
     title: "المالية والتقارير",
     icon: ChartNoAxesCombined,
-    paths: ["/shifts", "/expenses", "/reports"],
+    paths: ["/shifts", "/expenses", "/reports", "/quarterly-closing"],
   },
   {
     id: "admin",
@@ -230,4 +231,4 @@ export function SidebarNavigation({ permissions }: { permissions: string[] }) {
       })}
     </nav>
   );
-}
+    }
