@@ -1,3 +1,4 @@
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { hash, argon2id } from "argon2";
 import { z } from "zod";
@@ -18,11 +19,10 @@ const publicUser = {
   roles: { include: { role: { select: { id: true, name: true } } } },
 } as const;
 
-export const handleGetUsers: RequestHandler = route(async (req, res) =>
-    res.json({
-      data: await db.user.findMany({ select: publicUser, ...page(req.query) }),
-    }),
-  );
+export const handleGetUsers: RequestHandler = route(async (req,res)=>{
+ const [data,total]=await Promise.all([db.user.findMany({select:publicUser,orderBy:[{createdAt:"desc"},{id:"desc"}],...page(req.query)}),db.user.count()]);
+ res.json(listResult(req.query,data,total));
+});
 
 export const handlePostUsers: RequestHandler = route(async (req, res) => {
     const input = z
