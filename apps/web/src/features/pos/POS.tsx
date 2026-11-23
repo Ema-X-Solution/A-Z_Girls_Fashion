@@ -835,7 +835,7 @@ export function POS() {
                             }))
                           }
                         >
-                          <option value="FIXED">جنيه على السطر</option>
+                          <option value="FIXED">EGP على السطر</option>
                           <option value="PERCENT">نسبة %</option>
                         </select>
                       </div>
@@ -891,7 +891,7 @@ export function POS() {
                           setDiscountType(e.target.value as "FIXED" | "PERCENT")
                         }
                       >
-                        <option value="FIXED">مبلغ ثابت بالجنيه</option>
+                        <option value="FIXED">مبلغ ثابت (EGP)</option>
                         <option value="PERCENT">نسبة مئوية %</option>
                       </select>
                     )}
