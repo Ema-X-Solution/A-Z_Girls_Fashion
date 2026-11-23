@@ -70,105 +70,113 @@ export function EntryForm({
       }}
     >
       <div className="form-grid">
-        {fields.map((f) => (
-          <Field key={f.key} label={f.label} hint={f.hint}>
-            {f.pickerEndpoint ? (
-              <SmartSelect
-                id={f.key}
-                name={f.key}
-                required={f.required !== false}
-                label={f.label}
-                value={picked[f.key] ?? initial[f.key] ?? ""}
-                endpoint={f.pickerEndpoint}
-                optionLabel={(v) =>
-                  v.sku ? `${v.productNameAr ?? v.name} • ${v.sku}` : v.name
-                }
-                onChange={(v) =>
-                  setPicked((old) => ({ ...old, [f.key]: v.id }))
-                }
-              />
-            ) : f.options ? (
-              <select
-                name={f.key}
-                required={f.required !== false}
-                defaultValue={initial[f.key] ?? f.default ?? ""}
-              >
-                <option value="">اختر...</option>
-                {f.options.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            ) : f.type === "textarea" ? (
-              <textarea
-                name={f.key}
-                minLength={f.minLength}
-                maxLength={f.maxLength}
-                required={f.required !== false}
-                defaultValue={initial[f.key] ?? f.default}
-              />
-            ) : f.type === "checkbox" ? (
-              <input
-                name={f.key}
-                type="checkbox"
-                role="switch"
-                value="true"
-                defaultChecked={String(initial[f.key] ?? f.default) === "true"}
-              />
-            ) : f.type === "password" ? (
-              <div className="password-field">
-                <input
+        {fields.map((f) =>
+          f.type === "section" ? (
+            <div key={f.key} className="form-section" role="presentation">
+              {f.label}
+            </div>
+          ) : (
+            <Field key={f.key} label={f.label} hint={f.hint}>
+              {f.pickerEndpoint ? (
+                <SmartSelect
+                  id={f.key}
                   name={f.key}
-                  type={visiblePasswords[f.key] ? "text" : "password"}
+                  required={f.required !== false}
+                  label={f.label}
+                  value={picked[f.key] ?? initial[f.key] ?? ""}
+                  endpoint={f.pickerEndpoint}
+                  optionLabel={(v) =>
+                    v.sku ? `${v.productNameAr ?? v.name} • ${v.sku}` : v.name
+                  }
+                  onChange={(v) =>
+                    setPicked((old) => ({ ...old, [f.key]: v.id }))
+                  }
+                />
+              ) : f.options ? (
+                <select
+                  name={f.key}
+                  required={f.required !== false}
+                  defaultValue={initial[f.key] ?? f.default ?? ""}
+                >
+                  <option value="">اختر...</option>
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              ) : f.type === "textarea" ? (
+                <textarea
+                  name={f.key}
+                  minLength={f.minLength}
+                  maxLength={f.maxLength}
                   required={f.required !== false}
                   defaultValue={initial[f.key] ?? f.default}
-                  autoComplete="new-password"
                 />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  aria-label={
-                    visiblePasswords[f.key]
-                      ? "إخفاء كلمة المرور"
-                      : "إظهار كلمة المرور"
+              ) : f.type === "checkbox" ? (
+                <input
+                  name={f.key}
+                  type="checkbox"
+                  role="switch"
+                  value="true"
+                  defaultChecked={
+                    String(initial[f.key] ?? f.default) === "true"
                   }
-                  onClick={() =>
-                    setVisiblePasswords((old) => ({
-                      ...old,
-                      [f.key]: !old[f.key],
-                    }))
+                />
+              ) : f.type === "password" ? (
+                <div className="password-field">
+                  <input
+                    name={f.key}
+                    type={visiblePasswords[f.key] ? "text" : "password"}
+                    required={f.required !== false}
+                    defaultValue={initial[f.key] ?? f.default}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    aria-label={
+                      visiblePasswords[f.key]
+                        ? "إخفاء كلمة المرور"
+                        : "إظهار كلمة المرور"
+                    }
+                    onClick={() =>
+                      setVisiblePasswords((old) => ({
+                        ...old,
+                        [f.key]: !old[f.key],
+                      }))
+                    }
+                  >
+                    {visiblePasswords[f.key] ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <input
+                  name={f.key}
+                  type={f.type ?? "text"}
+                  dir={f.key === "phone" ? "ltr" : undefined}
+                  style={f.key === "phone" ? { textAlign: "right" } : undefined}
+                  min={f.min ?? (f.type === "number" ? "0" : undefined)}
+                  max={f.max}
+                  minLength={f.minLength}
+                  maxLength={f.maxLength}
+                  pattern={f.pattern}
+                  title={f.hint}
+                  step={f.step ?? (f.type === "number" ? "0.01" : undefined)}
+                  required={f.required !== false}
+                  defaultValue={initial[f.key] ?? f.default}
+                  autoComplete={
+                    f.type === "password" ? "new-password" : undefined
                   }
-                >
-                  {visiblePasswords[f.key] ? (
-                    <EyeOff size={17} />
-                  ) : (
-                    <Eye size={17} />
-                  )}
-                </button>
-              </div>
-            ) : (
-              <input
-                name={f.key}
-                type={f.type ?? "text"}
-                dir={f.key === "phone" ? "ltr" : undefined}
-                style={f.key === "phone" ? { textAlign: "right" } : undefined}
-                min={f.min ?? (f.type === "number" ? "0" : undefined)}
-                max={f.max}
-                minLength={f.minLength}
-                maxLength={f.maxLength}
-                pattern={f.pattern}
-                title={f.hint}
-                step={f.step ?? (f.type === "number" ? "0.01" : undefined)}
-                required={f.required !== false}
-                defaultValue={initial[f.key] ?? f.default}
-                autoComplete={
-                  f.type === "password" ? "new-password" : undefined
-                }
-              />
-            )}
-          </Field>
-        ))}
+                />
+              )}
+            </Field>
+          ),
+        )}
       </div>
       {(formError || error) && (
         <p className="form-error" role="alert">
