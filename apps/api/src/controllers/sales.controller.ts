@@ -1,3 +1,5 @@
+import { userOptions } from "../services/user-options.js";
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -79,12 +81,12 @@ export const handleGetSales: RequestHandler = route(async (req, res) => {
         payments: true,
         user: { select: { name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       ...page(req.query),
     }),
     db.sale.count({ where }),
   ]);
-  res.json({ data: data.map((s) => safeSale(s, hasCosts(req))), total });
+  res.json(listResult(req.query, data.map((s) => safeSale(s, hasCosts(req))), total));
 });
 
 export const handleGetSalesById: RequestHandler = route(async (req, res) => {
@@ -145,7 +147,9 @@ export const handlePostSalesByIdExchanges: RequestHandler = route(() => {
 });
 
 export const handleGetSelectableCashiers: RequestHandler = route(
-  async (_req, res) => {
+  async (req, res) => {
+    const scope={active:true,roles:{some:{role:{name:"كاشير"}}}};
+    if(req.query.offset!==undefined || req.query.q!==undefined || req.query.selected!==undefined) { res.json(await userOptions(req.query,scope));return; }
     res.json({
       data: await db.user.findMany({
         where: { active: true, roles: { some: { role: { name: "كاشير" } } } },
