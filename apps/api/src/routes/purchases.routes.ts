@@ -27,3 +27,9 @@ purchasesRouter.post(
   can("purchases.receive"),
   controllers.handlePostPurchasesByIdReceive,
 );
+
+purchasesRouter.get(
+  "/purchases/:id/pdf",
+  can("purchases.view", "purchases.preview"),
+  controllers.handleGetPurchasePdf,
+);
