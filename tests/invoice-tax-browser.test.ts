@@ -269,7 +269,7 @@ describe("invoice tax toggle in the built UI", () => {
       await page
         .getByRole("button", { name: "طباعة الفاتورة", exact: true })
         .click();
-      await ui(page.locator(".skeletons")).toBeVisible();
+      await ui(page.locator(".receipt-skeleton")).toBeVisible();
       expect(await page.evaluate(() => (window as any).printCalls)).toBe(0);
       expect(await page.locator("#az-receipt-print-root").count()).toBe(0);
       release();
