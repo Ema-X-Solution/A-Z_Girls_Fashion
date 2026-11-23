@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Eye, Printer } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Eye, Printer, Trash2 } from "lucide-react";
 import { post } from "../../api";
 import { formatDigits, ar, formatDate as baseDate, formatMoney as baseMoney } from "../../i18n";
 import { Button } from "../../components/ui/button";
@@ -34,6 +34,7 @@ export function Purchases() {
     suppliers = useData("/suppliers?limit=100"),
     locations = useData("/locations"),
     products = useData("/products?limit=100"),
+    outsideHandler = useRef<() => void>(() => {}),
     [open, setOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
     [approving, setApproving] = useState<Row | null>(null),
@@ -126,16 +127,26 @@ export function Purchases() {
           </>
         )}
       </section>
-      <Modal title="أمر شراء جديد" open={open} onClose={() => setOpen(false)}>
+      <Modal
+        title="أمر شراء جديد"
+        open={open}
+        onClose={() => setOpen(false)}
+        onOutsideClick={() => outsideHandler.current()}
+      >
         <PurchaseForm
           suppliers={suppliers.data?.data ?? []}
           locations={locations.data?.data ?? []}
           products={products.data?.data ?? []}
           busy={action.busy}
+          registerOutside={(fn) => (outsideHandler.current = fn)}
+          close={() => setOpen(false)}
           submit={(body) =>
             void action.run(
               () => post("/purchases", body),
-              () => setOpen(false),
+              () => {
+                clearPurchaseDraft();
+                setOpen(false);
+              },
             )
           }
         />
@@ -387,29 +398,98 @@ function PurchaseInvoice({ order }: { order: Row }) {
   );
 }
 
+const DRAFT_KEY = "azs.purchaseDraft.v1";
+
+type LineValues = { v?: string; q: string; c: string; sp: string; ms?: string };
+type PurchaseDraft = {
+  supplierId: string;
+  locationId: string;
+  lines: LineValues[];
+};
+
+function readPurchaseDraft(): PurchaseDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as PurchaseDraft;
+    return draft && Array.isArray(draft.lines) && draft.lines.length
+      ? draft
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPurchaseDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function PurchaseForm({
   suppliers,
   locations,
   products,
   busy,
   submit,
+  close,
+  registerOutside,
 }: {
   suppliers: Row[];
   locations: Row[];
   products: Row[];
   busy: boolean;
   submit: (v: Row) => void;
+  close: () => void;
+  registerOutside: (fn: () => void) => void;
 }) {
-  const [lines, setLines] = useState(1);
-  const [lineValues, setLineValues] = useState<
-    Record<number, { q: string; c: string; sp: string }>
-  >({});
+  const [initialDraft] = useState(readPurchaseDraft);
+  const [lineIds, setLineIds] = useState<number[]>(() =>
+    initialDraft ? initialDraft.lines.map((_, i) => i) : [0],
+  );
+  const nextLineId = useRef(lineIds.length);
+  const [lineValues, setLineValues] = useState<Record<number, LineValues>>(
+    () => {
+      const out: Record<number, LineValues> = {};
+      initialDraft?.lines.forEach((l, i) => {
+        out[i] = l;
+      });
+      return out;
+    },
+  );
+  const [asking, setAsking] = useState(false);
+  const [dupWarning, setDupWarning] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const draftSnapshot = useRef<PurchaseDraft | null>(null);
+  const lineIdsRef = useRef(lineIds);
+  lineIdsRef.current = lineIds;
+
+  useEffect(() => {
+    registerOutside(() => {
+      // Snapshot before the form unmounts for the confirmation panel.
+      draftSnapshot.current = collectDraft();
+      setAsking(true);
+    });
+  }, [registerOutside]);
 
   const allVariants = products.flatMap((p: Row) =>
     p.variants.map((v: Row) => ({ ...v, productNameAr: p.nameAr })),
   );
 
-  const setLineValue = (i: number, key: "q" | "c" | "sp", value: string) =>
+  const variantLabel = (variantId: string) => {
+    const v = allVariants.find((x) => x.id === variantId);
+    if (!v) return "";
+    const options = formatDigits(Object.values(v.options ?? {}).join(" / "));
+    return `${v.productNameAr ?? v.sku ?? "صنف"}${options ? ` • ${options}` : ""}`;
+  };
+
+  const setLineValue = (
+    i: number,
+    key: "v" | "q" | "c" | "sp",
+    value: string,
+  ) =>
     setLineValues((prev) => ({
       ...prev,
       [i]: { q: "1", c: "", sp: "", ...prev[i], [key]: value },
@@ -417,7 +497,30 @@ export function PurchaseForm({
 
   const handleVariantChange = (lineIndex: number, variantId: string) => {
     const variant = allVariants.find((v) => v.id === variantId);
-    setLineValue(lineIndex, "c", variant?.cost !== undefined ? String(variant.cost) : "");
+    setLineValues((prev) => ({
+      ...prev,
+      [lineIndex]: {
+        q: "1",
+        sp: "",
+        ...prev[lineIndex],
+        v: variantId,
+        c: variant?.cost !== undefined ? String(variant.cost) : "",
+      },
+    }));
+  };
+
+  const addLine = () =>
+    setLineIds((prev) => [...prev, nextLineId.current++]);
+
+  const removeLine = (id: number) => {
+    setLineIds((prev) =>
+      prev.length > 1 ? prev.filter((x) => x !== id) : prev,
+    );
+    setLineValues((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const lineNumbers = (i: number) => {
@@ -438,7 +541,7 @@ export function PurchaseForm({
     };
   };
 
-  const totals = Array.from({ length: lines }, (_, i) => lineNumbers(i)).reduce(
+  const totals = lineIds.map((id) => lineNumbers(id)).reduce(
     (t, n) => ({
       cost: t.cost + n.totalCost,
       profit: t.profit + (n.ready ? n.totalProfit : 0),
@@ -446,29 +549,126 @@ export function PurchaseForm({
     { cost: 0, profit: 0 },
   );
 
+  // Same variant entered on more than one row with a different cost price.
+  const conflictingVariant = (() => {
+    const costs = new Map<string, Set<string>>();
+    for (const id of lineIds) {
+      const v = lineValues[id];
+      if (!v?.v || v.c === "") continue;
+      const set = costs.get(v.v) ?? new Set<string>();
+      set.add(String(Number(v.c)));
+      costs.set(v.v, set);
+    }
+    for (const [variantId, set] of costs) if (set.size > 1) return variantId;
+    return null;
+  })();
+
+  const collectDraft = (): PurchaseDraft => {
+    const f = new FormData(formRef.current ?? undefined);
+    return {
+      supplierId: String(f.get("supplierId") ?? ""),
+      locationId: String(f.get("locationId") ?? ""),
+      lines: lineIdsRef.current.map((id) => ({
+        v: String(f.get(`v${id}`) ?? ""),
+        q: String(f.get(`q${id}`) ?? "1"),
+        c: String(f.get(`c${id}`) ?? ""),
+        sp: String(f.get(`sp${id}`) ?? ""),
+        ms: String(f.get(`ms${id}`) ?? ""),
+      })),
+    };
+  };
+
+  if (asking) {
+    return (
+      <div className="entry-form">
+        <p>أمر الشراء يحتوي على بيانات غير محفوظة.</p>
+        <p>هل تريد حفظ البيانات كمسودة قبل الإغلاق؟</p>
+        <Button
+          onClick={() => {
+            try {
+              const draft = draftSnapshot.current ?? collectDraft();
+              localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            } catch {
+              /* ignore */
+            }
+            close();
+          }}
+        >
+          حفظ البيانات وإغلاق
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            clearPurchaseDraft();
+            close();
+          }}
+        >
+          إغلاق بدون حفظ
+        </Button>
+        <Button variant="outline" onClick={() => setAsking(false)}>
+          متابعة التحرير
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <form
       {...arabicFormValidation()}
       className="entry-form"
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
+        const rawItems = lineIds.map((id) => ({
+          variantId: String(f.get(`v${id}`) ?? ""),
+          quantity: Number(f.get(`q${id}`)),
+          unitCost: String(f.get(`c${id}`) ?? ""),
+          salePrice: String(f.get(`sp${id}`) ?? ""),
+          ...(f.get(`ms${id}`) ? { minStock: Number(f.get(`ms${id}`)) } : {}),
+        }));
+        // Same item with a different cost price must not merge: warn and stop.
+        const costs = new Map<string, Set<string>>();
+        for (const item of rawItems) {
+          const set = costs.get(item.variantId) ?? new Set<string>();
+          set.add(String(Number(item.unitCost)));
+          costs.set(item.variantId, set);
+        }
+        const conflict = [...costs].find(([, set]) => set.size > 1);
+        if (conflict) {
+          setDupWarning(
+            `الصنف "${variantLabel(conflict[0])}" مدخل أكثر من مرة بسعر تكلفة مختلف. صحّح السعر أو احذف الصف الزائد.`,
+          );
+          return;
+        }
+        setDupWarning("");
+        // Same item with the same cost price merges into one line (quantities sum).
+        const merged: typeof rawItems = [];
+        const index = new Map<string, number>();
+        for (const item of rawItems) {
+          const key = `${item.variantId}|${Number(item.unitCost)}`;
+          const at = index.get(key);
+          if (at === undefined) {
+            index.set(key, merged.length);
+            merged.push({ ...item });
+          } else {
+            merged[at]!.quantity += item.quantity;
+          }
+        }
         submit({
           supplierId: f.get("supplierId"),
           locationId: f.get("locationId"),
-          items: Array.from({ length: lines }, (_, i) => ({
-            variantId: f.get(`v${i}`),
-            quantity: Number(f.get(`q${i}`)),
-            unitCost: f.get(`c${i}`),
-            salePrice: f.get(`sp${i}`),
-            ...(f.get(`ms${i}`) ? { minStock: Number(f.get(`ms${i}`)) } : {}),
-          })),
+          items: merged,
         });
       }}
     >
       <div className="form-grid">
         <Field label={ar.supplier}>
-          <select required name="supplierId">
+          <select
+            required
+            name="supplierId"
+            defaultValue={initialDraft?.supplierId ?? ""}
+          >
             <option value="">اختر...</option>
             {suppliers.map((s) => (
               <option value={s.id} key={s.id}>
@@ -478,7 +678,11 @@ export function PurchaseForm({
           </select>
         </Field>
         <Field label={ar.location}>
-          <select required name="locationId">
+          <select
+            required
+            name="locationId"
+            defaultValue={initialDraft?.locationId ?? ""}
+          >
             <option value="">اختر...</option>
             {locations.map((l) => (
               <option value={l.id} key={l.id}>
@@ -488,15 +692,28 @@ export function PurchaseForm({
           </select>
         </Field>
       </div>
-      {Array.from({ length: lines }, (_, i) => {
-        const n = lineNumbers(i);
+      {lineIds.map((id, i) => {
+        const n = lineNumbers(id);
         return (
-          <div className="purchase-line-card" key={i}>
+          <div className="purchase-line-card" key={id}>
+            {lineIds.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="purchase-line-remove"
+                title="حذف الصنف"
+                aria-label={`حذف الصنف ${i + 1}`}
+                onClick={() => removeLine(id)}
+              >
+                <Trash2 size={16} />
+              </Button>
+            )}
             <Field label={`الصنف ${i + 1}`}>
               <select
-                name={`v${i}`}
+                name={`v${id}`}
                 required
-                onChange={(e) => handleVariantChange(i, e.target.value)}
+                defaultValue={lineValues[id]?.v ?? ""}
+                onChange={(e) => handleVariantChange(id, e.target.value)}
               >
                 <option value="">اختر...</option>
                 {products.flatMap((p) =>
@@ -515,41 +732,42 @@ export function PurchaseForm({
                 <input
                   required
                   type="number"
-                  name={`q${i}`}
+                  name={`q${id}`}
                   min="1"
                   step="1"
-                  value={lineValues[i]?.q ?? "1"}
-                  onChange={(e) => setLineValue(i, "q", e.target.value)}
+                  value={lineValues[id]?.q ?? "1"}
+                  onChange={(e) => setLineValue(id, "q", e.target.value)}
                 />
               </Field>
               <Field label="التكلفة — سعر الشراء">
                 <input
                   required
                   type="number"
-                  name={`c${i}`}
+                  name={`c${id}`}
                   min="0"
                   step="0.01"
-                  value={lineValues[i]?.c ?? ""}
-                  onChange={(e) => setLineValue(i, "c", e.target.value)}
+                  value={lineValues[id]?.c ?? ""}
+                  onChange={(e) => setLineValue(id, "c", e.target.value)}
                 />
               </Field>
               <Field label="سعر البيع">
                 <input
                   required
                   type="number"
-                  name={`sp${i}`}
+                  name={`sp${id}`}
                   min="0"
                   step="0.01"
-                  value={lineValues[i]?.sp ?? ""}
-                  onChange={(e) => setLineValue(i, "sp", e.target.value)}
+                  value={lineValues[id]?.sp ?? ""}
+                  onChange={(e) => setLineValue(id, "sp", e.target.value)}
                 />
               </Field>
               <Field label="الحد الأدنى">
                 <input
                   type="number"
-                  name={`ms${i}`}
+                  name={`ms${id}`}
                   min="0"
                   placeholder="ديناميكي"
+                  defaultValue={lineValues[id]?.ms ?? ""}
                 />
               </Field>
             </div>
@@ -577,6 +795,17 @@ export function PurchaseForm({
           </div>
         );
       })}
+      {conflictingVariant && (
+        <p className="form-error" role="alert">
+          الصنف "{variantLabel(conflictingVariant)}" مدخل أكثر من مرة بسعر
+          تكلفة مختلف. صحّح السعر أو احذف الصف الزائد.
+        </p>
+      )}
+      {dupWarning && (
+        <p className="form-error" role="alert">
+          {dupWarning}
+        </p>
+      )}
       <div className="purchase-totals">
         <div>
           <span>إجمالي التكلفة</span>
@@ -600,7 +829,7 @@ export function PurchaseForm({
       <Button
         type="button"
         variant="outline"
-        onClick={() => setLines((n) => n + 1)}
+        onClick={addLine}
       >
         <Plus size={16} />
         صنف آخر
@@ -608,4 +837,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-            }
+      }

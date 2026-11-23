@@ -63,12 +63,15 @@ export function Modal({
   onClose,
   children,
   error,
+  onOutsideClick,
 }: {
   error?: string;
   title: string;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  // When set, clicking outside the modal does not close it; this fires instead.
+  onOutsideClick?: () => void;
 }) {
   return (
     <Dialog.Root
@@ -79,7 +82,18 @@ export function Modal({
     >
       <Dialog.Portal>
         <Dialog.Overlay className="overlay" />
-        <Dialog.Content className="modal" dir="rtl">
+        <Dialog.Content
+          className="modal"
+          dir="rtl"
+          onInteractOutside={
+            onOutsideClick
+              ? (e) => {
+                  e.preventDefault();
+                  onOutsideClick();
+                }
+              : undefined
+          }
+        >
           <div className="modal-head">
             <Dialog.Title>{title}</Dialog.Title>
             <Dialog.Close asChild>
