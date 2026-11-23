@@ -17,11 +17,19 @@ const password = randomBytes(24).toString("hex");
 let supplierId: string, locationId: string, targetId: string;
 beforeAll(async () => {
   await mkdir(".test-data", { recursive: true });
+  const { createServer: createSocketServer } = await import("node:net");
+  const port = await new Promise<number>((done) => {
+    const server = createSocketServer();
+    server.listen(0, "127.0.0.1", () => {
+      const port = (server.address() as { port: number }).port;
+      server.close(() => done(port));
+    });
+  });
   pg = new EmbeddedPostgres({
     databaseDir: await mkdtemp(resolve(".test-data/item-search-")),
     user: "az_test",
     password,
-    port: 55443,
+    port,
     persistent: false,
     initdbFlags: ["--encoding=UTF8", "--locale=C"],
     postgresFlags: ["-h", "127.0.0.1"],
@@ -31,7 +39,7 @@ beforeAll(async () => {
   await pg.initialise();
   await pg.start();
   await pg.createDatabase("az_search");
-  process.env.DATABASE_URL = `postgresql://az_test:${password}@127.0.0.1:55443/az_search`;
+  process.env.DATABASE_URL = `postgresql://az_test:${password}@127.0.0.1:${port}/az_search`;
   process.env.APP_ORIGIN = "http://127.0.0.1:5173";
   process.env.NODE_ENV = "test";
   execFileSync(
@@ -154,12 +162,17 @@ describe("purchase item search", () => {
         const picker = dialog.locator('[name="v0"]');
         await ui(picker.locator("option")).toHaveCount(51);
         await dialog
+          .locator('.smart-select:has([name="v0"])')
           .getByRole("button", { name: "التالي", exact: true })
           .click();
-        await ui(dialog.getByRole("status")).toContainText("صفحة 2");
+        await ui(
+          dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
+        ).toContainText("صفحة 2");
         await ui(picker.locator("option")).toHaveCount(51);
         await search.fill("بلوزه انيقه هدي");
-        await ui(dialog.getByRole("status")).toHaveText("1 نتيجة • صفحة 1");
+        await ui(
+          dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
+        ).toHaveText("1 نتيجة • صفحة 1");
         await ui(picker.locator("option")).toHaveCount(2);
         await page.screenshot({
           path: `test-results/item-search/search-${width}.png`,
@@ -168,18 +181,24 @@ describe("purchase item search", () => {
         await search.press("Enter");
         await ui(dialog).toBeVisible();
         await search.fill("STYLE-0");
-        await ui(dialog.getByRole("status")).toHaveText("1 نتيجة • صفحة 1");
+        await ui(
+          dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
+        ).toHaveText("1 نتيجة • صفحة 1");
         await search.fill("٦٢٢٠٠٠٠٠٠٠٠٠");
-        await ui(dialog.getByRole("status")).toHaveText("1 نتيجة • صفحة 1");
+        await ui(
+          dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
+        ).toHaveText("1 نتيجة • صفحة 1");
         await search.fill("ازرق L");
-        await ui(dialog.getByRole("status")).toHaveText("1 نتيجة • صفحة 1");
+        await ui(
+          dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
+        ).toHaveText("1 نتيجة • صفحة 1");
         await picker.selectOption(targetId);
         await ui(search).toHaveValue("");
         await ui(dialog.locator('[name="c0"]')).toHaveValue("100");
         await search.fill("غير موجود نهائيا");
-        await ui(dialog.getByRole("status")).toContainText(
-          "لا توجد أصناف مطابقة",
-        );
+        await ui(
+          dialog.locator('.smart-select:has([name="v0"])').getByRole("status"),
+        ).toContainText("لا توجد أصناف مطابقة");
         await ui(picker).toHaveValue(targetId);
         await page.screenshot({
           path: `test-results/item-search/no-results-${width}.png`,

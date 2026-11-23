@@ -1,3 +1,6 @@
+import { SmartSelect } from "../../components/application/SmartSelect";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState, type FormEvent } from "react";
 import { Header, Modal, ErrorMessage } from "../shared/Controls";
 import { statuses, formatMoney } from "../../i18n";
@@ -8,7 +11,6 @@ import {
   useTask,
   save,
   patch,
-  Pagination,
   FormField,
   when,
   PageState,
@@ -16,15 +18,20 @@ import {
 } from "./Tools";
 import "./management.css";
 export function Expenses() {
-  const [offset, setOffset] = useState(0),
-    [status, setStatus] = useState(""),
+  const [status, setStatus] = useState(""),
     [open, setOpen] = useState(false),
     [categoryOpen, setCategoryOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null);
+  const paging = usePagination(status);
+  const categoryPaging = usePagination("", true, "local");
+  const [category, setCategory] = useState({ id: "", name: "" });
   const rows = useRows(
-      `/expenses?offset=${offset}${status ? `&status=${status}` : ""}`,
+      `/expenses?${paging.query}${status ? `&status=${status}` : ""}`,
     ),
-    categories = useRows("/expense-categories"),
+    categories = useRows(
+      `/expense-categories?${categoryPaging.query}`,
+      categoryOpen,
+    ),
     shift = useRows("/shifts/current", allowed("cash.open_shift")),
     attachments = useRows(`/expenses/${selected?.id}/attachments`, !!selected),
     task = useTask();
@@ -40,6 +47,7 @@ export function Expenses() {
       () =>
         save("/expenses", {
           ...f,
+          category: category.name,
           submitForApproval: f.workflow !== "DIRECT",
           ...(f.workflow === "DIRECT" && f.method === "CASH"
             ? { shiftId: shift.data?.data?.id }
@@ -104,7 +112,6 @@ export function Expenses() {
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
-                setOffset(0);
               }}
             >
               <option value="">كل الحالات</option>
@@ -143,14 +150,13 @@ export function Expenses() {
           ]}
         />
         <Pagination
-          offset={offset}
-          onChange={setOffset}
-          total={
-            rows.data?.total ??
-            (rows.data?.data?.length === 30
-              ? offset + 31
-              : offset + (rows.data?.data?.length ?? 0))
-          }
+          page={paging.page}
+          pageSize={paging.pageSize}
+          onPageChange={paging.setPage}
+          onPageSizeChange={paging.setPageSize}
+          total={rows.data?.total ?? 0}
+          length={rows.data?.data.length ?? 0}
+          disabled={rows.isFetching}
         />
       </section>
       <Modal
@@ -164,14 +170,16 @@ export function Expenses() {
       >
         <form onSubmit={submit} className="entry-form">
           <FormField label="التصنيف">
-            <select name="category" required>
-              <option value="">اختر...</option>
-              {categories.data?.data
-                .filter((c: Row) => c.active)
-                .map((c: Row) => (
-                  <option key={c.id}>{c.name}</option>
-                ))}
-            </select>
+            <SmartSelect
+              id="expense-category"
+              name="categoryId"
+              label="التصنيف"
+              value={category.id}
+              endpoint="/options/expense-categories"
+              placeholder="ابحث بالاسم"
+              optionLabel={(row) => row.name}
+              onChange={(row) => setCategory({ id: row.id, name: row.name })}
+            />
           </FormField>
           <FormField label="القيمة">
             <input
@@ -251,6 +259,15 @@ export function Expenses() {
               ),
             },
           ]}
+        />
+        <Pagination
+          page={categoryPaging.page}
+          pageSize={categoryPaging.pageSize}
+          onPageChange={categoryPaging.setPage}
+          onPageSizeChange={categoryPaging.setPageSize}
+          total={categories.data?.total ?? 0}
+          length={categories.data?.data.length ?? 0}
+          disabled={categories.isFetching}
         />
         <form
           onSubmit={(e) => {
@@ -354,4 +371,4 @@ export function Expenses() {
       </Modal>
     </>
   );
-        }
+}

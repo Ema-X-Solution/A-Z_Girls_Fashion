@@ -1,3 +1,4 @@
+import { TableSkeleton } from "./Skeleton";
 import {
   useId,
   cloneElement,
@@ -15,13 +16,7 @@ import { useAllowed } from "../../hooks/useData";
 import { type Row } from "../../app/types";
 
 export function Loading() {
-  return (
-    <div className="skeletons" aria-label={ar.loading}>
-      {[1, 2, 3, 4].map((n) => (
-        <div key={n} className="skeleton" />
-      ))}
-    </div>
-  );
+  return <div className="skeletons"><TableSkeleton /></div>;
 }
 
 export function ErrorState({
@@ -217,41 +212,6 @@ export function Table<T extends { id?: string } = Row>({
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-export function Pager({
-  offset,
-  setOffset,
-  length,
-  total,
-}: {
-  offset: number;
-  setOffset: (n: number) => void;
-  length: number;
-  total?: number;
-}) {
-  return (
-    <div className="pager">
-      <span>
-        {offset + 1} – {offset + length}
-        {total !== undefined ? ` / ${total}` : ""}
-      </span>
-      <Button
-        variant="outline"
-        disabled={!offset}
-        onClick={() => setOffset(Math.max(0, offset - 30))}
-      >
-        السابق
-      </Button>
-      <Button
-        variant="outline"
-        disabled={length < 30}
-        onClick={() => setOffset(offset + 30)}
-      >
-        التالي
-      </Button>
     </div>
   );
 }

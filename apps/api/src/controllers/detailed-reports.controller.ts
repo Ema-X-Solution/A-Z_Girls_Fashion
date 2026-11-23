@@ -1,3 +1,6 @@
+import { userOptions } from "../services/user-options.js";
+import { page } from "../utils/http.js";
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -272,6 +275,7 @@ function queryFor(
 export const handleGetReportsCashiers: RequestHandler = async (req, res, next) => {
     try {
       const user = actor(req);
+      if(req.query.offset!==undefined || req.query.q!==undefined || req.query.selected!==undefined){res.json(await userOptions(req.query,user.permissions.includes("sales.view_all")?{active:true}:{id:user.id}));return;}
       const users = await db.user.findMany({
         where: user.permissions.includes("sales.view_all")
           ? { active: true }
@@ -297,12 +301,7 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
         to = z.coerce.date().parse(req.query.to),
         q = z.string().max(100).default("").parse(req.query.q),
         cashierId = z.string().uuid().optional().parse(req.query.cashierId),
-        offset = z.coerce
-          .number()
-          .int()
-          .min(0)
-          .default(0)
-          .parse(req.query.offset),
+        offset = page(req.query).skip,
         format = z
           .enum(["json", "xlsx", "pdf"])
           .default("json")
@@ -321,7 +320,7 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
         "غير مسموح",
         403,
       );
-      const take = format === "json" ? 30 : 10001;
+      const take = format === "json" ? page(req.query).take : 10001;
       const result = await db.$transaction(
         async (tx) => {
           if (kind === "gross-profit" || kind === "net-profit") {
@@ -405,7 +404,7 @@ export const handleGetReportsDetailByKind: RequestHandler = async (req, res, nex
         ),
       );
       if (format === "json") {
-        res.json({ ...result, data, title: reportTitles[kind] });
+        res.json({ ...result, ...listResult(req.query,data,result.total), title: reportTitles[kind] });
         return;
       }
       assert(

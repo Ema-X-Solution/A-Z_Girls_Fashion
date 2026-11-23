@@ -1,3 +1,7 @@
+import { SmartSelect } from "../../components/application/SmartSelect";
+import { Pagination } from "../../components/application/Pagination";
+import { CardSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -54,8 +58,11 @@ export function POS() {
     workspace.active;
   const selectedCashier = workspace.active.cashierId ?? "";
   const cashiers = useQuery({
-    queryKey: ["pos-cashiers"],
-    queryFn: () => api("/sales/cashiers"),
+    queryKey: ["pos-cashiers", selectedCashier],
+    queryFn: () =>
+      api(
+        `/sales/cashiers?offset=0${selectedCashier ? `&selected=${selectedCashier}` : ""}`,
+      ),
   });
   const pending = workspace.pending;
   const frozen =
@@ -194,10 +201,13 @@ export function POS() {
       setError("");
     },
   };
+  const paging = usePagination(q.trim());
   const products = useQuery({
-      queryKey: ["pos-products", debouncedQ],
+      queryKey: ["pos-products", debouncedQ, paging.page, paging.pageSize],
       queryFn: ({ signal }) =>
-        api(`/products?q=${encodeURIComponent(debouncedQ)}`, { signal }),
+        api(`/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}`, {
+          signal,
+        }),
       enabled: !searchPending,
     }),
     shift = useQuery({
@@ -331,8 +341,11 @@ export function POS() {
             : !shift.data?.data
               ? "افتح وردية أولًا لإتمام البيع."
               : !selectedCashier ||
-                  !cashiers.data?.data.some(
-                    (c: Row) => c.id === selectedCashier,
+                  !(
+                    cashiers.data?.selected?.id === selectedCashier ||
+                    cashiers.data?.data.some(
+                      (c: Row) => c.id === selectedCashier,
+                    )
                   )
                 ? "اختر اسم الكاشير قبل إتمام البيع."
                 : !cart.items.length
@@ -619,7 +632,7 @@ export function POS() {
               />
             </div>
             {searchPending || products.isLoading ? (
-              <p className="barcode-help">جارٍ تحميل المنتجات...</p>
+              <CardSkeleton count={6} />
             ) : products.error ? (
               <div className="empty">
                 <p>تعذر تحميل المنتجات.</p>
@@ -719,6 +732,15 @@ export function POS() {
                 )}
               </div>
             )}
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              onPageChange={paging.setPage}
+              onPageSizeChange={paging.setPageSize}
+              total={products.data?.total ?? 0}
+              length={products.data?.data.length ?? 0}
+              disabled={products.isFetching || searchPending}
+            />
           </section>
           <section className="panel cart">
             <div className="panel-title">
@@ -1059,24 +1081,19 @@ export function POS() {
                 </h3>
                 <Field label="اسم الكاشير">
                   {(id) => (
-                    <select
+                    <SmartSelect
                       id={id}
-                      aria-label="اسم الكاشير"
+                      name="cashierId"
+                      label="اسم الكاشير"
+                      placeholder="ابحث باسم الكاشير"
                       value={selectedCashier}
-                      disabled={
-                        frozen || cashiers.isLoading || !!cashiers.error
+                      disabled={frozen}
+                      endpoint="/sales/cashiers"
+                      optionLabel={(row) => row.name}
+                      onChange={(row) =>
+                        field("cashierId", row.id || undefined)
                       }
-                      onChange={(e) =>
-                        field("cashierId", e.target.value || undefined)
-                      }
-                    >
-                      <option value="">اختر اسمك قبل الدفع</option>
-                      {(cashiers.data?.data ?? []).map((c: Row) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   )}
                 </Field>
                 {cashiers.error ? (
@@ -1180,4 +1197,4 @@ export function POS() {
       </Modal>
     </div>
   );
-}
+      }

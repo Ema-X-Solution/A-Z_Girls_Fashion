@@ -1,3 +1,5 @@
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useId, useState, type ReactNode, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -127,37 +129,6 @@ function Status({
     </>
   );
 }
-function Pager({
-  offset,
-  setOffset,
-  length,
-  total,
-}: {
-  offset: number;
-  setOffset: (v: number) => void;
-  length: number;
-  total: number;
-}) {
-  return (
-    <div className="pager">
-      <span>{total} سجل</span>
-      <Button
-        variant="outline"
-        disabled={!offset}
-        onClick={() => setOffset(Math.max(0, offset - 30))}
-      >
-        السابق
-      </Button>
-      <Button
-        variant="outline"
-        disabled={offset + length >= total}
-        onClick={() => setOffset(offset + 30)}
-      >
-        التالي
-      </Button>
-    </div>
-  );
-}
 function DataState({
   loading,
   error,
@@ -181,15 +152,15 @@ function DataState({
 
 export function Suppliers() {
   const [q, setQ] = useState(""),
-    [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
     action = useAction();
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
+  const paging = usePagination(q.trim());
   const query = useQuery({
-    queryKey: ["suppliers", debouncedQ, offset],
+    queryKey: ["suppliers", debouncedQ, paging.page,paging.pageSize],
     queryFn: ({ signal }) =>
-      api(`/suppliers?q=${encodeURIComponent(debouncedQ)}&offset=${offset}`, {
+      api(`/suppliers?q=${encodeURIComponent(debouncedQ)}&${paging.query}`, {
         signal,
       }),
     enabled: !searchPending,
@@ -240,7 +211,7 @@ export function Suppliers() {
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
-                setOffset(0);
+                paging.setPage(1);
               }}
             />
           </div>
@@ -310,12 +281,7 @@ export function Suppliers() {
                 <div className="empty">لا يوجد موردون بعد.</div>
               )}
             </div>
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
-              length={query.data.data.length}
-              total={query.data.total}
-            />
+            <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} length={query.data.data.length} total={query.data.total} disabled={query.isFetching} />
           </>
         )}
       </section>
@@ -394,7 +360,7 @@ export function Suppliers() {
 export function SupplierDetails() {
   const { id } = useParams(),
     [tab, setTab] = useState("statement"),
-    [offset, setOffset] = useState(0),
+    paging = usePagination(`${id}|${tab}`),
     [payment, setPayment] = useState(false),
     [method, setMethod] = useState("BANK"),
     [invoiceId, setInvoiceId] = useState<string | null>(null),
@@ -404,17 +370,17 @@ export function SupplierDetails() {
     s.user?.permissions.includes("purchases.receive"),
   );
   const statement = useQuery({
-    queryKey: ["supplier-statement", id, tab === "statement" ? offset : 0],
+    queryKey: ["supplier-statement", id, paging.page,paging.pageSize],
     queryFn: ({ signal }) =>
       api(
-        `/suppliers/${id}/statement?offset=${tab === "statement" ? offset : 0}`,
+        `/suppliers/${id}/statement?${paging.query}`,
         { signal },
       ),
   });
   const documents = useQuery({
-    queryKey: ["supplier-documents", id, tab, offset],
+    queryKey: ["supplier-documents", id, tab, paging.page,paging.pageSize],
     queryFn: ({ signal }) =>
-      api(`/suppliers/${id}/${tab}?offset=${offset}`, { signal }),
+      api(`/suppliers/${id}/${tab}?${paging.query}`, { signal }),
     enabled: tab !== "statement",
   });
   const invoice = useQuery({
@@ -546,7 +512,7 @@ export function SupplierDetails() {
               className={tab === key ? "active" : ""}
               onClick={() => {
                 setTab(key!);
-                setOffset(0);
+                paging.setPage(1);
               }}
             >
               {label}
@@ -656,16 +622,7 @@ export function SupplierDetails() {
                 <div className="empty">لا توجد حركات في هذا القسم.</div>
               )}
             </div>
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
-              length={rows.length}
-              total={
-                tab === "statement"
-                  ? (data?.total ?? 0)
-                  : (documents.data?.total ?? 0)
-              }
-            />
+            <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} length={rows.length} total={tab === "statement" ? (data?.total ?? 0) : (documents.data?.total ?? 0)} disabled={statement.isFetching || documents.isFetching} />
           </>
         )}
       </section>

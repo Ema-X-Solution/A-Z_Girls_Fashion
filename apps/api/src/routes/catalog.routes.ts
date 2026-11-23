@@ -1,8 +1,11 @@
+import { handlePurchaseItemOptions as handleVariantOptions } from "../controllers/purchase-item-options.controller.js";
 import { Router } from "express";
 import { requirePermission as can } from "../middleware/auth.js";
 import * as controllers from "../controllers/catalog.controller.js";
 
 export const catalogRouter = Router();
+
+catalogRouter.get("/variant-options",can("products.view","inventory.adjust","inventory.count","inventory.transfer","purchases.create","pos.access","promotions.manage"),handleVariantOptions);
 
 catalogRouter.get(
   "/categories",

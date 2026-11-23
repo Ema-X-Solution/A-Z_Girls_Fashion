@@ -1,3 +1,4 @@
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -12,14 +13,13 @@ import { route, page } from "../utils/http.js";
 export const handleGetCustomers: RequestHandler = route(async (req, res) => {
     const q = z.string().max(100).default("").parse(req.query.q);
     const { skip, take } = page(req.query);
-    res.json(
-      await searchCustomers(
+    const result = await searchCustomers(
         q,
         skip,
         take,
         actor(req).permissions.includes("customers.manage"),
-      ),
-    );
+      );
+    res.json(listResult(req.query,result.data,result.total));
   });
 
 export const handlePostCustomers: RequestHandler = route(async (req, res) => {

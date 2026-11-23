@@ -1,3 +1,6 @@
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { patch, post, useSession } from "../../api";
@@ -85,13 +88,11 @@ import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import { useAction } from "../../app/notifications";
 import { useData } from "../../hooks/useData";
 import {
-  Loading,
   ErrorState,
   Modal,
   Header,
   Badge,
   Table,
-  Pager,
 } from "../../components/application/Primitives";
 import {
   type FieldSpec,
@@ -107,14 +108,13 @@ export function Records({ kind }: { kind: string }) {
     useDebouncedSearch(search);
   const [editingRecord, setEditingRecord] = useState<Row | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Row | null>(null);
-  const [offset, setOffset] = useState(0),
+  const paging = usePagination(`${kind}|${search.trim()}`),
     [open, setOpen] = useState(false),
     query = useData(
-      `/${kind}?offset=${offset}${kind === "customers" ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`,
+      `/${kind}?${paging.query}${kind === "customers" ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`,
       true,
       kind === "customers" && searchPending,
     ),
-    roles = useData("/roles", kind === "users"),
     shift = useData("/shifts/current", kind === "expenses"),
     action = useAction(),
     user = useSession((s) => s.user)!,
@@ -190,11 +190,7 @@ export function Records({ kind }: { kind: string }) {
               {
                 key: "roleId",
                 label: "الدور",
-                options:
-                  roles.data?.data.map((r: Row) => ({
-                    value: r.id,
-                    label: roleLabels[r.name] ?? r.name,
-                  })) ?? [],
+                pickerEndpoint: "/options/roles",
               },
               simple("discountLimit", "حد الخصم (%)", "number"),
             ];
@@ -380,22 +376,26 @@ export function Records({ kind }: { kind: string }) {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setOffset(0);
+                paging.setPage(1);
               }}
             />
           </div>
         )}
         {query.isLoading ? (
-          <Loading />
+          <TableSkeleton />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
           <>
             <Table rows={query.data?.data ?? []} columns={columns} />
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              onPageChange={paging.setPage}
+              onPageSizeChange={paging.setPageSize}
               length={query.data?.data.length ?? 0}
+              total={query.data?.total ?? 0}
+              disabled={query.isFetching}
             />
           </>
         )}

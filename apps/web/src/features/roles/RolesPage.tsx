@@ -1,3 +1,5 @@
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -10,7 +12,8 @@ import { Header, Loading, ErrorState, Table, Modal, Field } from "../../componen
 
 export function RolesPage() {
   const action = useAction();
-  const query = useRoles(),
+  const paging=usePagination();
+  const query = useRoles(paging.query),
     perms = usePermissions(),
     [selected, setSelected] = useState<Role | null>(null),
     [open, setOpen] = useState(false);
@@ -63,6 +66,7 @@ export function RolesPage() {
             ]}
           />
         )}
+      <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} total={query.data?.total??0} length={query.data?.data.length??0} disabled={query.isFetching}/>
       </section>
       <Modal
         title={selected ? (roleLabels[selected.name] ?? selected.name) : "دور جديد"}
@@ -194,4 +198,4 @@ export function RolesPage() {
       </Modal>
     </>
   );
-}
+                            }

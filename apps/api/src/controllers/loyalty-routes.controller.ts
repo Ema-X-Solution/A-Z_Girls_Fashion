@@ -1,5 +1,5 @@
+import { page } from "../utils/http.js";
 import type { RequestHandler } from "express";
-import { z } from "zod";
 import { id } from "@az/shared";
 import { actor } from "../middleware/auth.js";
 import { db, assert, audit, transaction } from "../lib/db.js";
@@ -39,12 +39,7 @@ export const handleGetCustomersByIdLoyalty: RequestHandler = async (req, res, ne
         "Customer not found",
         404,
       );
-      const offset = z.coerce
-        .number()
-        .int()
-        .min(0)
-        .default(0)
-        .parse(req.query.offset);
+      const {skip:offset,take}=page(req.query);
       const details = actor(req).permissions.includes("customers.manage");
       const data = await db.$transaction(
         async (tx) => ({
@@ -54,7 +49,7 @@ export const handleGetCustomersByIdLoyalty: RequestHandler = async (req, res, ne
                 where: { customerId },
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                 skip: offset,
-                take: 30,
+                take,
               })
             : [],
           total: details

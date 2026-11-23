@@ -4312,10 +4312,10 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       const options = page
         .getByRole("listbox", { name: "نتائج بحث العملاء", exact: true })
         .getByRole("option");
-      await browserExpect(options).toHaveCount(10);
+      await browserExpect(options).toHaveCount(25);
       const first = await options.first().textContent();
       await page
-        .locator(".customer-picker-pages")
+        .locator(".customer-picker-results .list-pagination")
         .getByRole("button", { name: "التالي", exact: true })
         .click();
       await browserExpect(options.first()).not.toHaveText(first!);

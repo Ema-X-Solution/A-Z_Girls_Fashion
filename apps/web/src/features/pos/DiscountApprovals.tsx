@@ -1,3 +1,6 @@
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, useSession } from "../../api";
@@ -18,9 +21,10 @@ export function DiscountApprovals() {
     [note, setNote] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const paging = usePagination();
   const query = useQuery({
-    queryKey: ["discount-approvals"],
-    queryFn: () => api("/discount-approvals"),
+    queryKey: ["discount-approvals",paging.page,paging.pageSize],
+    queryFn: ({signal}) => api(`/discount-approvals?${paging.query}`,{signal}),
     refetchInterval: 5000,
   });
   const allowed = user.permissions.includes("sales.discount_approve");
@@ -110,6 +114,8 @@ export function DiscountApprovals() {
             {query.isLoading ? "جارٍ تحميل الطلبات..." : "لا توجد طلبات خصم."}
           </p>
         )}
+        {query.isLoading && <TableSkeleton />}
+        <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} total={query.data?.total ?? 0} length={query.data?.data.length ?? 0} disabled={query.isFetching} />
       </section>
       <Modal
         title="مراجعة الخصم"

@@ -1,3 +1,4 @@
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -26,9 +27,16 @@ export const handleGetInventory: RequestHandler = route(async (req, res) => {
           }
         : {}),
     };
+    let lowKeys: {variantId:string;locationId:string}[]|undefined,lowTotal:number|undefined;
+    if(req.query.low==="1"){
+      const {skip,take}=page(req.query);
+      const filter=Prisma.sql`b.quantity <= v."minStock" ${locationId?Prisma.sql`AND b."locationId"=${locationId}::uuid`:Prisma.empty} ${q?Prisma.sql`AND (p."nameAr" ILIKE ${`%${q}%`} OR v.sku ILIKE ${`%${q}%`} OR v.barcode ILIKE ${`%${q}%`})`:Prisma.empty}`;
+      const [keys,counts]=await db.$transaction([db.$queryRaw<{variantId:string;locationId:string}[]>(Prisma.sql`SELECT b."variantId",b."locationId" FROM "StockBalance" b JOIN "ProductVariant" v ON v.id=b."variantId" JOIN "Product" p ON p.id=v."productId" WHERE ${filter} ORDER BY b."variantId",b."locationId" LIMIT ${take} OFFSET ${skip}`),db.$queryRaw<{total:bigint}[]>(Prisma.sql`SELECT count(*) as total FROM "StockBalance" b JOIN "ProductVariant" v ON v.id=b."variantId" JOIN "Product" p ON p.id=v."productId" WHERE ${filter}`)]);
+      lowKeys=keys;lowTotal=Number(counts[0]?.total??0);
+    }
     const [data, total] = await Promise.all([
       db.stockBalance.findMany({
-        where,
+        where:lowKeys?{OR:lowKeys.length?lowKeys:[{variantId:"00000000-0000-0000-0000-000000000000"}]}:where,
         include: {
           variant: {
             include: {
@@ -37,26 +45,23 @@ export const handleGetInventory: RequestHandler = route(async (req, res) => {
           },
           location: { include: { branch: { select: { name: true } } } },
         },
-        orderBy: { variantId: "asc" },
-        ...page(req.query),
+        orderBy: [{ variantId: "asc" }, { locationId: "asc" }],
+        ...(lowKeys?{}:page(req.query)),
       }),
-      db.stockBalance.count({ where }),
+      lowTotal===undefined?db.stockBalance.count({ where }):Promise.resolve(lowTotal),
     ]);
-    res.json({
-      data: data.map((b) => {
+    res.json(listResult(req.query, data.map((b) => {
         const out = json(b);
         if (!hasCosts(req)) {
           delete out.averageCost;
           delete out.variant.cost;
         }
         return out;
-      }),
-      total,
-    });
+      }), total));
   });
 
 export const handleGetInventoryMovements: RequestHandler = route(async (req, res) => {
-    const data = await db.stockMovement.findMany({
+    const [data,total] = await Promise.all([db.stockMovement.findMany({
       include: {
         variant: {
           select: {
@@ -66,16 +71,14 @@ export const handleGetInventoryMovements: RequestHandler = route(async (req, res
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       ...page(req.query),
-    });
-    res.json({
-      data: data.map((m) => {
+    }), db.stockMovement.count()]);
+    res.json(listResult(req.query, data.map((m) => {
         const out = json(m);
         if (!hasCosts(req)) delete out.unitCost;
         return out;
-      }),
-    });
+      }), total));
   });
 
 export const handlePostInventoryAdjustments: RequestHandler = route(async (req, res) => {
@@ -118,15 +121,10 @@ export const handlePostInventoryAdjustments: RequestHandler = route(async (req, 
     });
   });
 
-export const handleGetInventoryStockCounts: RequestHandler = route(async (req, res) =>
-    res.json({
-      data: await db.stockCount.findMany({
-        include: { items: true },
-        orderBy: { cutoff: "desc" },
-        ...page(req.query),
-      }),
-    }),
-  );
+export const handleGetInventoryStockCounts: RequestHandler = route(async (req,res)=>{
+ const [data,total]=await Promise.all([db.stockCount.findMany({include:{items:{include:{variant:{select:{sku:true}}}}},orderBy:[{cutoff:"desc"},{id:"desc"}],...page(req.query)}),db.stockCount.count()]);
+ res.json(listResult(req.query,data,total));
+});
 
 export const handlePostInventoryStockCounts: RequestHandler = route(async (req, res) => {
     const { locationId, mode } = z

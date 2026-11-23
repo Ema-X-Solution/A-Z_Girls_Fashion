@@ -1,3 +1,5 @@
+import { listResult } from "../utils/pagination.js";
+import { page as pagination } from "../utils/http.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id, money } from "@az/shared";
@@ -21,16 +23,10 @@ function publicDocument(value: any, financial: boolean): any {
   return result;
 }
 
-const pagination = (q: any) => ({
-  take: z.coerce.number().int().min(1).max(100).default(30).parse(q.limit),
-  skip: z.coerce.number().int().min(0).default(0).parse(q.offset),
-});
-
 export const handleGetSuppliers: RequestHandler = async (req, res, next) => {
     try {
       const q = z.string().max(200).default("").parse(req.query.q);
-      res.json(
-        await db.$transaction(
+      const result=await db.$transaction(
           (tx) =>
             supplierList(
               tx,
@@ -39,8 +35,8 @@ export const handleGetSuppliers: RequestHandler = async (req, res, next) => {
               actor(req).permissions.includes("suppliers.manage"),
             ),
           { isolationLevel: "RepeatableRead" },
-        ),
-      );
+        );
+      res.json({...result,...listResult(req.query,result.data,result.total)});
     } catch (e) {
       next(e);
     }

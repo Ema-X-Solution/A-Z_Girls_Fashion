@@ -1,3 +1,7 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { patch, post } from "../../api";
@@ -7,32 +11,37 @@ import { StockDocuments } from "./StockDocuments";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import {
+  ErrorState,
+  Modal,
+  Field,
+  Header,
+  Badge,
+  Table,
+} from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 import { type Row } from "../../app/types";
 
 export function Inventory() {
   const [tab, setTab] = useState("balances"),
-    [offset, setOffset] = useState(0),
     [open, setOpen] = useState(false),
     [low, setLow] = useState(false),
     [locationFilter, setLocationFilter] = useState(""),
     [search, setSearch] = useState(""),
     { debounced: debouncedSearch, searchPending } = useDebouncedSearch(search),
     [detail, setDetail] = useState<Row | null>(null),
+    paging = usePagination(`${tab}|${locationFilter}|${search.trim()}|${low}`),
     path =
       tab === "balances"
-        ? `/inventory?offset=${offset}${locationFilter ? `&locationId=${locationFilter}` : ""}${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`
+        ? `/inventory?${paging.query}${low ? "&low=1" : ""}${locationFilter ? `&locationId=${locationFilter}` : ""}${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`
         : tab === "movements"
-          ? `/inventory/movements?offset=${offset}`
-          : `/inventory/stock-counts?offset=${offset}`,
+          ? `/inventory/movements?${paging.query}`
+          : `/inventory/stock-counts?${paging.query}`,
     query = useData(
       path,
       tab !== "documents",
       tab === "balances" ? searchPending : false,
     ),
-    locations = useData("/locations"),
-    products = useData("/products?limit=100"),
     action = useAction(),
     adjust = useAllowed("inventory.adjust"),
     count = useAllowed("inventory.count"),
@@ -65,7 +74,6 @@ export function Inventory() {
               key={k}
               onClick={() => {
                 setTab(k!);
-                setOffset(0);
               }}
             >
               {label}
@@ -91,35 +99,24 @@ export function Inventory() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  setOffset(0);
                 }}
               />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
               <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
                 المخزن:
               </span>
-              <select
-                style={{
-                  padding: "0.45rem 0.8rem",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border)",
-                  background: "var(--card-bg, inherit)",
-                  color: "inherit",
-                }}
+              <EntitySelect
+                kind="locations"
+                name="locationFilter"
+                id="inventory-location-filter"
+                label="المخزن"
+                required={false}
                 value={locationFilter}
-                onChange={(e) => {
-                  setLocationFilter(e.target.value);
-                  setOffset(0);
-                }}
-              >
-                <option value="">كل المخازن</option>
-                {locations.data?.data?.map((l: Row) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name} {l.branch?.name ? `(${l.branch.name})` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={setLocationFilter}
+              />
             </div>
             <label
               className="checkbox"
@@ -144,18 +141,13 @@ export function Inventory() {
         {tab === "documents" ? (
           <StockDocuments />
         ) : query.isLoading ? (
-          <Loading />
+          <TableSkeleton />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
           <>
             <Table
-              rows={(query.data?.data ?? []).filter(
-                (r: Row) =>
-                  tab !== "balances" ||
-                  !low ||
-                  r.quantity <= r.variant.minStock,
-              )}
+              rows={query.data?.data ?? []}
               columns={
                 tab === "balances"
                   ? [
@@ -165,7 +157,9 @@ export function Inventory() {
                           <div>
                             <strong>{r.variant.product.nameAr}</strong>
                             <small>
-                              {formatDigits(Object.values(r.variant.options).join(" / "))}
+                              {formatDigits(
+                                Object.values(r.variant.options).join(" / "),
+                              )}
                             </small>
                           </div>
                         ),
@@ -196,10 +190,7 @@ export function Inventory() {
                       {
                         label: ar.actions,
                         render: (r) => (
-                          <Button
-                            variant="ghost"
-                            onClick={() => setDetail(r)}
-                          >
+                          <Button variant="ghost" onClick={() => setDetail(r)}>
                             التفاصيل
                           </Button>
                         ),
@@ -262,10 +253,14 @@ export function Inventory() {
                       ]
               }
             />
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              onPageChange={paging.setPage}
+              onPageSizeChange={paging.setPageSize}
               length={query.data?.data.length ?? 0}
+              total={query.data?.total ?? 0}
+              disabled={query.isFetching}
             />
           </>
         )}
@@ -276,22 +271,12 @@ export function Inventory() {
             {
               key: "variantId",
               label: "المتغير",
-              options:
-                products.data?.data.flatMap((p: Row) =>
-                  p.variants.map((v: Row) => ({
-                    value: v.id,
-                    label: `${p.nameAr} • ${v.sku}`,
-                  })),
-                ) ?? [],
+              pickerEndpoint: "/variant-options",
             },
             {
               key: "locationId",
               label: ar.location,
-              options:
-                locations.data?.data.map((l: Row) => ({
-                  value: l.id,
-                  label: l.name,
-                })) ?? [],
+              pickerEndpoint: "/options/locations",
             },
             simple("quantity", "فرق الكمية (+ زيادة / - نقص)"),
             simple("reason", ar.reason),
@@ -327,11 +312,7 @@ export function Inventory() {
                 {
                   key: "locationId",
                   label: ar.location,
-                  options:
-                    locations.data?.data.map((l: Row) => ({
-                      value: l.id,
-                      label: l.name,
-                    })) ?? [],
+                  pickerEndpoint: "/options/locations",
                 },
                 {
                   key: "mode",
@@ -382,7 +363,7 @@ export function Inventory() {
               {selected.items.map((i: Row) => (
                 <Field
                   key={i.variantId}
-                  label={`${products.data?.data.flatMap((p: Row) => p.variants).find((v: Row) => v.id === i.variantId)?.sku ?? i.variantId} • المتوقع ${i.expected}`}
+                  label={`${i.variant?.sku ?? i.variantId} • المتوقع ${i.expected}`}
                 >
                   <input
                     required
@@ -463,7 +444,9 @@ export function Inventory() {
         onClose={() => setDetail(null)}
       >
         {detail && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             <div
               style={{
                 display: "grid",
@@ -518,8 +501,9 @@ export function Inventory() {
               >
                 <small className="muted-text">المقاس / اللون</small>
                 <div style={{ fontWeight: 600 }}>
-                  {formatDigits(Object.values(detail.variant?.options ?? {}).join(" / ")) ||
-                    "بدون خيارات"}
+                  {formatDigits(
+                    Object.values(detail.variant?.options ?? {}).join(" / "),
+                  ) || "بدون خيارات"}
                 </div>
               </div>
               <div
@@ -568,7 +552,9 @@ export function Inventory() {
                   background: "var(--card-bg, #fff)",
                 }}
               >
-                <small className="muted-text">الحد الأدنى للطلب (ديناميكي)</small>
+                <small className="muted-text">
+                  الحد الأدنى للطلب (ديناميكي)
+                </small>
                 <div
                   style={{
                     display: "flex",
@@ -681,4 +667,4 @@ export function Inventory() {
       </Modal>
     </>
   );
-              }
+                        }

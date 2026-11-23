@@ -1,3 +1,6 @@
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
@@ -8,15 +11,15 @@ import { CustomerLoyalty } from "./Loyalty";
 import { CustomerDiscount } from "./CustomerDiscount";
 
 export function CustomerHistory({ customerId }: { customerId: string }) {
-  const [offset, setOffset] = useState(0);
   const [tab, setTab] = useState<"sales" | "returns">("sales");
+  const paging = usePagination(`${customerId}|${tab}`,true,"local");
   const query = useQuery({
-    queryKey: ["customer-history", customerId, offset],
+    queryKey: ["customer-history", customerId, paging.page, paging.pageSize],
     queryFn: ({ signal }) =>
-      api(`/customers/${customerId}/history?offset=${offset}`, { signal }),
+      api(`/customers/${customerId}/history?${paging.query}`, { signal }),
   });
   const data = query.data?.data;
-  if (query.isLoading) return <p role="status">جارٍ تحميل سجل العميل…</p>;
+  if (query.isLoading) return <TableSkeleton />;
   if (query.error)
     return (
       <>
@@ -73,7 +76,7 @@ export function CustomerHistory({ customerId }: { customerId: string }) {
           variant={tab === "sales" ? "default" : "outline"}
           onClick={() => {
             setTab("sales");
-            setOffset(0);
+            paging.setPage(1);
           }}
         >
           المشتريات
@@ -82,7 +85,7 @@ export function CustomerHistory({ customerId }: { customerId: string }) {
           variant={tab === "returns" ? "default" : "outline"}
           onClick={() => {
             setTab("returns");
-            setOffset(0);
+            paging.setPage(1);
           }}
         >
           المرتجعات
@@ -127,25 +130,7 @@ export function CustomerHistory({ customerId }: { customerId: string }) {
           </table>
         </div>
       )}
-      <div className="pager">
-        <span>
-          {total ? `${offset + 1}–${offset + rows.length} / ${total}` : "0"}
-        </span>
-        <Button
-          variant="outline"
-          disabled={!offset}
-          onClick={() => setOffset(Math.max(0, offset - 30))}
-        >
-          السابق
-        </Button>
-        <Button
-          variant="outline"
-          disabled={offset + rows.length >= total}
-          onClick={() => setOffset(offset + 30)}
-        >
-          التالي
-        </Button>
-      </div>
+      <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} total={total} length={rows.length} disabled={query.isFetching} />
     </div>
   );
 }

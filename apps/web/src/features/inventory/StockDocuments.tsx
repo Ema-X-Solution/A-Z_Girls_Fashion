@@ -1,10 +1,13 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
+import { SmartSelect } from "../../components/application/SmartSelect";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, useSession } from "../../api";
 import { Button } from "../../components/ui/button";
 import { Field, Modal, ErrorMessage } from "../shared/Controls";
 import { formatDate, formatMoney } from "../../i18n";
-import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import { arabicFormValidation } from "../../components/application/arabicFormValidation";
 const labels: Record<string, string> = {
   TRANSFER: "تحويل مباشر",
@@ -17,40 +20,21 @@ export function StockDocuments() {
     user = useSession((s) => s.user)!;
   const canPost = user.permissions.includes("inventory.adjust"),
     costs = user.permissions.includes("reports.profit");
-  const [offset, setOffset] = useState(0),
-    [filter, setFilter] = useState(""),
+  const [filter, setFilter] = useState(""),
     [draft, setDraft] = useState<any>(null),
     [selected, setSelected] = useState<any>(null),
     [locationOpen, setLocationOpen] = useState(false),
-    [q, setQ] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
+  const paging = usePagination(filter);
   const query = useQuery({
-    queryKey: ["stock-documents", offset, filter],
-    queryFn: () =>
+    queryKey: ["stock-documents", paging.page, paging.pageSize, filter],
+    queryFn: ({ signal }) =>
       api(
-        `/inventory/documents?offset=${offset}${filter ? `&type=${filter}` : ""}`,
+        `/inventory/documents?${paging.query}${filter ? `&type=${filter}` : ""}`,
+        { signal },
       ),
   });
-  const locations = useQuery({
-    queryKey: ["stock-document-locations"],
-    queryFn: () => api("/locations"),
-  });
-  const products = useQuery({
-    queryKey: ["stock-document-products", debouncedQ],
-    queryFn: ({ signal }) =>
-      api(`/products?limit=100&q=${encodeURIComponent(debouncedQ)}`, {
-        signal,
-      }),
-    enabled: !!draft && !searchPending,
-  });
-  const allLocations = locations.data?.data ?? [];
-  const variants = (products.data?.data ?? []).flatMap((p: any) =>
-    p.variants.map((v: any) => ({ ...v, name: p.nameAr })),
-  );
-  const locationName = (id: string) =>
-    allLocations.find((l: any) => l.id === id)?.name ?? "—";
   const change = (key: string, value: any) =>
     setDraft((d: any) => ({ ...d, [key]: value }));
   const lineChange = (index: number, key: keyof Line, value: any) =>
@@ -99,7 +83,6 @@ export function StockDocuments() {
           value={filter}
           onChange={(e) => {
             setFilter(e.target.value);
-            setOffset(0);
           }}
         >
           <option value="">جميع المستندات</option>
@@ -125,7 +108,7 @@ export function StockDocuments() {
                 setError("");
                 setDraft({
                   type: "TRANSFER",
-                  sourceId: allLocations[0]?.id ?? "",
+                  sourceId: "",
                   destinationId: "",
                   reason: "",
                   items: [{ variantId: "", quantity: 1, cost: "" }],
@@ -166,8 +149,8 @@ export function StockDocuments() {
                   <td>STK-{doc.number}</td>
                   <td>{formatDate(doc.createdAt)}</td>
                   <td>{labels[doc.type]}</td>
-                  <td>{locationName(doc.sourceId)}</td>
-                  <td>{locationName(doc.destinationId)}</td>
+                  <td>{doc.sourceName ?? doc.sourceId}</td>
+                  <td>{doc.destinationName ?? "—"}</td>
                   <td>
                     <Button variant="outline" onClick={() => setSelected(doc)}>
                       عرض المستند
@@ -179,25 +162,15 @@ export function StockDocuments() {
           </table>
         </div>
       )}
-      <div className="pager">
-        <span>{query.data?.total ?? 0} مستند</span>
-        <Button
-          variant="outline"
-          disabled={!offset}
-          onClick={() => setOffset(Math.max(0, offset - 30))}
-        >
-          السابق
-        </Button>
-        <Button
-          variant="outline"
-          disabled={
-            offset + (query.data?.data.length ?? 0) >= (query.data?.total ?? 0)
-          }
-          onClick={() => setOffset(offset + 30)}
-        >
-          التالي
-        </Button>
-      </div>
+      <Pagination
+        page={paging.page}
+        pageSize={paging.pageSize}
+        onPageChange={paging.setPage}
+        onPageSizeChange={paging.setPageSize}
+        total={query.data?.total ?? 0}
+        length={query.data?.data.length ?? 0}
+        disabled={query.isFetching}
+      />
       <Modal
         title="مستند مخزون جديد"
         open={!!draft}
@@ -207,7 +180,7 @@ export function StockDocuments() {
       >
         {draft && (
           <form
-          {...arabicFormValidation()}
+            {...arabicFormValidation()}
             className="entry-form"
             onSubmit={(e) => {
               e.preventDefault();
@@ -233,80 +206,48 @@ export function StockDocuments() {
               </Field>
               <Field label="المخزن المصدر">
                 {(id) => (
-                  <select
-                    required
+                  <EntitySelect
+                    kind="locations"
+                    name="sourceId"
                     id={id}
+                    label="المخزن المصدر"
                     value={draft.sourceId}
-                    onChange={(e) => change("sourceId", e.target.value)}
-                  >
-                    <option value="">اختر المخزن</option>
-                    {allLocations.map((l: any) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => change("sourceId", value)}
+                  />
                 )}
               </Field>
               {draft.type === "TRANSFER" && (
                 <Field label="المخزن الوجهة">
                   {(id) => (
-                    <select
-                      required
+                    <EntitySelect
+                      kind="locations"
+                      name="destinationId"
                       id={id}
+                      label="المخزن الوجهة"
                       value={draft.destinationId}
-                      onChange={(e) => change("destinationId", e.target.value)}
-                    >
-                      <option value="">اختر الوجهة</option>
-                      {allLocations
-                        .filter((l: any) => l.id !== draft.sourceId)
-                        .map((l: any) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name}
-                          </option>
-                        ))}
-                    </select>
+                      onChange={(value) => change("destinationId", value)}
+                      params={`exclude=${draft.sourceId}`}
+                    />
                   )}
                 </Field>
               )}
             </div>
-            <Field label="بحث أصناف المستند">
-              {(id) => (
-                <input
-                  id={id}
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="اسم المنتج أو SKU"
-                />
-              )}
-            </Field>
-            {products.error && (
-              <ErrorMessage message={products.error.message} />
-            )}
             {draft.items.map((line: Line, index: number) => (
               <div className="form-grid" key={index}>
                 <Field label={`الصنف ${index + 1}`}>
                   {(id) => (
-                    <select
-                      required
+                    <SmartSelect
                       id={id}
-                      value={line.variantId}
-                      disabled={searchPending || products.isFetching}
-                      onChange={(e) =>
-                        lineChange(index, "variantId", e.target.value)
+                      name={`variant-${index}`}
+                      label={`الصنف ${index + 1}`}
+                      searchLabel={
+                        index === 0 ? "بحث أصناف المستند" : undefined
                       }
-                    >
-                      <option value="">اختر الصنف</option>
-                      {line.variantId &&
-                        !variants.some((v: any) => v.id === line.variantId) && (
-                          <option value={line.variantId}>صنف محدد سابقًا</option>
-                        )}
-                      {variants.map((v: any) => (
-                        <option value={v.id} key={v.id}>
-                          {v.name} • {v.sku}
-                        </option>
-                      ))}
-                    </select>
+                      value={line.variantId}
+                      endpoint="/variant-options"
+                      optionLabel={(v) => `${v.productNameAr} • ${v.sku}`}
+                      onChange={(v) => lineChange(index, "variantId", v.id)}
+                    />
                   )}
                 </Field>
                 <Field
@@ -389,9 +330,7 @@ export function StockDocuments() {
               )}
             </Field>
             <ErrorMessage message={error} />
-            <Button disabled={busy || searchPending || products.isFetching}>
-              ترحيل المستند
-            </Button>
+            <Button disabled={busy}>ترحيل المستند</Button>
           </form>
         )}
       </Modal>
@@ -406,9 +345,9 @@ export function StockDocuments() {
               {labels[selected.type]} • {formatDate(selected.createdAt)}
             </p>
             <p>
-              {locationName(selected.sourceId)}{" "}
+              {selected.sourceName ?? selected.sourceId}{" "}
               {selected.destinationId
-                ? `← ${locationName(selected.destinationId)}`
+                ? `← ${selected.destinationName ?? selected.destinationId}`
                 : ""}
             </p>
             <p>{selected.reason}</p>
@@ -483,18 +422,13 @@ export function StockDocuments() {
           </Field>
           <Field label="الفرع">
             {(id) => (
-              <select id={id} required name="branchId">
-                {allLocations
-                  .filter(
-                    (l: any, i: number, rows: any[]) =>
-                      rows.findIndex((v) => v.branchId === l.branchId) === i,
-                  )
-                  .map((l: any) => (
-                    <option key={l.branchId} value={l.branchId}>
-                      {l.branch?.name ?? l.name}
-                    </option>
-                  ))}
-              </select>
+              <EntitySelect
+                kind="branches"
+                defaultFirst
+                name="branchId"
+                id={id}
+                label="الفرع"
+              />
             )}
           </Field>
           <ErrorMessage message={error} />
@@ -503,4 +437,4 @@ export function StockDocuments() {
       </Modal>
     </div>
   );
-            }
+              }

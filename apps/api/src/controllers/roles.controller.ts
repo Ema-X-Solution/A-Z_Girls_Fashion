@@ -1,11 +1,14 @@
+import { page } from "../utils/http.js";
+import { listResult, usesPagination } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { id, permissions } from "@az/shared";
 import { actor } from "../middleware/auth.js";
-import { assert } from "../lib/db.js";
+import { assert, db } from "../lib/db.js";
 import { createRoleSchema, updateRoleSchema } from "../validators/roles.validation.js";
 import { listRoles, createRole, updateRole } from "../services/roles.service.js";
 
-export const handleGetRoles: RequestHandler = async (_req, res) => {
+export const handleGetRoles: RequestHandler = async (req, res) => {
+  if(usesPagination(req.query)){const [data,total]=await Promise.all([db.role.findMany({include:{permissions:true},orderBy:[{name:"asc"},{id:"asc"}],...page(req.query)}),db.role.count()]);res.json(listResult(req.query,data,total));return;}
   res.json({ data: await listRoles() });
 };
 

@@ -1,3 +1,5 @@
+import { page } from "../utils/http.js";
+import { listResult, usesPagination } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { checkoutSchema, id } from "@az/shared";
@@ -104,8 +106,8 @@ export const handleGetDiscountApprovals: RequestHandler = async (req, res, next)
       const where = reviewer ? {} : { requesterId: actor(req).id };
       const rows = await db.discountApproval.findMany({
         where,
-        orderBy: { createdAt: "desc" },
-        take: 100,
+        orderBy: [{ createdAt: "desc" },{id:"desc"}],
+        ...(usesPagination(req.query)?page(req.query):{take:100,skip:0}),
       });
       const ids = [
         ...new Set(
@@ -119,13 +121,12 @@ export const handleGetDiscountApprovals: RequestHandler = async (req, res, next)
         where: { id: { in: ids } },
         select: { id: true, name: true },
       });
-      res.json({
-        data: rows.map((r) => ({
+      const total=await db.discountApproval.count({where});
+      res.json(listResult(req.query,rows.map((r) => ({
           ...r,
           requesterName: users.find((u) => u.id === r.requesterId)?.name,
           approverName: users.find((u) => u.id === r.approverId)?.name,
-        })),
-      });
+        })),total));
     } catch (e) {
       next(e);
     }
