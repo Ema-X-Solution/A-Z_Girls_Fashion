@@ -1,3 +1,4 @@
+import { TableSkeleton } from "../../components/application/Skeleton";
 import { readableError } from "../../app/notifications";
 import { ApiError } from "../../api";
 import { displayLocale } from "../../i18n";
@@ -90,43 +91,12 @@ export function PageState({
   query: { isLoading: boolean; error: unknown };
 }) {
   return query.isLoading ? (
-    <p role="status">جارٍ التحميل...</p>
+    <TableSkeleton />
   ) : query.error ? (
     <p role="alert">
       {query.error instanceof Error ? query.error.message : "تعذر التحميل"}
     </p>
   ) : null;
-}
-export function Pagination({
-  offset,
-  onChange,
-  total,
-}: {
-  offset: number;
-  onChange: (n: number) => void;
-  total: number;
-}) {
-  return (
-    <div className="toolbar">
-      <span>{total} نتيجة</span>
-      <div className="inline-actions">
-        <button
-          className="btn btn-outline"
-          disabled={!offset}
-          onClick={() => onChange(Math.max(0, offset - 30))}
-        >
-          السابق
-        </button>
-        <button
-          className="btn btn-outline"
-          disabled={offset + 30 >= total}
-          onClick={() => onChange(offset + 30)}
-        >
-          التالي
-        </button>
-      </div>
-    </div>
-  );
 }
 export function FormField({
   label,
