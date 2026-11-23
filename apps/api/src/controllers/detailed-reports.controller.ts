@@ -137,7 +137,7 @@ function queryFor(
     return {
       sql: Prisma.sql`WITH e AS (
    SELECT si.name,si.sku,si.options,si."categoryName" category,s."userId" uid,s."createdAt" at,si.quantity,
-    si.total-si.tax net,si.tax,si."unitCost"*si.quantity cost
+    si.total-si.tax net,si.tax,COALESCE(si."costTotal", si."unitCost" * si.quantity) cost
    FROM "SaleItem" si JOIN "Sale" s ON s.id=si."saleId" WHERE s."createdAt">=${from} AND s."createdAt"<=${to} ${scope}
    UNION ALL
    SELECT si.name,si.sku,si.options,si."categoryName",s."userId",r."createdAt",-ri.quantity,-(ri.amount-ri.tax),-ri.tax,CASE WHEN ri.sellable THEN -ri.cost ELSE 0 END
