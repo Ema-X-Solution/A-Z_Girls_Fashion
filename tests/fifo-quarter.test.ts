@@ -22,7 +22,8 @@ let db: any,
 const password = randomBytes(24).toString("hex"),
   origin = "http://localhost:5173";
 const U = (s: string) => Number(s);
-const artifactDir = process.env.FIFO_ARTIFACT_DIR ?? resolve("test-results/fifo-closing");
+const artifactDir =
+  process.env.FIFO_ARTIFACT_DIR ?? resolve("test-results/fifo-closing");
 async function send(
   path: string,
   body: any,
@@ -817,6 +818,53 @@ describe.sequential("FIFO and quarterly closing on real PostgreSQL", () => {
     expect(q.figures.profitMinusSalesVat).toBe("280.00");
     expect(q.partners.map((p: any) => p.share)).toEqual(["420.00", "280.00"]);
   });
+  it("paginates all inventory batches beyond 200 with stable ordering and bounded page sizes", async () => {
+    await db.stockBatch.createMany({
+      data: Array.from({ length: 211 }, (_, i) => ({
+        variantId: variant.id,
+        locationId: location.id,
+        quantity: 1,
+        remaining: 0,
+        unitCost: "1",
+        reference: `TEST-PAGING-${i}`,
+        type: "TEST",
+        acquiredAt: new Date("2030-01-01T00:00:00Z"),
+      })),
+    });
+    const total = await db.stockBatch.count();
+    const ids: string[] = [];
+    for (let page = 1; page <= Math.ceil(total / 25); page++) {
+      const r = await owner.agent.get(
+        `/api/accounting/batches?page=${page}&pageSize=25`,
+      );
+      expect(r.status).toBe(200);
+      expect(r.body.total).toBe(total);
+      expect(r.body.data.length).toBeLessThanOrEqual(25);
+      ids.push(...r.body.data.map((b: any) => b.id));
+    }
+    expect(ids.length).toBe(total);
+    expect(new Set(ids).size).toBe(total);
+    expect(total).toBeGreaterThan(200);
+    for (const pageSize of [25, 50, 100, 150]) {
+      const r = await owner.agent.get(
+        `/api/accounting/batches?page=1&pageSize=${pageSize}`,
+      );
+      expect(r.status).toBe(200);
+      expect(r.body.pageSize).toBe(pageSize);
+      expect(r.body.data.length).toBe(pageSize);
+    }
+    expect(
+      (await owner.agent.get("/api/accounting/batches?pageSize=200")).status,
+    ).toBe(400);
+    expect(
+      (await owner.agent.get("/api/accounting/batches?page=0&pageSize=25"))
+        .status,
+    ).toBe(400);
+    expect(
+      (await cashier.agent.get("/api/accounting/batches?page=1&pageSize=25"))
+        .status,
+    ).toBe(403);
+  });
   it("renders the actual local reports UI with the closed numbers and captures PC screenshots", async () => {
     const server = app.listen(0, "127.0.0.1");
     await new Promise<void>((r) => server.once("listening", () => r()));
@@ -873,38 +921,167 @@ describe.sequential("FIFO and quarterly closing on real PostgreSQL", () => {
       ).toHaveCount(0);
       await page.getByLabel("سنة الإقفال").fill("2026");
       await page.getByLabel("ربع الإقفال").selectOption("3");
-      await ui(page.getByTestId("quarter-netProfit")).toHaveText("700.00");
-      await ui(page.getByTestId("quarter-tax")).toHaveText("420.00");
+      await ui(page.getByTestId("quarter-netProfit")).toHaveText("700.00 EGP");
+      await ui(page.getByTestId("quarter-tax")).toHaveText("420.00 EGP");
       await ui(page.getByTestId("quarter-profitPlusSalesVat")).toHaveText(
-        "1,120.00",
+        "1,120.00 EGP",
       );
       await ui(page.getByTestId("quarter-profitMinusSalesVat")).toHaveText(
-        "280.00",
+        "280.00 EGP",
       );
       await ui(
         page.getByText("الفترة مقفلة، الأرقام محفوظة", { exact: true }),
       ).toBeVisible();
       await mkdir(artifactDir, { recursive: true });
+      await ui(page.getByLabel("اسم الشريك 1", { exact: true })).toBeHidden();
+      await page.screenshot({
+        path: artifactDir + "/partners-collapsed-desktop.png",
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: /إعداد أسماء الشركاء ونسبهم/ })
+        .click();
+      // Real persisted partner setup, without changing the closed Q3 snapshot.
+      await page.getByLabel("حذف الشريك 3", { exact: true }).click();
+      await ui(page.locator("#partner-settings-title")).toBeVisible();
+      await page
+        .getByLabel("اسم الشريك 1", { exact: true })
+        .fill("شريك تجريبي أول");
+      await page.getByLabel("نسبة الشريك 1", { exact: true }).fill("55");
+      await page
+        .getByLabel("اسم الشريك 2", { exact: true })
+        .fill("شريك تجريبي ثان");
+      await page.getByLabel("نسبة الشريك 2", { exact: true }).fill("40");
+      await ui(
+        page.getByRole("button", {
+          name: "حفظ أسماء الشركاء ونسبهم",
+          exact: true,
+        }),
+      ).toBeDisabled();
+      await ui(
+        page.getByText("مجموع نسب الشركاء لازم يساوي 100%.", { exact: true }),
+      ).toBeVisible();
+      await page.getByLabel("نسبة الشريك 2", { exact: true }).fill("45");
+      await page
+        .getByRole("button", { name: "حفظ أسماء الشركاء ونسبهم", exact: true })
+        .click();
+      await ui(
+        page.getByText(/تم حفظ أسماء الشركاء ونسبهم بنجاح/),
+      ).toBeVisible();
+      expect(
+        (await owner.agent.get("/api/accounting/partners")).body.data,
+      ).toEqual([
+        { name: "شريك تجريبي أول", percent: "55" },
+        { name: "شريك تجريبي ثان", percent: "45" },
+      ]);
+      const unchanged = (
+        await owner.agent.get("/api/accounting/period?year=2026&quarter=3")
+      ).body.data;
+      expect(unchanged.partners).toEqual(quarterSnapshot.partners);
+      const footer = page.locator(".partner-settings-actions");
+      const totalRow = page.locator(".partner-settings-total");
+      expect((await footer.boundingBox())!.y).toBeGreaterThan(
+        (await totalRow.boundingBox())!.y +
+          (await totalRow.boundingBox())!.height,
+      );
+      await page.screenshot({
+        path: artifactDir + "/partner-settings-desktop.png",
+        fullPage: true,
+      });
+      await page.reload();
+      await page
+        .getByRole("button", { name: /إعداد أسماء الشركاء ونسبهم/ })
+        .click();
+      await ui(page.getByLabel("اسم الشريك 1", { exact: true })).toHaveValue(
+        "شريك تجريبي أول",
+      );
+      await ui(page.getByLabel("نسبة الشريك 2", { exact: true })).toHaveValue(
+        "45",
+      );
+      await page
+        .getByRole("button", { name: "إضافة شريك", exact: true })
+        .click();
+      await ui(page.getByLabel("اسم الشريك 3", { exact: true })).toBeVisible();
+      await page.getByLabel("حذف الشريك 3", { exact: true }).click();
+      for (const width of [390, 320]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.reload();
+        await page.getByLabel("ربع الإقفال").selectOption("3");
+        await ui(page.getByTestId("quarter-netProfit")).toHaveText(
+          "700.00 EGP",
+        );
+        await page.screenshot({
+          path: artifactDir + `/partners-collapsed-${width}.png`,
+          fullPage: true,
+        });
+        await page
+          .getByRole("button", { name: /إعداد أسماء الشركاء ونسبهم/ })
+          .click();
+        await ui(page.getByLabel("اسم الشريك 1", { exact: true })).toHaveValue(
+          "شريك تجريبي أول",
+        );
+        await page.locator("#partner-settings-title").scrollIntoViewIfNeeded();
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth,
+          ),
+        ).toBe(true);
+        await page.screenshot({
+          path: artifactDir + `/partner-settings-${width}.png`,
+          fullPage: true,
+        });
+      }
+      await page.setViewportSize({ width: 1600, height: 1100 });
+      await page.getByLabel("ربع الإقفال").selectOption("2");
+      const openShares = (
+        await owner.agent.get("/api/accounting/period?year=2026&quarter=2")
+      ).body.data.partners;
+      expect(openShares.map((p: any) => p.percent)).toEqual(["55", "45"]);
+      await page.getByLabel("ربع الإقفال").selectOption("3");
       await page.screenshot({
         path: artifactDir + "/quarter-tax-comparison.png",
         fullPage: true,
       });
+      await page.getByText("دفعات المخزون وتكلفتها", { exact: true }).click();
       await page
-        .getByText("دفعات المخزون وتكلفتها (حتى 200 دفعة)", { exact: true })
-        .click();
-      await page
-        .getByText("دفعات المخزون وتكلفتها (حتى 200 دفعة)", { exact: true })
+        .getByText("دفعات المخزون وتكلفتها", { exact: true })
         .scrollIntoViewIfNeeded();
+      await page.getByLabel("عدد العناصر في الصفحة").selectOption("150");
+      await ui(page.getByText(/1–150 من/)).toBeVisible();
+      await page.getByRole("button", { name: "التالي", exact: true }).click();
+      await ui(page.getByText(/151–/)).toBeVisible();
       await page.screenshot({
         path: artifactDir + "/fifo-batches.png",
         fullPage: true,
       });
+      await page.getByText("دفعات المخزون وتكلفتها", { exact: true }).click();
+      await page.getByText("دفعات المخزون وتكلفتها", { exact: true }).click();
       await page
-        .getByText("دفعات المخزون وتكلفتها (حتى 200 دفعة)", { exact: true })
-        .click();
+        .getByRole("navigation", { name: "التنقل بين الصفحات" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: artifactDir + "/batches-pagination-desktop.png",
+        fullPage: false,
+      });
+      await page.setViewportSize({ width: 390, height: 1000 });
+      await page.reload();
+      await page.getByText("دفعات المخزون وتكلفتها", { exact: true }).click();
+      await page.getByLabel("عدد العناصر في الصفحة").selectOption("150");
+      await ui(page.getByText(/1–150 من/)).toBeVisible();
+      await page.getByRole("button", { name: "التالي", exact: true }).click();
+      await ui(page.getByText(/151–/)).toBeVisible();
+      await page
+        .getByRole("navigation", { name: "التنقل بين الصفحات" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: artifactDir + "/batches-pagination-mobile.png",
+        fullPage: false,
+      });
+      await page.setViewportSize({ width: 1600, height: 1100 });
+      await page.getByText("دفعات المخزون وتكلفتها", { exact: true }).click();
       // Exercise the real UI confirmation and close action, not a mocked response.
       await page.getByLabel("ربع الإقفال").selectOption("2");
-      await ui(page.getByTestId("quarter-netProfit")).toHaveText("-0.01");
+      await ui(page.getByTestId("quarter-netProfit")).toHaveText("-0.01 EGP");
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByRole("button", { name: "إقفال الفترة نهائيًا" }).click();
       await ui(
@@ -915,11 +1092,11 @@ describe.sequential("FIFO and quarterly closing on real PostgreSQL", () => {
         fullPage: false,
       });
       await page.getByLabel("ربع الإقفال").selectOption("3");
-      await ui(page.getByTestId("quarter-netProfit")).toHaveText("700.00");
+      await ui(page.getByTestId("quarter-netProfit")).toHaveText("700.00 EGP");
       await page.getByLabel("ربع الإقفال").selectOption("1");
-      await ui(page.getByTestId("quarter-netProfit")).toHaveText("900.00");
+      await ui(page.getByTestId("quarter-netProfit")).toHaveText("900.00 EGP");
       await ui(page.getByTestId("quarter-costOfGoodsSold")).toHaveText(
-        "2,100.00",
+        "2,100.00 EGP",
       );
       await ui(
         page.getByText("تم إقفال الفترة وتجميد الأرقام", { exact: true }),
