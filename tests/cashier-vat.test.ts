@@ -1,26 +1,84 @@
-import { describe, expect, it, vi } from 'vitest';
-import { dashboardData } from '../apps/api/src/controllers/reports.controller.js';
-import { D } from '../apps/api/src/utils/money.js';
+import { describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
+import { dashboardData } from "../apps/api/src/controllers/reports.controller.js";
+import { D } from "../apps/api/src/utils/money.js";
 
-describe('cashier VAT totals', () => {
-  it('keeps identical names in separate accounts and subtracts returns including VAT from the original seller', async () => {
-    const from = new Date('2026-11-01T00:00:00Z'), to = new Date('2026-11-30T23:59:59Z');
-    const user = (id: string) => ({ id, name: 'Same name', employeeCode: id });
-    const sale = (id: string, net: number) => ({ userId: id, user: user(id), taxMode: 'EXCLUSIVE', taxRate: D(14), subtotal: D(net), discount: D(0), netBeforeTax: D(net), tax: D(net * .14), total: D(net * 1.14), createdAt: from, items: [], payments: [] });
+describe("cashier VAT totals", () => {
+  it("formats grouped sellers separately and keeps zero-invoice return-only sellers", async () => {
+    const from = new Date("2026-11-01T00:00:00Z"),
+      to = new Date("2026-11-30T23:59:59Z");
+    const row = (
+      id: string,
+      invoices: number,
+      net: number,
+      gross: number,
+      sales: number,
+      refunds: number,
+    ) => ({
+      id,
+      name: "Same name",
+      sellerCode: id,
+      invoices,
+      netSales: D(net),
+      grossSales: D(gross),
+      salesWithTax: D(sales),
+      returnsWithTax: D(refunds),
+    });
     const tx: any = {
-      sale: { findMany: vi.fn().mockResolvedValue([sale('A', 100), sale('B', 200)]) },
-      saleReturn: { findMany: vi.fn().mockResolvedValue([{ id: 'R', total: D(57) }, { id: 'OLD', total: D(114) }]) },
-      saleReturnItem: { findMany: vi.fn().mockResolvedValue([
-        { amount: D(57), tax: D(7), sellable: false, saleItem: { sale: { userId: 'A', user: user('A') } } },
-        { amount: D(114), tax: D(14), sellable: false, saleItem: { sale: { userId: 'C', user: user('C') } } },
-      ]) },
+      $queryRaw: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            gross: D(300),
+            receiptGross: D(300),
+            receiptDiscounts: D(0),
+            net: D(300),
+            tax: D(42),
+            total: D(342),
+            orders: 2,
+            refunds: D(171),
+            returnCount: 2,
+            taxReturned: D(21),
+            soldCost: D(0),
+            returnedCost: D(0),
+          },
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          row("A", 1, 50, 57, 114, 57),
+          row("B", 1, 200, 228, 228, 0),
+          row("C", 0, -100, -114, 0, 114),
+        ]),
     };
-    const data = await dashboardData(tx, { id: 'owner', permissions: ['sales.view_all'] } as any, from, to);
-    expect(data.cashiers).toHaveLength(3);
-    expect(data.cashiers.find((c: any) => c.id === 'A')).toMatchObject({ invoices: 1, grossSales: '57.00', salesWithTax: '114.00', returnsWithTax: '57.00', netSales: '50.00', sellerCode: 'A' });
-    expect(data.cashiers.find((c: any) => c.id === 'B')).toMatchObject({ grossSales: '228.00' });
-    expect(data.cashiers.find((c: any) => c.id === 'C')).toMatchObject({ invoices: 0, grossSales: '-114.00', salesWithTax: '0.00', returnsWithTax: '114.00' });
-    expect(data.cashiers.reduce((sum: number, c: any) => sum + Number(c.grossSales), 0)).toBe(Number(data.totalSalesWithTax));
-    expect(tx.saleReturn.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { createdAt: { gte: from, lte: to } } }));
+    const data = await dashboardData(
+      tx,
+      { id: "owner", permissions: ["sales.view_all"] } as any,
+      from,
+      to,
+    );
+    expect(data.cashiers.map((c: any) => c.id)).toEqual(["B", "A", "C"]);
+    expect(data.cashiers.find((c: any) => c.id === "A")).toMatchObject({
+      invoices: 1,
+      grossSales: "57.00",
+      salesWithTax: "114.00",
+      returnsWithTax: "57.00",
+      netSales: "50.00",
+      sellerCode: "A",
+    });
+    expect(data.cashiers.find((c: any) => c.id === "C")).toMatchObject({
+      invoices: 0,
+      grossSales: "-114.00",
+      salesWithTax: "0.00",
+      returnsWithTax: "114.00",
+    });
+    expect(
+      data.cashiers.reduce(
+        (sum: number, c: any) => sum + Number(c.grossSales),
+        0,
+      ),
+    ).toBe(Number(data.totalSalesWithTax));
+    const query = tx.$queryRaw.mock.calls[0][0] as Prisma.Sql;
+    expect(query.values).toContain(from.toISOString());
+    expect(query.values).toContain(to.toISOString());
   });
 });
