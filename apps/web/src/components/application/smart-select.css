@@ -29,10 +29,6 @@
 .smart-select-control:has([aria-invalid="true"]) {
   border-color: #b33f38;
 }
-.smart-select-search-icon {
-  flex: none;
-  color: #a49262;
-}
 .smart-select input.smart-select-input {
   flex: 1;
   min-width: 0;
