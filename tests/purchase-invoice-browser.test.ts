@@ -100,6 +100,33 @@ describe("purchase invoice preview", () => {
         if (!before) {
           await ui(dialog).not.toContainText("ج.م");
           await ui(dialog).toContainText("50,095.00 EGP");
+          const table = dialog.locator(".invoice-table");
+          await ui(
+            table.getByRole("columnheader", {
+              name: "المقاس",
+              exact: true,
+              includeHidden: true,
+            }),
+          ).toHaveCount(1);
+          await ui(
+            table.getByRole("columnheader", {
+              name: "اللون",
+              exact: true,
+              includeHidden: true,
+            }),
+          ).toHaveCount(1);
+          const firstRow = table.locator("tbody tr").first();
+          await ui(firstRow.locator("td").nth(0)).toHaveText(
+            order.items[0].variant.product.nameAr,
+          );
+          await ui(firstRow.locator("td").nth(1)).toHaveText("12");
+          await ui(firstRow.locator("td").nth(2)).toHaveText("أزرق");
+          for (const cell of await firstRow.locator("td").all())
+            expect(
+              await cell.evaluate(
+                (node) => getComputedStyle(node).verticalAlign,
+              ),
+            ).toBe("middle");
           const pdf = dialog.getByRole("link", {
             name: "عرض PDF",
             exact: true,
