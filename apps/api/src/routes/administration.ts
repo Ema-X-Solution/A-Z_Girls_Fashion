@@ -58,3 +58,15 @@ administration.patch(
   can("users.manage"),
   controllers.handlePatchAdministrationUsersByIdRole,
 );
+
+administration.get(
+  "/administration/branches/:id/registers",
+  can("settings.manage"),
+  controllers.handleGetAdministrationBranchRegisters,
+);
+
+administration.get(
+  "/administration/branches/:id/locations",
+  can("settings.manage"),
+  controllers.handleGetAdministrationBranchLocations,
+);
