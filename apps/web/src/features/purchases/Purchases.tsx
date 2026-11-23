@@ -1,3 +1,7 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { variantOption } from "@az/shared";
 import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
@@ -14,14 +18,12 @@ import { Button } from "../../components/ui/button";
 import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
 import {
-  Loading,
   ErrorState,
   Modal,
   Field,
   Header,
   Badge,
   Table,
-  Pager,
 } from "../../components/application/Primitives";
 import { type Row } from "../../app/types";
 import { arabicFormValidation } from "../../components/application/arabicFormValidation";
@@ -43,10 +45,8 @@ const percent = (v: number) =>
   `${new Intl.NumberFormat("ar-EG-u-nu-latn", { maximumFractionDigits: 1 }).format(v)}٪`;
 
 export function Purchases() {
-  const [offset, setOffset] = useState(0),
-    query = useData(`/purchases?offset=${offset}`),
-    suppliers = useData("/suppliers?limit=100"),
-    locations = useData("/locations"),
+  const paging = usePagination(),
+    query = useData(`/purchases?${paging.query}`),
     outsideHandler = useRef<() => void>(() => {}),
     [open, setOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
@@ -70,7 +70,7 @@ export function Purchases() {
       </Header>
       <section className="panel">
         {query.isLoading ? (
-          <Loading />
+          <TableSkeleton />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
@@ -132,11 +132,7 @@ export function Purchases() {
                 },
               ]}
             />
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
-              length={query.data?.data.length ?? 0}
-            />
+            <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} length={query.data?.data.length ?? 0} total={query.data?.total ?? 0} disabled={query.isFetching} />
           </>
         )}
       </section>
@@ -147,8 +143,6 @@ export function Purchases() {
         onOutsideClick={() => outsideHandler.current()}
       >
         <PurchaseForm
-          suppliers={suppliers.data?.data ?? []}
-          locations={locations.data?.data ?? []}
           busy={action.busy}
           registerOutside={(fn) => (outsideHandler.current = fn)}
           close={() => setOpen(false)}
@@ -546,15 +540,11 @@ function clearPurchaseDraft() {
 }
 
 export function PurchaseForm({
-  suppliers,
-  locations,
   busy,
   submit,
   close,
   registerOutside,
 }: {
-  suppliers: Row[];
-  locations: Row[];
   busy: boolean;
   submit: (v: Row) => void;
   close: () => void;
@@ -776,32 +766,10 @@ export function PurchaseForm({
     >
       <div className="form-grid">
         <Field label={ar.supplier}>
-          <select
-            required
-            name="supplierId"
-            defaultValue={initialDraft?.supplierId ?? ""}
-          >
-            <option value="">اختر...</option>
-            {suppliers.map((s) => (
-              <option value={s.id} key={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <EntitySelect kind="suppliers" name="supplierId" label="المورد" initial={initialDraft?.supplierId ?? ""}/>
         </Field>
         <Field label={ar.location}>
-          <select
-            required
-            name="locationId"
-            defaultValue={initialDraft?.locationId ?? ""}
-          >
-            <option value="">اختر...</option>
-            {locations.map((l) => (
-              <option value={l.id} key={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+          <EntitySelect kind="locations" name="locationId" label="المخزن" initial={initialDraft?.locationId ?? ""}/>
         </Field>
       </div>
       {lineIds.map((id, i) => {
@@ -936,4 +904,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-              }
+                          }
