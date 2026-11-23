@@ -1,5 +1,5 @@
 import { Pagination } from "../../components/application/Pagination";
-import { TableSkeleton } from "../../components/application/Skeleton";
+import { FormSkeleton, TableSkeleton } from "../../components/application/Skeleton";
 import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,7 +16,12 @@ export function LoyaltySettings() {
     queryKey: ["loyalty-settings"],
     queryFn: () => api("/loyalty/settings"),
   });
-  if (query.isLoading) return <p>جارٍ تحميل إعدادات الولاء…</p>;
+  if (query.isLoading)
+    return (
+      <section className="panel settings-panel">
+        <FormSkeleton fields={2} withSubmit={false} label="جارٍ تحميل إعدادات الولاء" />
+      </section>
+    );
   if (query.error) return <ErrorMessage message={query.error.message} />;
   const data = query.data?.data;
   if (!data) return null;
@@ -53,8 +58,13 @@ export function LoyaltySettings() {
           }
         }}
       >
-        <label>
-          <input type="checkbox" name="enabled" defaultChecked={data.enabled} />{" "}
+        <label className="loyalty-enable">
+          <input
+            type="checkbox"
+            role="switch"
+            name="enabled"
+            defaultChecked={data.enabled}
+          />
           تفعيل برنامج الولاء
         </label>
         <div className="form-grid">
