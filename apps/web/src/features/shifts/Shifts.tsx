@@ -1,3 +1,5 @@
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ArrowUpLeft } from "lucide-react";
@@ -14,16 +16,14 @@ import {
   Header,
   Badge,
   Table,
-  Pager,
 } from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 import { type Row } from "../../app/types";
 
 export function Shifts() {
-  const [offset, setOffset] = useState(0),
-    query = useData(`/shifts?offset=${offset}`),
+  const paging = usePagination(),
+    query = useData(`/shifts?${paging.query}`),
     current = useData("/shifts/current"),
-    registers = useData("/registers"),
     [open, setOpen] = useState(false),
     [openError, setOpenError] = useState(""),
     [closing, setClosing] = useState<Row | null>(null),
@@ -31,7 +31,7 @@ export function Shifts() {
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Cairo",
   }).format(new Date());
-  const todayClosed = query.data?.data?.find(
+  const todayClosed = query.data?.todayClosed ?? query.data?.data?.find(
     (r: Row) =>
       r.closedAt &&
       new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(
@@ -132,10 +132,14 @@ export function Shifts() {
                 },
               ]}
             />
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              onPageChange={paging.setPage}
+              onPageSizeChange={paging.setPageSize}
+              total={query.data?.total ?? 0}
               length={query.data?.data.length ?? 0}
+              disabled={query.isFetching}
             />
           </>
         )}
@@ -147,11 +151,7 @@ export function Shifts() {
             {
               key: "registerId",
               label: ar.register,
-              options:
-                registers.data?.data.map((r: Row) => ({
-                  value: r.id,
-                  label: r.name,
-                })) ?? [],
+              pickerEndpoint: "/options/registers",
             },
             simple("openingCash", "النقد الافتتاحي", "number"),
           ]}
