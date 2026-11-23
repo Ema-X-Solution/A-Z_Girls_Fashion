@@ -108,6 +108,184 @@ export function CardSkeleton({
   );
 }
 
+const LOADER_PARTICLES = [15, 65, 110, 160, 205, 250, 295, 340].map(
+  (deg, i) => {
+    const rad = (deg * Math.PI) / 180;
+    const dist = 150 + (i % 3) * 26;
+    return {
+      x: Math.cos(rad) * dist,
+      y: Math.sin(rad) * dist,
+      delay: (i * 0.09).toFixed(2),
+    };
+  },
+);
+
+export function AppLoader({
+  label = "جارٍ تحميل النظام",
+  theme = "dark",
+}: {
+  label?: string;
+  /** "dark" is the default; "light" uses the light-theme CSS variable overrides. */
+  theme?: "dark" | "light";
+}) {
+  return (
+    <div
+      className={theme === "light" ? "app-loader app-loader--light" : "app-loader"}
+      role="status"
+      aria-label={label}
+      aria-busy="true"
+    >
+      <span className="skeleton-sr-only">{label}</span>
+      <div className="app-loader-stage" aria-hidden="true">
+        <svg className="app-loader-orbit" viewBox="0 0 100 100">
+          <circle className="app-loader-orbit-ring" cx="50" cy="50" r="48" />
+          <circle className="app-loader-orbit-tail" cx="50" cy="50" r="48" />
+          <circle className="app-loader-orbit-arc" cx="50" cy="50" r="48" />
+        </svg>
+        <span className="app-loader-particles">
+          {LOADER_PARTICLES.map((p, i) => (
+            <span
+              className="app-loader-particle"
+              key={i}
+              style={
+                {
+                  "--px": `${p.x.toFixed(1)}px`,
+                  "--py": `${p.y.toFixed(1)}px`,
+                  "--pd": `-${p.delay}s`,
+                } as React.CSSProperties
+              }
+            />
+          ))}
+        </span>
+        <span className="app-loader-logo">
+          <img src="/brand/az-logo.jpg" alt="" />
+          <span className="app-loader-sheen" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function DashboardSkeleton({
+  label = "جارٍ تحميل لوحة المتابعة",
+}: {
+  label?: string;
+}) {
+  const bars = [42, 68, 55, 80, 62, 74, 50];
+  return (
+    <LoadingRegion label={label}>
+      <div dir="rtl">
+        <div className="stat-grid">
+          {Array.from({ length: 4 }, (_, i) => (
+            <section
+              className={`stat-card skeleton-stat${
+                i === 0 ? " skeleton-stat-featured" : ""
+              }`}
+              key={i}
+            >
+              <Skeleton width="50%" height={10} />
+              <Skeleton width="65%" height={24} />
+              <Skeleton width="35%" height={8} />
+            </section>
+          ))}
+        </div>
+        <div className="dashboard-grid">
+          <section className="panel skeleton-panel">
+            <Skeleton width="28%" height={12} />
+            <div className="skeleton-chart">
+              {bars.map((height, i) => (
+                <span className="skeleton-chart-bar" key={i}>
+                  <Skeleton width="100%" height={`${height}%`} />
+                </span>
+              ))}
+            </div>
+          </section>
+          <section className="panel skeleton-panel">
+            <Skeleton width="40%" height={12} />
+            <div className="skeleton-summary">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div className="skeleton-summary-row" key={i}>
+                  <Skeleton width="45%" />
+                  <Skeleton width="20%" />
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </LoadingRegion>
+  );
+}
+
+export function FormSkeleton({
+  fields = 6,
+  withSubmit = true,
+  label = "جارٍ تحميل النموذج",
+}: {
+  fields?: number;
+  withSubmit?: boolean;
+  label?: string;
+}) {
+  return (
+    <LoadingRegion label={label}>
+      <div dir="rtl">
+        <div className="form-grid">
+          {Array.from({ length: fields }, (_, i) => (
+            <div className="skeleton-field" key={i}>
+              <Skeleton width="35%" height={10} />
+              <Skeleton width="100%" height={34} />
+            </div>
+          ))}
+        </div>
+        {withSubmit && (
+          <div className="skeleton-form-submit">
+            <Skeleton width={130} height={36} />
+          </div>
+        )}
+      </div>
+    </LoadingRegion>
+  );
+}
+
+export function ReceiptSkeleton({
+  label = "جارٍ تحميل الفاتورة",
+}: {
+  label?: string;
+}) {
+  return (
+    <LoadingRegion label={label}>
+      <div className="receipt-skeleton" dir="rtl">
+        <Skeleton width={64} height={64} rounded />
+        <Skeleton width="45%" height={16} />
+        <Skeleton width="60%" />
+        <div className="receipt-skeleton-lines">
+          <Skeleton width="80%" />
+          <Skeleton width="70%" />
+        </div>
+        <div className="receipt-skeleton-rows">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div className="receipt-skeleton-row" key={i}>
+              <Skeleton width="40%" />
+              <Skeleton width="15%" />
+              <Skeleton width="15%" />
+              <Skeleton width="18%" />
+            </div>
+          ))}
+        </div>
+        <div className="receipt-skeleton-lines">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div className="receipt-skeleton-row" key={i}>
+              <Skeleton width="35%" />
+              <Skeleton width="20%" />
+            </div>
+          ))}
+        </div>
+        <Skeleton width="55%" height={40} />
+      </div>
+    </LoadingRegion>
+  );
+}
+
 export function PickerOptionsSkeleton({
   count = 4,
   label = "جارٍ تحميل الخيارات",
