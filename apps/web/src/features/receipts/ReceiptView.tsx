@@ -529,4 +529,4 @@ export function ReceiptView({
       )}
     </>
   );
-}
+            }
