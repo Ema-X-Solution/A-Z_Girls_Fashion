@@ -69,7 +69,7 @@ describe("audit names and expense error lifecycle", () => {
               },
             });
             return;
-          } else if (path === "/api/expense-categories")
+          } else if (["/api/expense-categories","/api/options/expense-categories"].includes(path))
             data = [{ id, name: "نقل تجريبي", active: true }];
           else if (path === "/api/audit-logs")
             data = [
