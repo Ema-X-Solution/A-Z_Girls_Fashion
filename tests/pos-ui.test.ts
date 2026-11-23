@@ -333,7 +333,7 @@ describe("POS desktop and RTL mobile regression", () => {
     let opens = 0;
     await h.context.route("**/api/**", async (route) => {
       const path = new URL(route.request().url()).pathname;
-      if (path === "/api/registers")
+      if (["/api/registers","/api/options/registers"].includes(path))
         return route.fulfill({
           json: { data: [{ id: shiftId, name: "TEST register" }] },
         });
