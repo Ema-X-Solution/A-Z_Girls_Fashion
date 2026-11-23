@@ -12,7 +12,7 @@ export function readableError(error: unknown) {
     RETURN_PERIOD: "انتهت مدة الإرجاع المسموح بها لهذه الفاتورة.",
     RETURN_QUANTITY: "كمية المرتجع أكبر من الكمية المتاحة للإرجاع.",
     INSUFFICIENT_STOCK: "الكمية المطلوبة أكبر من المخزون المتاح في مكان البيع.",
-    SHIFT_EXISTS: "توجد وردية مفتوحة بالفعل لهذا الجهاز أو الكاشير.",
+    SHIFT_EXISTS: "توجد وردية مفتوحة بالفعل لدرج المحل.",
     SHIFT_CLOSED: "افتح وردية قبل تنفيذ هذه العملية.",
     REGISTER_INACTIVE: "الجهاز أو الفرع غير نشط.",
     EXPORT_LIMIT:

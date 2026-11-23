@@ -91,6 +91,8 @@ describe("invoice tax visibility setting", () => {
       expect((await request(app).get("/store")).body.data).toEqual({
         ...fixture,
         showTaxOnInvoice,
+        // Added by the shared-drawer feature; defaults to 1%.
+        cashierCommissionRate: "1",
       });
     }
   });

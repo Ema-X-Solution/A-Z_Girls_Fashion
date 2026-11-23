@@ -52,6 +52,11 @@ export function POS() {
   const scanInput = useRef<HTMLInputElement>(null);
   const { discount, discountType, itemDiscounts, payments, customer, notes } =
     workspace.active;
+  const selectedCashier = workspace.active.cashierId ?? "";
+  const cashiers = useQuery({
+    queryKey: ["pos-cashiers"],
+    queryFn: () => api("/sales/cashiers"),
+  });
   const pending = workspace.pending;
   const frozen =
     busy ||
@@ -226,6 +231,7 @@ export function POS() {
       : {}),
     ...(customer ? { customerId: customer } : {}),
     notes,
+    cashierId: selectedCashier || undefined,
     shiftId: shift.data?.data?.id,
     items,
     discount: discount || "0",
@@ -324,25 +330,30 @@ export function POS() {
             ? "جارٍ التحقق من الوردية..."
             : !shift.data?.data
               ? "افتح وردية أولًا لإتمام البيع."
-              : !cart.items.length
-                ? "أضف صنفًا إلى الفاتورة أولًا."
-                : !customer
-                  ? "اختر العميل قبل إتمام البيع."
-                  : stockProblem
-                    ? "كمية أحد الأصناف أكبر من المتاح في مكان البيع. قلل الكمية أو احذف الصنف."
-                    : !validatedCheckout.success
-                      ? invalidMessage
-                      : summary.total < 0n
-                        ? "الخصم أكبر من قيمة الفاتورة. راجع الخصم."
-                        : quote.isFetching
-                          ? "جارٍ مراجعة أسعار الفاتورة والخصومات..."
-                          : quoteError
-                            ? approvalError(quoteError)
-                            : paid < summary.total
-                              ? "المبلغ المستلم أقل من المستحق. راجع الدفعات."
-                              : paid - summary.total > cash
-                                ? "الزيادة في الدفع مسموحة نقدًا فقط. راجع الدفعات."
-                                : "";
+              : !selectedCashier ||
+                  !cashiers.data?.data.some(
+                    (c: Row) => c.id === selectedCashier,
+                  )
+                ? "اختر اسم الكاشير قبل إتمام البيع."
+                : !cart.items.length
+                  ? "أضف صنفًا إلى الفاتورة أولًا."
+                  : !customer
+                    ? "اختر العميل قبل إتمام البيع."
+                    : stockProblem
+                      ? "كمية أحد الأصناف أكبر من المتاح في مكان البيع. قلل الكمية أو احذف الصنف."
+                      : !validatedCheckout.success
+                        ? invalidMessage
+                        : summary.total < 0n
+                          ? "الخصم أكبر من قيمة الفاتورة. راجع الخصم."
+                          : quote.isFetching
+                            ? "جارٍ مراجعة أسعار الفاتورة والخصومات..."
+                            : quoteError
+                              ? approvalError(quoteError)
+                              : paid < summary.total
+                                ? "المبلغ المستلم أقل من المستحق. راجع الدفعات."
+                                : paid - summary.total > cash
+                                  ? "الزيادة في الدفع مسموحة نقدًا فقط. راجع الدفعات."
+                                  : "";
   const currentPrice = (item: CartDraft["items"][number]) =>
     quote.data?.data.items?.find(
       (line: Row) => line.variantId === item.variant.id,
@@ -362,7 +373,10 @@ export function POS() {
     };
   }, [ready, workspace.receiptId]);
   function clear() {
-    commit((w) => ({ ...w, active: emptyDraft() }));
+    commit((w) => ({
+      ...w,
+      active: { ...emptyDraft(), cashierId: w.active.cashierId },
+    }));
     setError("");
   }
   async function scan(e: FormEvent) {
@@ -425,7 +439,7 @@ export function POS() {
     if (
       !commit((w) => ({
         ...w,
-        active: emptyDraft(),
+        active: { ...emptyDraft(), cashierId: w.active.cashierId },
         pending: null,
         receiptId: sale.id,
       }))
@@ -656,7 +670,9 @@ export function POS() {
                           </div>
                           <strong>{p.nameAr}</strong>
                           <small>
-                            {formatDigits(Object.values(v.options).join(" / ")) || v.sku}
+                            {formatDigits(
+                              Object.values(v.options).join(" / "),
+                            ) || v.sku}
                           </small>
                           <div
                             style={{
@@ -730,7 +746,11 @@ export function POS() {
                         <div>
                           <strong>{i.variant.product?.nameAr}</strong>
                           <small>
-                            {formatDigits(Object.values(i.variant.options ?? {}).join(" / "))}
+                            {formatDigits(
+                              Object.values(i.variant.options ?? {}).join(
+                                " / ",
+                              ),
+                            )}
                           </small>
                           <b>{fm(currentPrice(i))}</b>
                         </div>
@@ -1037,6 +1057,42 @@ export function POS() {
                 <h3 className="pos-section-heading">
                   <CreditCard size={15} /> طريقة الدفع
                 </h3>
+                <Field label="اسم الكاشير">
+                  {(id) => (
+                    <select
+                      id={id}
+                      aria-label="اسم الكاشير"
+                      value={selectedCashier}
+                      disabled={
+                        frozen || cashiers.isLoading || !!cashiers.error
+                      }
+                      onChange={(e) =>
+                        field("cashierId", e.target.value || undefined)
+                      }
+                    >
+                      <option value="">اختر اسمك قبل الدفع</option>
+                      {(cashiers.data?.data ?? []).map((c: Row) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+                {cashiers.error ? (
+                  <ErrorMessage message="تعذر تحميل أسماء الكاشيرين. أعد تحميل الصفحة قبل البيع." />
+                ) : !cashiers.isLoading && !cashiers.data?.data?.length ? (
+                  <ErrorMessage
+                    message={
+                      'مفيش كاشير متاح. من المستخدمين، اربط مستخدمًا نشطًا بدور "كاشير".'
+                    }
+                  />
+                ) : (
+                  <p className="note">
+                    الاسم هيتسجل على الفاتورة. آخر اختيار محفوظ على الجهاز، من
+                    غير PIN.
+                  </p>
+                )}
                 <PaymentEditor
                   value={payments}
                   onChange={setPayments}
@@ -1124,4 +1180,4 @@ export function POS() {
       </Modal>
     </div>
   );
-    }
+}

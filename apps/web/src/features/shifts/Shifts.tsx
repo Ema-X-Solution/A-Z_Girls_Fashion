@@ -28,13 +28,27 @@ export function Shifts() {
     [openError, setOpenError] = useState(""),
     [closing, setClosing] = useState<Row | null>(null),
     action = useAction();
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+  }).format(new Date());
+  const todayClosed = query.data?.data?.find(
+    (r: Row) =>
+      r.closedAt &&
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(
+        new Date(r.openedAt),
+      ) === today,
+  );
+  const reopen = (id: string) =>
+    void action.run(() =>
+      post(`/shifts/${id}/reopen`, {}, crypto.randomUUID()),
+    );
   return (
     <>
       <Header
-        title={ar.shifts}
-        subtitle="رصيد افتتاحي واضح، وإغلاق قابل للمراجعة"
+        title="ورديات درج المحل"
+        subtitle="درج واحد لكل الكاشيرين، والعجز أو الزيادة على الدرج فقط"
       >
-        {!current.data?.data && (
+        {!current.data?.data && !todayClosed && (
           <Button
             onClick={() => {
               setOpenError("");
@@ -46,6 +60,17 @@ export function Shifts() {
           </Button>
         )}
       </Header>
+      {!current.data?.data && todayClosed && (
+        <div className="notice">
+          <span>
+            وردية اليوم مغلقة. عجز / زيادة الدرج: {fm(todayClosed.difference)}.
+            الفرق على الدرج كله.
+          </span>
+          <Button disabled={action.busy} onClick={() => reopen(todayClosed.id)}>
+            إعادة فتح وردية اليوم
+          </Button>
+        </div>
+      )}
       {current.data?.data && (
         <div className="notice">
           <span className="status-dot" />
@@ -100,7 +125,9 @@ export function Shifts() {
                         إغلاق الوردية
                       </Button>
                     ) : (
-                      <Badge value="مغلقة" />
+                      <div>
+                        <Badge value="مغلقة" />
+                      </div>
                     ),
                 },
               ]}
@@ -151,8 +178,8 @@ export function Shifts() {
         onClose={() => setClosing(null)}
       >
         <p>
-          أدخل النقد الفعلي بعد عدّ الدرج. يُحسب العجز أو الزيادة على الخادم ويُحفظ
-          نهائياً.
+          أدخل النقد الفعلي بعد عدّ الدرج. الحساب يشمل رصيد الافتتاح وحركات الكاش
+          لكل الكاشيرين فقط، بدون البطاقة أو المحفظة.
         </p>
         <EntryForm
           fields={[

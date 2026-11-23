@@ -10,6 +10,7 @@ const payment = z.object({
   cardLast4: text,
 });
 const draftSchema = z.object({
+  cashierId: z.string().uuid().optional(),
   customerSearch: z.string().max(100).optional(),
   customerNameDraft: z.string().max(200).optional(),
   loyaltyPoints: z.number().int().min(0).max(1000000).optional(),
@@ -96,4 +97,4 @@ export function saveWorkspace(
   if (encoded.length > 2_000_000) throw new Error("Workspace too large");
   storage.setItem(workspaceKey(userId), encoded);
   return clean;
-  }
+}

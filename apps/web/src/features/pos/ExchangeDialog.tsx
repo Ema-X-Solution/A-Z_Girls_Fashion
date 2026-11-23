@@ -23,6 +23,7 @@ export function ExchangeDialog({
     [replacement, setReplacement] = useState<
       { variant?: Row; quantity: number }[]
     >([{ quantity: 1 }]),
+    [cashierId, setCashierId] = useState(""),
     [q, setQ] = useState(""),
     [reason, setReason] = useState(""),
     [reasonType, setReasonType] = useState("CHANGE_MIND"),
@@ -35,6 +36,10 @@ export function ExchangeDialog({
     [done, setDone] = useState<Row | null>(null),
     [key, setKey] = useState(() => crypto.randomUUID());
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
+  const cashiers = useQuery({
+    queryKey: ["pos-cashiers"],
+    queryFn: () => api("/sales/cashiers"),
+  });
   const shift = useQuery({
       queryKey: ["exchange-shift"],
       queryFn: () => api("/shifts/current"),
@@ -64,6 +69,7 @@ export function ExchangeDialog({
         .map(([saleItemId, v]) => ({ saleItemId, ...v })),
     },
     replacement: {
+      cashierId: cashierId || undefined,
       shiftId: shift.data?.data?.id,
       items: replacement
         .filter((r) => r.variant)
@@ -102,10 +108,15 @@ export function ExchangeDialog({
       payments,
       discount,
       discountType,
+      cashierId,
     ],
   );
   async function submit() {
     if (busy) return;
+    if (!cashierId) {
+      setError("اختر اسم الكاشير للفاتورة البديلة.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -148,7 +159,31 @@ export function ExchangeDialog({
             تُسجّل المرتجعات والبدائل معًا، ويتم تحصيل أو رد فرق السعر فقط.
           </p>
           {!shift.isLoading && !shift.data?.data && (
-            <p className="notice">افتح وردية باسمك لإتمام الاستبدال.</p>
+            <p className="notice">افتح وردية الدرج لإتمام الاستبدال.</p>
+          )}
+          <Field label="اسم الكاشير للفاتورة البديلة">
+            {(id) => (
+              <select
+                id={id}
+                value={cashierId}
+                disabled={busy}
+                onChange={(e) => setCashierId(e.target.value)}
+              >
+                <option value="">اختر اسم الكاشير</option>
+                {(cashiers.data?.data ?? []).map((c: Row) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          {!cashiers.isLoading && !cashiers.data?.data?.length && (
+            <ErrorMessage
+              message={
+                'مفيش كاشير متاح. اربط مستخدمًا نشطًا بدور اسمه "كاشير" بالضبط.'
+              }
+            />
           )}
           <h3>الأصناف المرتجعة</h3>
           {sale.items
@@ -271,8 +306,10 @@ export function ExchangeDialog({
                       {options.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.name} •{" "}
-                          {formatDigits(Object.values(v.options ?? {}).join(" / "))} • {v.sku}{" "}
-                          • {fm(v.price)}
+                          {formatDigits(
+                            Object.values(v.options ?? {}).join(" / "),
+                          )}{" "}
+                          • {v.sku} • {fm(v.price)}
                         </option>
                       ))}
                     </select>

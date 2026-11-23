@@ -216,16 +216,60 @@ export function Reports() {
         ) : (
           <>
             <PageState query={query} />
-            <Grid
-              rows={valid ? (query.data?.data ?? []) : []}
-              columns={(query.data?.columns ?? []).map(
-                (c: { key: string; label: string }) => ({
-                  label: c.label,
-                  render: (r: Record<string, unknown>) =>
-                    String(r[c.key] ?? "—"),
-                }),
-              )}
-            />
+            {kind === "cashier" ? (
+              <>
+                <p className="management-note">
+                  العمولة على إجمالي الفواتير شامل الضريبة بعد خصم المرتجعات، بالنسبة
+                  الحالية في الإعدادات.
+                </p>
+                {(valid ? (query.data?.data ?? []) : []).map(
+                  (row: Record<string, unknown>, index: number) => (
+                    <section
+                      key={String(row.label ?? index)}
+                      className="panel cashier-report-card"
+                    >
+                      <h3>{String(row.label ?? "كاشير")}</h3>
+                      <p className="cashier-commission">
+                        <span>
+                          نسبة العمولة:{" "}
+                          <b>{String(row.commissionRate ?? "1.00")}%</b>
+                        </span>
+                        <span>
+                          قيمة العمولة:{" "}
+                          <b>{String(row.commission ?? "0.00")} ج.م.</b>
+                        </span>
+                      </p>
+                      <Grid
+                        rows={[row]}
+                        columns={(query.data?.columns ?? [])
+                          .filter(
+                            (c: { key: string }) =>
+                              !["label", "commissionRate", "commission"].includes(
+                                c.key,
+                              ),
+                          )
+                          .map((c: { key: string; label: string }) => ({
+                            label: c.label,
+                            render: (r: Record<string, unknown>) =>
+                              String(r[c.key] ?? "—"),
+                          }))}
+                      />
+                    </section>
+                  ),
+                )}
+              </>
+            ) : (
+              <Grid
+                rows={valid ? (query.data?.data ?? []) : []}
+                columns={(query.data?.columns ?? []).map(
+                  (c: { key: string; label: string }) => ({
+                    label: c.label,
+                    render: (r: Record<string, unknown>) =>
+                      String(r[c.key] ?? "—"),
+                  }),
+                )}
+              />
+            )}
           </>
         )}
         <div className="report-controls">
