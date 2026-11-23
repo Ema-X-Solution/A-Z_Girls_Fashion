@@ -1,3 +1,4 @@
+import { pagination, usesPagination } from "./pagination.js";
 import express, { type RequestHandler } from "express";
 import { z } from "zod";
 import { id } from "@az/shared";
@@ -11,7 +12,16 @@ export const route =
 
 export const uuid = (v: unknown) => id.parse(v);
 
-export function page(query: { readonly limit?: unknown; readonly offset?: unknown }) {
+export function page(query: {
+  readonly limit?: unknown;
+  readonly offset?: unknown;
+  readonly page?: unknown;
+  readonly pageSize?: unknown;
+}) {
+  if (usesPagination(query)) {
+    const { skip, take } = pagination(query);
+    return { skip, take };
+  }
   return {
     take: z.coerce
       .number()
