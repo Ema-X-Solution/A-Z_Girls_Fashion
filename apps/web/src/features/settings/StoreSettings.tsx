@@ -6,10 +6,10 @@ import { LoyaltySettings } from "../customers/Loyalty";
 import { useAction } from "../../app/notifications";
 import { useData } from "../../hooks/useData";
 import {
-  Loading,
   ErrorState,
   Header,
 } from "../../components/application/Primitives";
+import { FormSkeleton } from "../../components/application/Skeleton";
 import { EntryForm, simple } from "../../components/application/EntryForm";
 
 export function StoreSettings() {
@@ -25,7 +25,7 @@ export function StoreSettings() {
       <LoyaltySettings />
       <section className="panel settings-panel">
         {query.isLoading ? (
-          <Loading />
+          <FormSkeleton fields={6} label="جارٍ تحميل إعدادات المتجر" />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
