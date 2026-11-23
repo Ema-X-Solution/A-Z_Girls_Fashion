@@ -1,3 +1,4 @@
+/* global URL */
 import { chromium } from "@playwright/test";
 import { preview } from "vite";
 import { resolve } from "node:path";
