@@ -1,3 +1,6 @@
+import { locationLabels } from "../services/location-labels.js";
+import { page } from "../utils/http.js";
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id, money } from "@az/shared";
@@ -173,12 +176,7 @@ function safe(document: any, costs: boolean) {
 
 export const handleGetInventoryDocuments: RequestHandler = async (req, res, next) => {
     try {
-      const skip = z.coerce
-          .number()
-          .int()
-          .min(0)
-          .default(0)
-          .parse(req.query.offset),
+      const {skip,take}=page(req.query),
         type = z
           .enum(["TRANSFER", "DAMAGE", "ADJUSTMENT"])
           .optional()
@@ -189,16 +187,14 @@ export const handleGetInventoryDocuments: RequestHandler = async (req, res, next
           include: { items: true },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           skip,
-          take: 30,
+          take,
         }),
         db.stockDocument.count({ where: { type } }),
       ]);
-      res.json({
-        data: rows.map((row) =>
-          safe(row, actor(req).permissions.includes("reports.profit")),
-        ),
-        total,
-      });
+      const names=await locationLabels(rows);
+      res.json(listResult(req.query, rows.map((row) =>
+          safe({...row,sourceName:names.get(row.sourceId),destinationName:row.destinationId?names.get(row.destinationId):null}, actor(req).permissions.includes("reports.profit")),
+        ), total));
     } catch (e) {
       next(e);
     }
