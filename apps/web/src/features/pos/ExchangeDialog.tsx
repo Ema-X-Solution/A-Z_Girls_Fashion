@@ -1,7 +1,7 @@
 import { SmartSelect } from "../../components/application/SmartSelect";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, post } from "../../api";
+import { api, post, useSession } from "../../api";
 import { Button } from "../../components/ui/button";
 import { formatDigits, formatMoney as fm } from "../../i18n";
 import { Modal, Field, ErrorMessage } from "../shared/Controls";
@@ -16,6 +16,11 @@ export function ExchangeDialog({
   sale: Row;
   close: () => void;
 }) {
+  const user = useSession((s) => s.user);
+  const canSellAsSelf =
+    user?.roles.some(
+      (role: string) => role === "OWNER" || role === "MANAGER",
+    ) ?? false;
   const client = useQueryClient(),
     [selected, setSelected] = useState<
       Record<string, { quantity: number; sellable: boolean }>
@@ -56,7 +61,7 @@ export function ExchangeDialog({
         .map(([saleItemId, v]) => ({ saleItemId, ...v })),
     },
     replacement: {
-      cashierId: cashierId || undefined,
+      cashierId: canSellAsSelf ? undefined : cashierId || undefined,
       shiftId: shift.data?.data?.id,
       items: replacement
         .filter((r) => r.variant)
@@ -100,7 +105,7 @@ export function ExchangeDialog({
   );
   async function submit() {
     if (busy) return;
-    if (!cashierId) {
+    if (!cashierId && !canSellAsSelf) {
       setError("اختر اسم الكاشير للفاتورة البديلة.");
       return;
     }
@@ -148,27 +153,34 @@ export function ExchangeDialog({
           {!shift.isLoading && !shift.data?.data && (
             <p className="notice">افتح وردية الدرج لإتمام الاستبدال.</p>
           )}
-          <Field label="اسم الكاشير للفاتورة البديلة">
-            {(id) => (
-              <SmartSelect
-                id={id}
-                name="cashierId"
-                label="اسم الكاشير للفاتورة البديلة"
-                value={cashierId}
-                disabled={busy}
-                endpoint="/sales/cashiers"
-                placeholder="ابحث باسم الكاشير"
-                optionLabel={(row) => row.name}
-                onChange={(row) => setCashierId(row.id)}
-              />
-            )}
-          </Field>
-          {!cashiers.isLoading && !cashiers.data?.data?.length && (
-            <ErrorMessage
-              message={
-                'مفيش كاشير متاح. اربط مستخدمًا نشطًا بدور اسمه "كاشير" بالضبط.'
-              }
-            />
+          {!canSellAsSelf && (
+            <>
+              <Field label="اسم الكاشير للفاتورة البديلة">
+                {(id) => (
+                  <SmartSelect
+                    id={id}
+                    name="cashierId"
+                    required={!canSellAsSelf}
+                    label="اسم الكاشير للفاتورة البديلة"
+                    value={cashierId}
+                    disabled={busy}
+                    endpoint="/sales/cashiers"
+                    placeholder="ابحث باسم الكاشير"
+                    optionLabel={(row) => row.name}
+                    onChange={(row) => setCashierId(row.id)}
+                  />
+                )}
+              </Field>
+              {!canSellAsSelf &&
+                !cashiers.isLoading &&
+                !cashiers.data?.data?.length && (
+                  <ErrorMessage
+                    message={
+                      'مفيش كاشير متاح. اربط مستخدمًا نشطًا بدور اسمه "كاشير" بالضبط.'
+                    }
+                  />
+                )}
+            </>
           )}
           <h3>الأصناف المرتجعة</h3>
           {sale.items
@@ -412,4 +424,4 @@ export function ExchangeDialog({
       )}
     </Modal>
   );
-                    }
+                                             }
