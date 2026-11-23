@@ -1,3 +1,4 @@
+export { variantOption } from "./variant-options.js";
 import { z } from "zod";
 export {
   asciiPhone,
