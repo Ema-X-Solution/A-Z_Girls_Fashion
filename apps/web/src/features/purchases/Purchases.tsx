@@ -1,3 +1,4 @@
+import { variantOption } from "@az/shared";
 import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Eye, Printer, Trash2, FileText } from "lucide-react";
@@ -414,10 +415,12 @@ function PurchaseInvoice({ order }: { order: Row }) {
               </td>
               <td>
                 <bdi>
-                  {formatDigits(String(i.variant?.options?.size ?? "—"))}
+                  {formatDigits(
+                    variantOption(i.variant?.options, "size") || "—",
+                  )}
                 </bdi>
               </td>
-              <td>{i.variant?.options?.color ?? "—"}</td>
+              <td>{variantOption(i.variant?.options, "color") || "—"}</td>
               <td>{i.quantity}</td>
               <td>{i.received}</td>
               <td>
@@ -947,4 +950,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-}
+       }

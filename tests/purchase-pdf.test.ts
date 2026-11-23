@@ -25,7 +25,7 @@ const order = {
       unitCost: D("2675.00"),
       variant: {
         sku: "DRESS",
-        options: { size: "12", color: "أزرق" },
+        options: { المقاس: "12", اللون: "أزرق" },
         product: { nameAr: "فستان بناتي صيفي قطن مطبوع بالورود" },
       },
     },
