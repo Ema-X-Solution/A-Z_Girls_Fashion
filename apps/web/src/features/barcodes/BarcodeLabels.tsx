@@ -127,6 +127,12 @@ function Label({
   );
 }
 
+// The barcode catalog has no location filter: its quantity is the net stock
+// across the balances supplied by the server. Never silently cap this at 500.
+function stockQuantity(variant: Variant) {
+  return Math.max(0, variant.balances?.reduce((sum, balance) => sum + balance.quantity, 0) ?? 0);
+}
+
 export function BarcodeLabels({ product }: { product?: Product }) {
   const [params] = useSearchParams(),
     receiptId = product ? null : params.get("receiptId"),
@@ -138,7 +144,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
       Object.fromEntries(
         (product?.variants.filter((v) => v.active) ?? []).map((v) => [
           v.id,
-          { variant: v, name: product!.nameAr, quantity: 1 },
+          { variant: v, name: product!.nameAr, quantity: stockQuantity(v) },
         ]),
       ),
     ),
@@ -194,7 +200,9 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         ? (receipt.data?.data.products ?? [])
         : (query.data?.data ?? []),
     size = presets[preset] ?? { width: customWidth, height: customHeight },
-    total = Object.values(selected).reduce((s, i) => s + i.quantity, 0);
+    total = Object.values(selected).reduce((s, i) => s + i.quantity, 0),
+    printableCount = Object.values(selected).filter((item) => item.quantity > 0).length,
+    overLimit = total > 500 || printableCount > 100;
   const visibleVariants = products.flatMap((p) =>
     p.variants.filter((v) => v.active).map((variant) => ({ variant, name: p.nameAr })),
   );
@@ -204,7 +212,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     setSelected((old) => {
       const next = { ...old };
       for (const { variant, name } of visibleVariants) {
-        if (checked) next[variant.id] ??= { variant, name, quantity: 1 };
+        if (checked) next[variant.id] ??= { variant, name, quantity: receiptId ? (receipt.data?.data.quantities[variant.id] ?? 0) : stockQuantity(variant) };
         else delete next[variant.id];
       }
       return next;
@@ -247,11 +255,12 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     setError("");
   }
   async function prepare() {
+    if (!total || overLimit) return;
     setBusy(true);
     setError("");
     try {
       const response = await post("/barcodes/print-labels", {
-        items: Object.entries(selected).map(([variantId, v]) => ({
+        items: Object.entries(selected).filter(([, value]) => value.quantity > 0).map(([variantId, v]) => ({
           variantId,
           quantity: v.quantity,
         })),
@@ -364,7 +373,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                               change(
                                 v.id,
                                 e.target.checked
-                                  ? { variant: v, name: p.nameAr, quantity: 1 }
+                                  ? { variant: v, name: p.nameAr, quantity: receiptId ? (receipt.data?.data.quantities[v.id] ?? 0) : stockQuantity(v) }
                                   : null,
                               )
                             }
@@ -385,23 +394,16 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                           <input
                             className="label-quantity"
                             type="number"
-                            min="1"
-                            max="500"
+                            min="0"
                             step="1"
                             aria-label={`عدد ملصقات ${v.sku}`}
-                            value={selected[v.id]?.quantity ?? 1}
+                            value={selected[v.id]?.quantity ?? (receiptId ? (receipt.data?.data.quantities[v.id] ?? 0) : stockQuantity(v))}
                             disabled={!selected[v.id]}
                             onChange={(e) =>
                               change(v.id, {
                                 variant: v,
                                 name: p.nameAr,
-                                quantity: Math.max(
-                                  1,
-                                  Math.min(
-                                    500,
-                                    Math.trunc(Number(e.target.value) || 1),
-                                  ),
-                                ),
+                                quantity: Math.max(0, Math.trunc(Number(e.target.value) || 0)),
                               })
                             }
                           />
@@ -414,13 +416,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                               change(v.id, {
                                 variant: v,
                                 name: p.nameAr,
-                                quantity: Math.min(
-                                  500,
-                                  v.balances!.reduce(
-                                    (s, b) => s + b.quantity,
-                                    0,
-                                  ),
-                                ),
+                                quantity: stockQuantity(v),
                               })
                             }
                           >
@@ -538,14 +534,20 @@ export function BarcodeLabels({ product }: { product?: Product }) {
             {error}
           </p>
         )}
-        {total > 500 && (
+        <p className="barcode-help">
+          {receiptId
+            ? "الكمية الافتراضية حسب الكمية المستلمة في الفاتورة بعد المرتجعات."
+            : "الكمية الافتراضية هي صافي المخزون في كل المخازن. الصفر أو الرصيد السالب لا يطبع ملصقات."}
+          {" "}يمكن تعديل عدد الملصقات يدويًا؛ الكمية صفر تستبعد الصنف من الطباعة.
+        </p>
+        {overLimit && (
           <p className="barcode-error" role="alert">
-            الحد الأقصى 500 ملصق في الدفعة.
+            اخترت {printableCount} متغيرًا بإجمالي {total} ملصق. الحد الأقصى للدفعة 100 متغير و500 ملصق. قلل الكميات أو قسم الطباعة على دفعات؛ لم يتم تقليل الكميات تلقائيًا.
           </p>
         )}
         <div className="head-actions">
           <Button
-            disabled={!total || total > 500 || !validSize || busy}
+            disabled={!total || overLimit || !validSize || busy}
             onClick={() => void prepare()}
           >
             <RefreshCw size={16} />
