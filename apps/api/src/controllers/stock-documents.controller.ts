@@ -1,6 +1,7 @@
 import { locationLabels } from "../services/location-labels.js";
 import { page } from "../utils/http.js";
 import { listResult } from "../utils/pagination.js";
+import { exactOutCost } from "../services/fifo.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id, money } from "@az/shared";
@@ -114,10 +115,10 @@ export async function postStockDocument(
         },
       },
     });
-    const cost = line.cost !== undefined ? D(line.cost) : balance.averageCost;
+    let cost = line.cost !== undefined ? D(line.cost) : balance.averageCost;
     const quantity =
       input.type === "ADJUSTMENT" ? line.quantity : -line.quantity;
-    await stock(tx, user, {
+    cost = await stock(tx, user, {
       variantId: line.variantId,
       locationId: input.sourceId,
       quantity,
@@ -136,7 +137,8 @@ export async function postStockDocument(
         reference: documentId,
         reason: input.reason,
       });
-    totalCost = totalCost.plus(cost.mul(line.quantity));
+    const lineCost = quantity < 0 ? await exactOutCost(tx, documentId, input.type === "TRANSFER" ? "TRANSFER_OUT" : input.type, line.variantId) : cost.mul(line.quantity);
+    totalCost = totalCost.plus(line.quantity < 0 ? lineCost.negated() : lineCost);
     items.push({
       variantId: line.variantId,
       name: variant.product.nameAr,
