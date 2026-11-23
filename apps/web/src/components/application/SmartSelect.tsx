@@ -1,3 +1,4 @@
+import { PickerOptionsSkeleton } from "./Skeleton";
 import "./smart-select.css";
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +15,15 @@ export function SmartSelect({
   endpoint,
   label: fieldLabel,
   optionLabel: label,
+  searchLabel,
+  required = true,
+  disabled = false,
+  placeholder = "ابحث بالاسم أو الكود أو الباركود أو المقاس واللون",
 }: {
+  searchLabel?: string;
+  required?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
   id?: string;
   name: string;
   value: string;
@@ -33,7 +42,7 @@ export function SmartSelect({
     queryKey: [endpoint, debounced, offset, value],
     queryFn: ({ signal }) =>
       api<{ data: Row[]; hasMore: boolean; selected: Row | null }>(
-        `${endpoint}?q=${encodeURIComponent(debounced)}&offset=${offset}${value ? `&selected=${encodeURIComponent(value)}` : ""}`,
+        `${endpoint}${endpoint.includes("?") ? "&" : "?"}q=${encodeURIComponent(debounced)}&offset=${offset}${value ? `&selected=${encodeURIComponent(value)}` : ""}`,
         { signal },
       ),
     enabled: !pending,
@@ -47,12 +56,13 @@ export function SmartSelect({
   return (
     <div className="smart-select" dir="rtl">
       <label className="smart-select-label" htmlFor={searchId}>
-        بحث عن {fieldLabel}
+        {searchLabel ?? `بحث عن ${fieldLabel}`}
       </label>
       <input
         id={searchId}
         type="search"
-        placeholder="ابحث بالاسم أو الكود أو الباركود أو المقاس واللون"
+        disabled={disabled}
+        placeholder={placeholder}
         autoComplete="off"
         value={search}
         aria-describedby={statusId}
@@ -77,6 +87,11 @@ export function SmartSelect({
               ? `${options.length} نتيجة • صفحة ${offset / 50 + 1}`
               : "لا توجد أصناف مطابقة. جرّب كلمة أخرى."}
       </small>
+      {loading && (
+        <div aria-hidden="true">
+          <PickerOptionsSkeleton count={2} />
+        </div>
+      )}
       {query.error && (
         <Button
           type="button"
@@ -91,8 +106,9 @@ export function SmartSelect({
         key={`${debounced}:${offset}`}
         id={id}
         name={name}
-        required
-        aria-label="اختيار الصنف"
+        required={required}
+        disabled={disabled}
+        aria-label={id ? fieldLabel : "اختيار الصنف"}
         value={value}
         size={
           search && options.length ? Math.min(options.length + 1, 5) : undefined
@@ -101,7 +117,10 @@ export function SmartSelect({
           const variant = options.find(
             (option) => option.id === event.target.value,
           );
-          if (variant) {
+          if (!event.target.value && !required) {
+            setChosen(null);
+            onChange({ id: "", name: "" });
+          } else if (variant) {
             setChosen(variant);
             onChange(variant);
             setSearch("");
@@ -125,7 +144,7 @@ export function SmartSelect({
         <Button
           type="button"
           variant="outline"
-          disabled={loading || offset === 0}
+          disabled={disabled || loading || offset === 0}
           onClick={() => setOffset(offset - 50)}
         >
           السابق
@@ -134,7 +153,7 @@ export function SmartSelect({
         <Button
           type="button"
           variant="outline"
-          disabled={loading || !query.data?.hasMore}
+          disabled={disabled || loading || !query.data?.hasMore}
           onClick={() => setOffset(offset + 50)}
         >
           التالي
@@ -142,4 +161,4 @@ export function SmartSelect({
       </div>
     </div>
   );
-      }
+}
