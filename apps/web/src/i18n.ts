@@ -77,8 +77,11 @@ export const formatDate = (v: unknown, numberingSystem: "latn" = "latn") =>
   v
     ? new Intl.DateTimeFormat(displayLocale, {
         numberingSystem,
-        dateStyle: "medium",
-        timeStyle: "short",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
         timeZone: "Africa/Cairo",
       }).format(new Date(String(v)))
     : "—";
