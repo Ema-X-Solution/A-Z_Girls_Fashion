@@ -1,3 +1,4 @@
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id, money } from "@az/shared";
@@ -7,9 +8,9 @@ import { once, receive, receiveSchema } from "../services/operations.js";
 import { route, uuid, page } from "../utils/http.js";
 import { purchasePdf } from "../utils/purchase-pdf.js";
 
-export const handleGetPurchases: RequestHandler = route(async (req, res) =>
-    res.json({
-      data: await db.purchaseOrder.findMany({
+export const handleGetPurchases: RequestHandler = route(async (req, res) => {
+  const [data,total] = await Promise.all([
+    await db.purchaseOrder.findMany({
         include: {
           supplier: true,
           location: true,
@@ -19,11 +20,12 @@ export const handleGetPurchases: RequestHandler = route(async (req, res) =>
             orderBy: { createdAt: "asc" as const },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         ...page(req.query),
-      }),
-    }),
-  );
+      }), db.purchaseOrder.count(),
+  ]);
+  res.json(listResult(req.query,data,total));
+});
 
 export const handlePostPurchases: RequestHandler = route(async (req, res) => {
     const input = z
