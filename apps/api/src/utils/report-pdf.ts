@@ -60,10 +60,16 @@ function runsFor(text: string) {
 export async function reportPdf(
   res: Response,
   title: string,
-  columns: { key: string; label: string }[],
+  columns: { key: string; label: string; width?: number }[],
   rows: Record<string, unknown>[],
   period: string,
-  options: { filename?: string; disposition?: "inline" | "attachment"; metadata?: string[]; centerNumericCells?: boolean } = {},
+  options: {
+    filename?: string;
+    disposition?: "inline" | "attachment";
+    metadata?: string[];
+    centerCells?: boolean;
+    unifiedFont?: boolean;
+  } = {},
 ) {
   const pdf = new PDFDocument({
     size: "A4",
@@ -91,12 +97,23 @@ export async function reportPdf(
     .font("Arabic");
   const width = pdf.page.width - 64,
     cw = width / columns.length,
+    columnWidths = columns.map((c) =>
+      c.width === undefined ? cw : c.width * width,
+    ),
+    columnX = columns.map(
+      (_, i) =>
+        32 +
+        width -
+        columnWidths.slice(0, i + 1).reduce((sum, value) => sum + value, 0),
+    ),
     lineHeight = 17;
   let y = 0;
   // Amiri defaults neutral/digit-only shaping to RTL. Keep ASCII runs in
   // a Latin font so font shaping cannot reverse dates, times or signs.
   const fontFor = (value: string) =>
-    /^[\x20-\x7e]*$/.test(value) ? "Helvetica" : "Arabic";
+    !options.unifiedFont && /^[\x20-\x7e]*$/.test(value)
+      ? "Helvetica"
+      : "Arabic";
   const runWidth = (value: string) =>
     pdf.font(fontFor(value)).widthOfString(value, { features: [] });
   const measure = (value: string) =>
@@ -108,7 +125,6 @@ export async function reportPdf(
     let cursor = x + w - widths.reduce((s, v) => s + v, 0);
     runs.forEach((r, i) => {
       pdf.font(fontFor(r.text)).text(r.text, cursor, at, {
-        width: widths[i]! + 1,
         lineBreak: false,
         features: [],
       });
@@ -129,16 +145,16 @@ export async function reportPdf(
     }
     if (options.metadata?.length) y += 6;
     pdf.fontSize(11);
-    const labels = columns.map((c) => wrap(c.label));
+    const labels = columns.map((c, i) => wrap(c.label, columnWidths[i]! - 12));
     const height = Math.max(...labels.map((l) => l.length)) * lineHeight + 8;
     pdf.rect(32, y, width, height).fill("#eeeeee");
     labels.forEach((lines, i) =>
       lines.forEach((line, n) =>
         text(
           line,
-          32 + width - (i + 1) * cw + 5,
+          columnX[i]! + 5,
           y + 3 + n * lineHeight,
-          cw - 10,
+          columnWidths[i]! - 10,
           11,
         ),
       ),
@@ -147,7 +163,10 @@ export async function reportPdf(
   }
   function wrap(value: unknown, availableWidth = cw - 12): string[] {
     const normalized = normalizeReportText(String(value ?? "—"));
-    if (normalized.includes("\n")) return normalized.split("\n").flatMap(part => wrap(part, availableWidth));
+    if (normalized.includes("\n"))
+      return normalized
+        .split("\n")
+        .flatMap((part) => wrap(part, availableWidth));
     const words = normalized.split(/\s+/),
       lines: string[] = [];
     let line = "";
@@ -174,7 +193,9 @@ export async function reportPdf(
   heading();
   pdf.fontSize(11);
   for (const row of rows) {
-    const cells = columns.map((c) => wrap(row[c.key]));
+    const cells = columns.map((c, i) =>
+      wrap(row[c.key], columnWidths[i]! - 12),
+    );
     let offset = 0;
     const count = Math.max(...cells.map((c) => c.length));
     while (offset < count) {
@@ -187,16 +208,18 @@ export async function reportPdf(
         Math.floor((pdf.page.height - 42 - y) / lineHeight),
       );
       for (let i = 0; i < columns.length; i++) {
-        const x = 32 + width - (i + 1) * cw;
-        for (let line = 0; line < fit; line++) {
-          if (cells[i]![offset + line] !== undefined)
-            text(
-              cells[i]![offset + line]!,
-              x + 5,
-              y + line * lineHeight + (options.centerNumericCells && i > 0 && cells[i]!.length === 1 ? ((count - 1) * lineHeight) / 2 : 0),
-              cw - 10,
-            );
-        }
+        const visible = cells[i]!.slice(offset, offset + fit);
+        const top = options.centerCells
+          ? ((fit - visible.length) * lineHeight) / 2
+          : 0;
+        visible.forEach((value, line) =>
+          text(
+            value,
+            columnX[i]! + 5,
+            y + top + line * lineHeight,
+            columnWidths[i]! - 10,
+          ),
+        );
       }
       y += fit * lineHeight + 6;
       pdf
