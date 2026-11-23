@@ -63,7 +63,7 @@ export async function reportPdf(
   columns: { key: string; label: string }[],
   rows: Record<string, unknown>[],
   period: string,
-  options: { filename?: string; disposition?: "inline" | "attachment"; metadata?: string[] } = {},
+  options: { filename?: string; disposition?: "inline" | "attachment"; metadata?: string[]; centerNumericCells?: boolean } = {},
 ) {
   const pdf = new PDFDocument({
     size: "A4",
@@ -145,8 +145,10 @@ export async function reportPdf(
     );
     y += height + 4;
   }
-  function wrap(value: unknown, availableWidth = cw - 12) {
-    const words = normalizeReportText(String(value ?? "—")).split(/\s+/),
+  function wrap(value: unknown, availableWidth = cw - 12): string[] {
+    const normalized = normalizeReportText(String(value ?? "—"));
+    if (normalized.includes("\n")) return normalized.split("\n").flatMap(part => wrap(part, availableWidth));
+    const words = normalized.split(/\s+/),
       lines: string[] = [];
     let line = "";
     for (const word of words) {
@@ -191,7 +193,7 @@ export async function reportPdf(
             text(
               cells[i]![offset + line]!,
               x + 5,
-              y + line * lineHeight,
+              y + line * lineHeight + (options.centerNumericCells && i > 0 && cells[i]!.length === 1 ? ((count - 1) * lineHeight) / 2 : 0),
               cw - 10,
             );
         }
