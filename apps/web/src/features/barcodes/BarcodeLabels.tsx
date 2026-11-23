@@ -1,3 +1,4 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
 import type { PaginatedResult } from "@az/shared";
 import { TableSkeleton } from "../../components/application/Skeleton";
 import { Pagination } from "../../components/application/Pagination";
@@ -26,6 +27,7 @@ type Product = { id: string; nameAr: string; variants: Variant[] };
 type Line = {
   variantId: string;
   name: string;
+  supplierCode?: string | null;
   sku: string;
   barcode: string;
   price: string;
@@ -77,7 +79,7 @@ function Label({
         {line.name}
       </div>
       <div className="label-options">
-        {formatDigits(Object.values(line.options).join(" / ")) || line.sku}
+        {formatDigits(Object.values(line.options).map((value) => value.trim()).filter(Boolean).join(" / ")) || line.supplierCode || line.sku}
       </div>
       <svg
         aria-label={`Barcode ${line.barcode}`}
@@ -137,6 +139,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
   const [params] = useSearchParams(),
     receiptId = product ? null : params.get("receiptId"),
     [loadedReceipt, setLoadedReceipt] = useState<string | null>(null);
+  const [supplierId, setSupplierId] = useState("");
   const [q, setQ] = useState(""),
     [selected, setSelected] = useState<
       Record<string, { variant: Variant; name: string; quantity: number }>
@@ -157,12 +160,12 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
-  const paging = usePagination(q.trim(), !product && !receiptId);
+  const paging = usePagination(`${q.trim()}|${supplierId}`, !product && !receiptId);
   const query = useQuery({
-    queryKey: ["barcode-catalog", debouncedQ, paging.page, paging.pageSize],
+    queryKey: ["barcode-catalog", debouncedQ, supplierId, paging.page, paging.pageSize],
     queryFn: ({ signal }) =>
       api<PaginatedResult<Product>>(
-        `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}`,
+        `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${supplierId ? `&supplierId=${encodeURIComponent(supplierId)}` : ""}`,
         { signal },
       ),
     enabled: !product && !receiptId && !searchPending,
@@ -289,6 +292,13 @@ export function BarcodeLabels({ product }: { product?: Product }) {
             </Link>
           </div>
           {!receiptId ? (
+            <div className="form-grid">
+              <Control label="تصفية حسب المورد الأساسي">
+                {(id) => <EntitySelect kind="suppliers" id={id} name="barcodeSupplierId" label="تصفية حسب المورد الأساسي" required={false} value={supplierId} onChange={(value) => {
+                  setSupplierId(value); setSelected({}); setJob(null); setError("");
+                }} />}
+              </Control>
+              <p className="barcode-help">تغيير المورد يلغي الاختيارات السابقة. اترك المورد فارغًا لعرض كل المنتجات.</p>
             <div className="search">
               <Search size={18} />
               <input
@@ -299,6 +309,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                   setQ(e.target.value);
                 }}
               />
+            </div>
             </div>
           ) : (
             <p className="notice">
@@ -634,4 +645,4 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         )}
     </div>
   );
-}
+                            }
