@@ -116,7 +116,7 @@ describe("settings field guidance", () => {
         expect(sent.returnPolicy).toBe("TEST original policy unchanged");
         expect(sent.receiptFooter).toBe("TEST footer unchanged");
         await ui(
-          page.getByLabel("مبلغ الشراء لكل نقطة (ج.م)", { exact: true }),
+          page.getByLabel("مبلغ الشراء لكل نقطة (EGP)", { exact: true }),
         ).toHaveValue("3.33");
         await days.fill("366");
         await page.getByRole("button", { name: "حفظ", exact: true }).click();
@@ -143,7 +143,7 @@ describe("settings field guidance", () => {
             exact: true,
           }),
         ).toHaveAttribute("maxlength", "5000");
-        const spend = page.getByLabel("مبلغ الشراء لكل نقطة (ج.م)", {
+        const spend = page.getByLabel("مبلغ الشراء لكل نقطة (EGP)", {
           exact: true,
         });
         await spend.fill("0");
