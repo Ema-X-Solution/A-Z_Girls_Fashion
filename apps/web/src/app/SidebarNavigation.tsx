@@ -231,4 +231,4 @@ export function SidebarNavigation({ permissions }: { permissions: string[] }) {
       })}
     </nav>
   );
-}
+    }
