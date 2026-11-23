@@ -1,13 +1,9 @@
+import { SmartSelect } from "../../components/application/SmartSelect";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Header, ErrorMessage } from "../shared/Controls";
-import {
-  Grid,
-  useRows,
-  Pagination,
-  FormField,
-  PageState,
-  allowed,
-} from "./Tools";
+import { Grid, useRows, FormField, PageState, allowed } from "./Tools";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import "./management.css";
 const types = [
@@ -40,7 +36,6 @@ const localDate = (v: Date) =>
   }).format(v);
 export function Reports() {
   const [kind, setKind] = useState("daily"),
-    [offset, setOffset] = useState(0),
     [q, setQ] = useState(""),
     [cashierId, setCashierId] = useState(""),
     [from, setFrom] = useState(localDate(new Date(Date.now() - 30 * 86400000))),
@@ -73,10 +68,12 @@ export function Reports() {
     to: valid ? boundary(to, true) : "",
     q: debounced,
   });
-  const cashiers = useRows("/reports/cashiers", kind === "cashier-invoices"),
-    path = `/reports/detail/${kind}?${params}${cashierId ? `&cashierId=${cashierId}` : ""}`,
+  const paging = usePagination(
+    `${kind}|${from}|${to}|${debounced}|${cashierId}`,
+  );
+  const path = `/reports/detail/${kind}?${params}${cashierId ? `&cashierId=${cashierId}` : ""}`,
     query = useRows(
-      `${path}&offset=${offset}`,
+      `${path}&${paging.query}`,
       valid && !searchPending && (kind !== "cashier-invoices" || !!cashierId),
     );
   const exportLimited = (query.data?.total ?? 0) > 10000;
@@ -99,7 +96,7 @@ export function Reports() {
               value={kind}
               onChange={(e) => {
                 setKind(e.target.value);
-                setOffset(0);
+                paging.setPage(1);
               }}
             >
               {visibleTypes.map((t) => (
@@ -115,7 +112,7 @@ export function Reports() {
               value={from}
               onChange={(e) => {
                 setFrom(e.target.value);
-                setOffset(0);
+                paging.setPage(1);
               }}
             />
           </FormField>
@@ -125,7 +122,7 @@ export function Reports() {
               value={to}
               onChange={(e) => {
                 setTo(e.target.value);
-                setOffset(0);
+                paging.setPage(1);
               }}
             />
           </FormField>
@@ -135,32 +132,25 @@ export function Reports() {
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
-                setOffset(0);
+                paging.setPage(1);
               }}
             />
           </FormField>
           {kind === "cashier-invoices" && (
             <FormField label="الكاشير">
-              <select
+              <SmartSelect
+                id="report-cashier"
+                name="cashierId"
+                label="الكاشير"
+                placeholder="ابحث باسم الكاشير أو الكود"
                 value={cashierId}
-                onChange={(e) => {
-                  setCashierId(e.target.value);
-                  setOffset(0);
+                endpoint="/reports/cashiers"
+                optionLabel={(row) => `${row.name} (${row.sellerCode})`}
+                onChange={(row) => {
+                  setCashierId(row.id);
+                  paging.setPage(1);
                 }}
-              >
-                <option value="">اختر الكاشير...</option>
-                {(cashiers.data?.data ?? []).map(
-                  (cashier: {
-                    id: string;
-                    name: string;
-                    sellerCode: string;
-                  }) => (
-                    <option key={cashier.id} value={cashier.id}>
-                      {cashier.name} ({cashier.sellerCode})
-                    </option>
-                  ),
-                )}
-              </select>
+              />
             </FormField>
           )}
         </div>
@@ -219,8 +209,8 @@ export function Reports() {
             {kind === "cashier" ? (
               <>
                 <p className="management-note">
-                  العمولة على إجمالي الفواتير شامل الضريبة بعد خصم المرتجعات، بالنسبة
-                  الحالية في الإعدادات.
+                  العمولة على إجمالي الفواتير شامل الضريبة بعد خصم المرتجعات،
+                  بالنسبة الحالية في الإعدادات.
                 </p>
                 {(valid ? (query.data?.data ?? []) : []).map(
                   (row: Record<string, unknown>, index: number) => (
@@ -244,9 +234,11 @@ export function Reports() {
                         columns={(query.data?.columns ?? [])
                           .filter(
                             (c: { key: string }) =>
-                              !["label", "commissionRate", "commission"].includes(
-                                c.key,
-                              ),
+                              ![
+                                "label",
+                                "commissionRate",
+                                "commission",
+                              ].includes(c.key),
                           )
                           .map((c: { key: string; label: string }) => ({
                             label: c.label,
@@ -274,12 +266,16 @@ export function Reports() {
         )}
         <div className="report-controls">
           <Pagination
-            offset={offset}
-            onChange={setOffset}
+            page={paging.page}
+            pageSize={paging.pageSize}
+            onPageChange={paging.setPage}
+            onPageSizeChange={paging.setPageSize}
+            length={query.data?.data.length ?? 0}
             total={query.data?.total ?? 0}
+            disabled={query.isFetching}
           />
         </div>
       </section>
     </>
   );
-}
+            }
