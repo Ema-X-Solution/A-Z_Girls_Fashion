@@ -22,7 +22,7 @@ export const handleEntityOptions: RequestHandler = route(async (req, res) => {
     .parse(req.params.kind);
   const grants: Record<typeof kind, string[]> = {
     "expense-categories": ["expenses.create", "expenses.view"],
-    suppliers: ["suppliers.view", "purchases.create", "suppliers.manage"],
+    suppliers: ["suppliers.view", "purchases.create", "suppliers.manage", "products.view", "products.create", "products.update"],
     locations: [
       "inventory.view",
       "inventory.count",
@@ -56,14 +56,14 @@ export const handleEntityOptions: RequestHandler = route(async (req, res) => {
     ...(kind === "roles" && req.query.assignable === "1"
       ? { protected: false }
       : {}),
-    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(q ? (kind === "suppliers" ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { code: { contains: q, mode: "insensitive" as const } }] } : { name: { contains: q, mode: "insensitive" as const } }) : {}),
   };
   const args = {
     where,
     orderBy: [{ name: "asc" as const }, { id: "asc" as const }],
     skip,
     take: 51,
-    select: { id: true, name: true },
+    select: { id: true, name: true, ...(kind === "suppliers" ? { code: true } : {}) },
   };
   const model = {
     "expense-categories": db.expenseCategory,
@@ -85,7 +85,7 @@ export const handleEntityOptions: RequestHandler = route(async (req, res) => {
     chosen = selected
       ? await read.findUnique({
           where: { id: selected },
-          select: { id: true, name: true },
+          select: { id: true, name: true, ...(kind === "suppliers" ? { code: true } : {}) },
         })
       : null;
   res.json({

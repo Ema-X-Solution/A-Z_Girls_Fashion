@@ -73,6 +73,7 @@ export const handlePatchSuppliersById: RequestHandler = async (req, res, next) =
       const supplierId = id.parse(req.params.id);
       const input = z
         .object({
+          code: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9_-]{0,39}$/).optional(),
           name: z.string().trim().min(1).max(200),
           phone: z.string().max(40).default(""),
           email: z.string().email().nullable().optional(),
@@ -83,11 +84,16 @@ export const handlePatchSuppliersById: RequestHandler = async (req, res, next) =
       res.json({
         data: await transaction(async (tx) => {
           await lockSupplier(tx, supplierId);
+          if (input.code) {
+            const existing = await tx.supplier.findUnique({ where: { code: input.code }, select: { id: true } });
+            assert(!existing || existing.id === supplierId, "SUPPLIER_CODE_EXISTS", "كود المورد مستخدم بالفعل. اختر كودًا آخر.");
+          }
           const supplier = await tx.supplier.update({
             where: { id: supplierId },
             data: { ...input, email: input.email || null },
           });
           await audit(tx, actor(req).id, "SUPPLIER_UPDATE", supplierId, {
+            code: supplier.code,
             name: supplier.name,
             phone: supplier.phone,
             address: supplier.address,

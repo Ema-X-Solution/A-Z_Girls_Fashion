@@ -649,6 +649,7 @@ export function Products() {
                 initial={selected}
                 fields={[
                   simple("nameAr", "الاسم بالعربية"),
+                  { key: "primarySupplierId", label: "المورد الأساسي", pickerEndpoint: "/options/suppliers", required: false, hint: "اختياري. يستخدم كود المورد على ملصق المنتج بدون مقاس أو لون." },
                   simple("description", ar.description, "textarea", false),
                   {
                     key: "returnRule",
@@ -743,6 +744,7 @@ export function ProductForm({
           categoryId: f.categoryId,
           ...(f.brandId ? { brandId: f.brandId } : {}),
           description: f.description ?? "",
+          primarySupplierId: f.primarySupplierId || null,
           returnRule: f.returnRule,
           ...(imageDataUrl ? { imageDataUrl } : {}),
           variants: variants.map((v) => ({
@@ -758,6 +760,9 @@ export function ProductForm({
       <div className="form-grid">
         <Field label="اسم المنتج بالعربية">
           <input name="nameAr" required />
+        </Field>
+        <Field label="المورد الأساسي" hint="اختياري. يستخدم كود المورد على الملصق لو مفيش مقاس أو لون.">
+          <EntitySelect kind="suppliers" id="product-primary-supplier" name="primarySupplierId" label="المورد الأساسي" required={false} />
         </Field>
         <Field label={ar.category}>
           <EntitySelect
@@ -864,4 +869,4 @@ export function ProductForm({
       </Button>
     </form>
   );
-                              }
+          }

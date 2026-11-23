@@ -38,14 +38,14 @@ it("selects only visible active variants, retains quantities/off-page choices an
     await page.getByRole("button", { name: "معاينة الملصقات", exact: true }).click();
     await ui(page.locator(".barcode-preview .retail-label")).toHaveCount(8);
     await all.uncheck(); await ui(page.locator(".barcode-preview .retail-label")).toHaveCount(0);
-    await all.check(); await page.getByRole("button", { name: "التالي", exact: true }).click();
+    await all.check(); await page.getByRole("navigation", { name: "التنقل بين الصفحات" }).getByRole("button", { name: "التالي", exact: true }).click();
     await ui(page.getByRole("checkbox", { name: "اختيار VAR-3", exact: true })).toBeVisible(); await ui(all).not.toBeChecked();
     await all.check(); await all.uncheck();
     await page.getByRole("button", { name: "معاينة الملصقات", exact: true }).click();
     await ui(page.locator(".barcode-preview .retail-label")).toHaveCount(2);
     expect(printed.map((x) => x.variantId).sort()).toEqual(["1", "2"]);
-    await page.getByRole("button", { name: "السابق", exact: true }).click(); await ui(one).toBeVisible(); await ui(all).toBeChecked();
-    await page.getByRole("textbox", { name: "" }).first().fill("missing");
+    await page.getByRole("navigation", { name: "التنقل بين الصفحات" }).getByRole("button", { name: "السابق", exact: true }).click(); await ui(one).toBeVisible(); await ui(all).toBeChecked();
+    await page.getByRole("textbox", { name: "البحث عن منتجات للباركود", exact: true }).fill("missing");
     await ui(all).toBeDisabled();
   } finally { await page.close(); }
 });

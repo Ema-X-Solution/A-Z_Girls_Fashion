@@ -33,6 +33,7 @@ const productSchema = z.object({
   sku: code,
   categoryId: id,
   brandId: id.optional(),
+  primarySupplierId: z.union([id, z.literal("")]).nullable().optional().transform((value) => value === "" ? null : value),
   season: text.optional(),
   collection: text.optional(),
   returnRule: z.enum(["STANDARD", "DEFECT_ONLY"]).default("STANDARD"),
@@ -217,9 +218,11 @@ export const handlePostBrands: RequestHandler = route(async (req, res) =>
 
 export const handleGetProducts: RequestHandler = route(async (req, res) => {
   const q = z.string().max(200).default("").parse(req.query.q),
+    supplierId = id.optional().parse(req.query.supplierId),
     archived = z.enum(["1", "true"]).optional().parse(req.query.archived),
     where: Prisma.ProductWhereInput = {
       status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
+      ...(supplierId ? { primarySupplierId: supplierId } : {}),
       ...(q
         ? {
             OR: [
@@ -268,6 +271,7 @@ export const handlePostProducts: RequestHandler = route(async (req, res) => {
         ? undefined
         : productImageAsset(imageDataUrl, actor(req).id);
     const product = await transaction(async (tx) => {
+      if (input.primarySupplierId) assert(await tx.supplier.findFirst({ where: { id: input.primarySupplierId, active: true }, select: { id: true } }), "SUPPLIER_UNAVAILABLE", "المورد غير موجود أو غير نشط.", 400);
       if (image)
         await tx.brandAsset.createMany({ data: [image], skipDuplicates: true });
       const variantSkus = new Set<string>(),
@@ -315,6 +319,7 @@ export const handlePatchProductsById: RequestHandler = route(async (req, res) =>
       productId = uuid(req.params.id);
     res.json({
       data: await transaction(async (tx) => {
+        if (input.primarySupplierId) assert(await tx.supplier.findFirst({ where: { id: input.primarySupplierId, active: true }, select: { id: true } }), "SUPPLIER_UNAVAILABLE", "المورد غير موجود أو غير نشط.", 400);
         const p = await tx.product.update({
           where: { id: productId },
           data: input,

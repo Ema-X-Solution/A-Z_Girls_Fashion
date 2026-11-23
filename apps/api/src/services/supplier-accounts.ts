@@ -53,6 +53,7 @@ export async function supplierList(
     ? {
         OR: [
           { name: { contains: q, mode: "insensitive" as const } },
+          { code: { contains: q, mode: "insensitive" as const } },
           { phone: { contains: q } },
         ],
       }
@@ -303,4 +304,4 @@ export async function supplierStatement(
     entries: data,
     total: 1 + counts.reduce((a, b) => a + b, 0),
   };
-    }
+  }

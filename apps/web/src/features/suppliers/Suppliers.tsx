@@ -240,6 +240,7 @@ export function Suppliers() {
                     <tr key={s.id}>
                       <td>
                         <strong>{s.name}</strong>
+                        <small dir="ltr">{s.code}</small>
                       </td>
                       <td dir="ltr">{s.phone || "—"}</td>
                       <td>{s.address || "—"}</td>
@@ -287,6 +288,7 @@ export function Suppliers() {
       </section>
       <Modal title="إضافة مورد" open={open} close={() => setOpen(false)}>
         <form onSubmit={create}>
+          <p className="note">كود المورد بيتولد تلقائيًا عند الحفظ.</p>
           <div className="form-grid">
             <Field label="اسم المورد">
               {(id) => <input id={id} name="name" required maxLength={200} />}
@@ -329,9 +331,12 @@ export function Suppliers() {
         {editing && (
           <form onSubmit={update}>
             <p className="note">
-              تعديل بيانات التواصل فقط؛ الرصيد الافتتاحي وحركات الحساب لا تتغير من هنا.
+              يمكنك تعديل الكود وبيانات التواصل؛ الرصيد الافتتاحي وحركات الحساب لا تتغير من هنا.
             </p>
             <div className="form-grid">
+              <Field label="كود المورد">
+                {(id) => <input id={id} name="code" required maxLength={40} pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,39}" dir="ltr" defaultValue={editing.code} />}
+              </Field>
               <Field label="اسم المورد">
                 {(id) => <input id={id} name="name" required maxLength={200} defaultValue={editing.name} />}
               </Field>
@@ -818,4 +823,4 @@ export function SupplierDetails() {
       </Modal>
     </>
   );
-            }
+                          }
