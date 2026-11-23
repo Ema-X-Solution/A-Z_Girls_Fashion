@@ -1,3 +1,4 @@
+import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Eye, Printer, Trash2, FileText } from "lucide-react";
 import { post } from "../../api";
