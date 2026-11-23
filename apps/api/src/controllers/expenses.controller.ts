@@ -1,3 +1,4 @@
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { db } from "../lib/db.js";
@@ -6,21 +7,11 @@ import { once } from "../services/operations.js";
 import { expenseInput, createExpense } from "../routes/expense-workflow.js";
 import { route, page } from "../utils/http.js";
 
-export const handleGetExpenses: RequestHandler = route(async (req, res) =>
-    res.json({
-      data: await db.expense.findMany({
-        where: req.query.status
-          ? {
-              status: z
-                .enum(["PENDING", "APPROVED", "REJECTED"])
-                .parse(req.query.status),
-            }
-          : {},
-        orderBy: { date: "desc" },
-        ...page(req.query),
-      }),
-    }),
-  );
+export const handleGetExpenses: RequestHandler = route(async (req,res)=>{
+ const where = req.query.status ? { status:z.enum(["PENDING","APPROVED","REJECTED"]).parse(req.query.status) } : {};
+ const [data,total]=await Promise.all([db.expense.findMany({where,orderBy:[{date:"desc"},{id:"desc"}],...page(req.query)}),db.expense.count({where})]);
+ res.json(listResult(req.query,data,total));
+});
 
 export const handlePostExpenses: RequestHandler = route(async (req, res) => {
     const input = expenseInput.parse(req.body);
