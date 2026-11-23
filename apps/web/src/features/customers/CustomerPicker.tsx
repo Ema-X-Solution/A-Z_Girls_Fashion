@@ -1,3 +1,5 @@
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Search } from "lucide-react";
@@ -34,15 +36,14 @@ export function CustomerPicker({
     listId = useId(),
     input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false),
-    [offset, setOffset] = useState(0),
     [active, setActive] = useState(0),
     [creating, setCreating] = useState(false),
     [error, setError] = useState("");
   const { debounced, searchPending } = useDebouncedSearch(search);
+  const paging=usePagination(search.trim(),true,"local");
   const searchAllowed =
     search.trim().length >= 2 || !!customerPhoneSearch(search);
   useEffect(() => {
-    setOffset(0);
     setActive(0);
   }, [search]);
   useEffect(() => () => onBusyChange(false), [onBusyChange]);
@@ -56,10 +57,10 @@ export function CustomerPicker({
       onSearch(selected.data.data.phone);
   }, [value, selected.data, search, onSearch]);
   const results = useQuery({
-    queryKey: ["pos-customer-search", debounced, offset],
+    queryKey: ["pos-customer-search", debounced, paging.page,paging.pageSize],
     queryFn: ({ signal }) =>
       api(
-        `/customers?q=${encodeURIComponent(debounced)}&limit=10&offset=${offset}`,
+        `/customers?q=${encodeURIComponent(debounced)}&${paging.query}`,
         { signal },
       ),
     enabled: open && !searchPending && searchAllowed,
@@ -246,35 +247,8 @@ export function CustomerPicker({
           {settled && rows.length === 0 && (
             <p className="note">الرقم أو الاسم غير مسجل.</p>
           )}
-          {settled && (results.data?.total ?? 0) > 10 && (
-            <div className="customer-picker-pages">
-              <span>{results.data?.total} نتيجة</span>
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={!offset || creating}
-                onClick={() => {
-                  setOffset(Math.max(0, offset - 10));
-                  setActive(0);
-                }}
-              >
-                السابق
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={
-                  offset + rows.length >= (results.data?.total ?? 0) || creating
-                }
-                onClick={() => {
-                  setOffset(offset + 10);
-                  setActive(0);
-                }}
-              >
-                التالي
-              </Button>
-            </div>
-          )}
+          {settled && <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={p=>{paging.setPage(p);setActive(0)}} onPageSizeChange={s=>{paging.setPageSize(s);setActive(0)}} total={results.data?.total??0} length={rows.length} disabled={creating || results.isFetching}/>}
+
           {canCreate && (
             <div className="customer-picker-create">
               <Field label="اسم العميل (اختياري)">
@@ -315,4 +289,4 @@ export function CustomerPicker({
       <ErrorMessage message={error} />
     </div>
   );
-}
+              }
