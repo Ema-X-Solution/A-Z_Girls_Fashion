@@ -1,3 +1,6 @@
+import { EntitySelect } from "../../components/application/EntitySelect";
+import { Pagination } from "../../components/application/Pagination";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Header, Modal, ErrorMessage } from "../shared/Controls";
 import {
@@ -6,7 +9,6 @@ import {
   useTask,
   save,
   patch,
-  Pagination,
   FormField,
   when,
   PageState,
@@ -18,23 +20,23 @@ export function Administration() {
   const [tab, setTab] = useState(
       allowed("settings.manage") ? "branches" : "sessions",
     ),
-    [offset, setOffset] = useState(0),
+    paging = usePagination(tab),
     [edit, setEdit] = useState<Row | null>(null),
     task = useTask();
   const branches = useRows(
-      "/administration/branches",
+      `/administration/branches?${paging.query}`,
       allowed("settings.manage"),
     ),
     sessions = useRows(
-      `/administration/sessions?offset=${offset}`,
+      `/administration/sessions?${paging.query}`,
       tab === "sessions" && allowed("users.manage"),
     ),
     users = useRows(
-      `/users?offset=${offset}`,
+      `/users?${paging.query}`,
       tab === "users" && allowed("users.manage"),
-    ),
-    roles = useRows("/roles", tab === "users" && allowed("roles.manage"));
+    );
   const allBranches: Row[] = branches.data?.data ?? [];
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   return (
     <>
       <Header
@@ -54,7 +56,7 @@ export function Administration() {
               className={`btn ${tab === t[0] ? "btn-primary" : "btn-outline"}`}
               onClick={() => {
                 setTab(t[0]!);
-                setOffset(0);
+                paging.setPage(1);
               }}
             >
               {t[1]}
@@ -92,34 +94,36 @@ export function Administration() {
                   تعديل الفرع
                 </button>
               </div>
-              <p className="management-note">
-                المخازن: {b.locations.map((l: Row) => l.name).join(" / ")}
-              </p>
-              <Grid
-                rows={b.registers}
-                columns={[
-                  { label: "جهاز الكاشير", render: (r) => r.name },
-                  { label: "المخزن", render: (r) => r.location.name },
-                  {
-                    label: "الحالة",
-                    render: (r) => (r.active ? "نشط" : "متوقف"),
-                  },
-                  {
-                    label: "الإجراءات",
-                    render: (r) => (
-                      <button
-                        className="btn btn-outline"
-                        onClick={() => setEdit({ ...r, kind: "register" })}
-                      >
-                        تعديل الجهاز
-                      </button>
-                    ),
-                  },
-                ]}
-              />
+              <button
+                className="btn btn-outline"
+                onClick={() =>
+                  setExpanded((old) => ({ ...old, [b.id]: !old[b.id] }))
+                }
+              >
+                {expanded[b.id]
+                  ? "إخفاء المخازن والأجهزة"
+                  : "عرض المخازن والأجهزة"}
+              </button>
+              {expanded[b.id] && (
+                <>
+                  <BranchLocations branchId={b.id} />
+                  <BranchRegisters branchId={b.id} onEdit={setEdit} />
+                </>
+              )}
             </section>
           ))}
         </>
+      )}
+      {tab === "branches" && (
+        <Pagination
+          page={paging.page}
+          pageSize={paging.pageSize}
+          onPageChange={paging.setPage}
+          onPageSizeChange={paging.setPageSize}
+          total={branches.data?.total ?? 0}
+          length={branches.data?.data.length ?? 0}
+          disabled={branches.isFetching}
+        />
       )}
       {tab === "sessions" && (
         <section className="panel management-card">
@@ -163,9 +167,13 @@ export function Administration() {
             ]}
           />
           <Pagination
-            offset={offset}
-            onChange={setOffset}
+            page={paging.page}
+            pageSize={paging.pageSize}
+            onPageChange={paging.setPage}
+            onPageSizeChange={paging.setPageSize}
             total={sessions.data?.total ?? 0}
+            length={sessions.data?.data.length ?? 0}
+            disabled={sessions.isFetching}
           />
         </section>
       )}
@@ -208,14 +216,13 @@ export function Administration() {
             ]}
           />
           <Pagination
-            offset={offset}
-            onChange={setOffset}
-            total={
-              users.data?.total ??
-              offset +
-                (users.data?.data?.length ?? 0) +
-                (users.data?.data?.length === 30 ? 1 : 0)
-            }
+            page={paging.page}
+            pageSize={paging.pageSize}
+            onPageChange={paging.setPage}
+            onPageSizeChange={paging.setPageSize}
+            total={users.data?.total ?? 0}
+            length={users.data?.data.length ?? 0}
+            disabled={users.isFetching}
           />
         </section>
       )}
@@ -272,16 +279,13 @@ export function Administration() {
                   حساب المالك ودوره محميان. تغيير الدور ينهي جلسات المستخدم.
                 </p>
                 <FormField label="الدور الجديد">
-                  <select name="roleId" required>
-                    <option value="">اختر...</option>
-                    {roles.data?.data
-                      .filter((r: Row) => !r.protected)
-                      .map((r: Row) => (
-                        <option value={r.id} key={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
-                  </select>
+                  <EntitySelect
+                    kind="roles"
+                    name="roleId"
+                    id="admin-role"
+                    label="الدور الجديد"
+                    params="assignable=1"
+                  />
                 </FormField>
               </>
             ) : (
@@ -311,44 +315,30 @@ export function Administration() {
                   <>
                     {!edit.id && (
                       <FormField label="الفرع">
-                        <select
+                        <EntitySelect
+                          kind="branches"
                           name="branchId"
-                          required
+                          id="admin-branch"
+                          label="الفرع"
                           value={edit.branchId ?? ""}
-                          onChange={(e) =>
-                            setEdit({
-                              ...edit,
-                              branchId: e.target.value,
-                              locationId: "",
-                            })
+                          onChange={(branchId) =>
+                            setEdit({ ...edit, branchId, locationId: "" })
                           }
-                        >
-                          <option value="">اختر...</option>
-                          {allBranches
-                            .filter((b) => b.active)
-                            .map((b) => (
-                              <option key={b.id} value={b.id}>
-                                {b.name}
-                              </option>
-                            ))}
-                        </select>
+                        />
                       </FormField>
                     )}
                     <FormField label="مخزن جهاز الكاشير">
-                      <select
+                      <EntitySelect
+                        key={edit.branchId}
+                        kind="locations"
                         name="locationId"
-                        required
-                        defaultValue={edit.locationId ?? ""}
-                      >
-                        <option value="">اختر...</option>
-                        {allBranches
-                          .find((b) => b.id === edit.branchId)
-                          ?.locations.map((l: Row) => (
-                            <option key={l.id} value={l.id}>
-                              {l.name}
-                            </option>
-                          ))}
-                      </select>
+                        id="admin-location"
+                        label="مخزن جهاز الكاشير"
+                        initial={edit.locationId ?? ""}
+                        params={
+                          edit.branchId ? `branchId=${edit.branchId}` : ""
+                        }
+                      />
                     </FormField>
                   </>
                 )}
@@ -367,3 +357,78 @@ export function Administration() {
     </>
   );
 }
+
+function BranchRegisters({
+  branchId,
+  onEdit,
+}: {
+  branchId: string;
+  onEdit: (row: Row) => void;
+}) {
+  const paging = usePagination(branchId, true, "local");
+  const query = useRows(
+    `/administration/branches/${branchId}/registers?${paging.query}`,
+  );
+  return (
+    <>
+      <PageState query={query} />{" "}
+      <Grid
+        rows={query.data?.data ?? []}
+        columns={[
+          { label: "جهاز الكاشير", render: (r) => r.name },
+          { label: "المخزن", render: (r) => r.location.name },
+          {
+            label: "الحالة",
+            render: (r) => (r.active ? "نشط" : "متوقف"),
+          },
+          {
+            label: "الإجراءات",
+            render: (r) => (
+              <button
+                className="btn btn-outline"
+                onClick={() => onEdit({ ...r, kind: "register" })}
+              >
+                تعديل الجهاز
+              </button>
+            ),
+          },
+        ]}
+      />
+      <Pagination
+        page={paging.page}
+        pageSize={paging.pageSize}
+        onPageChange={paging.setPage}
+        onPageSizeChange={paging.setPageSize}
+        total={query.data?.total ?? 0}
+        length={query.data?.data.length ?? 0}
+        disabled={query.isFetching}
+      />
+    </>
+  );
+}
+
+function BranchLocations({ branchId }: { branchId: string }) {
+  const paging = usePagination(branchId, true, "local");
+  const query = useRows(
+    `/administration/branches/${branchId}/locations?${paging.query}`,
+  );
+  return (
+    <div>
+      <h3>المخازن</h3>
+      <PageState query={query} />
+      <Grid
+        rows={query.data?.data ?? []}
+        columns={[{ label: "المخزن", render: (r) => r.name }]}
+      />
+      <Pagination
+        page={paging.page}
+        pageSize={paging.pageSize}
+        onPageChange={paging.setPage}
+        onPageSizeChange={paging.setPageSize}
+        total={query.data?.total ?? 0}
+        length={query.data?.data.length ?? 0}
+        disabled={query.isFetching}
+      />
+    </div>
+  );
+        }
