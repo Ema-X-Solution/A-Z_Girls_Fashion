@@ -1,3 +1,6 @@
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { readableError } from "../../app/notifications";
 import { ApiError } from "../../api";
 import { displayLocale } from "../../i18n";
@@ -21,14 +24,16 @@ export function Promotions() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
+  const paging = usePagination();
   const campaigns = useQuery({
-    queryKey: ["promotions"],
-    queryFn: () => api("/promotions"),
+    queryKey: ["promotions",paging.page,paging.pageSize],
+    queryFn: ({signal}) => api(`/promotions?${paging.query}`,{signal}),
   });
+  const productPaging=usePagination(q.trim(),!!draft,"local");
   const products = useQuery({
-    queryKey: ["promotion-products", debouncedQ],
+    queryKey: ["promotion-products", debouncedQ,productPaging.page,productPaging.pageSize],
     queryFn: ({ signal }) =>
-      api(`/products?limit=100&q=${encodeURIComponent(debouncedQ)}`, {
+      api(`/products?${productPaging.query}&q=${encodeURIComponent(debouncedQ)}`, {
         signal,
       }),
     enabled: !!draft && !searchPending,
@@ -175,6 +180,8 @@ export function Promotions() {
               : "لا توجد عروض. أضف عرضًا لتطبيقه تلقائيًا في نقطة البيع."}
           </p>
         )}
+        {campaigns.isLoading && <TableSkeleton />}
+        <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} total={campaigns.data?.total ?? 0} length={campaigns.data?.data.length ?? 0} disabled={campaigns.isFetching} />
       </section>
       <Modal
         title={draft?.id ? "تعديل العرض" : "إضافة عرض"}
@@ -321,6 +328,7 @@ export function Promotions() {
                     borderRadius: 8,
                   }}
                 >
+                  {products.isLoading && <TableSkeleton columns={2} rows={4}/>}
                   {products.data?.data.map((p: any) => (
                     <label
                       key={p.id}
@@ -345,6 +353,7 @@ export function Promotions() {
                     </label>
                   ))}
                 </div>
+                <Pagination page={productPaging.page} pageSize={productPaging.pageSize} onPageChange={productPaging.setPage} onPageSizeChange={productPaging.setPageSize} total={products.data?.total ?? 0} length={products.data?.data.length ?? 0} disabled={products.isFetching || searchPending}/>
               </>
             )}
             <label style={{ display: "flex", gap: 8, margin: "18px 0" }}>
