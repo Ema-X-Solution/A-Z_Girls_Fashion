@@ -115,6 +115,29 @@ describe("purchase invoice PDF endpoint", () => {
       expect(text).toContain("26,750.00 EGP");
       expect(text).toContain("23 Nov 2026");
       expect(text).not.toContain("ج.م");
+      expect(text).toContain("المقاس");
+      expect(text).toContain("اللون");
+      const loading = getDocument({ data: new Uint8Array(res.body) });
+      const document = await loading.promise;
+      try {
+        const content = await (await document.getPage(1)).getTextContent();
+        const items = content.items.filter(
+          (item): item is Extract<typeof item, { str: string }> =>
+            "str" in item,
+        );
+        const size = items.find((item) => item.str === "12")!;
+        const quantity = items.find((item) => item.str === "15")!;
+        const color = items.find((item) => item.str.includes("أزرق"))!;
+        const amount = items.find((item) => item.str === "40,125.00 EGP")!;
+        expect(size).toBeDefined();
+        expect(amount).toBeDefined();
+        for (const cell of [quantity, color, amount]) {
+          expect(cell.fontName).toBe(size.fontName);
+          expect(cell.transform[5]).toBeCloseTo(size.transform[5], 2);
+        }
+      } finally {
+        await loading.destroy();
+      }
       mkdirSync("test-results/purchase-invoice", { recursive: true });
       writeFileSync(
         "test-results/purchase-invoice/purchase-example.pdf",
