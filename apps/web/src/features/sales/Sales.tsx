@@ -1,3 +1,6 @@
+import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
+import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Search, Printer, ArrowRightLeft, RotateCcw, Eye } from "lucide-react";
@@ -9,7 +12,7 @@ import { Button } from "../../components/ui/button";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import { useAction } from "../../app/notifications";
 import { useData, useAllowed } from "../../hooks/useData";
-import { Loading, ErrorState, Modal, Field, Header, Badge, Table, Pager } from "../../components/application/Primitives";
+import { ErrorState, Modal, Field, Header, Badge, Table } from "../../components/application/Primitives";
 import { type Row } from "../../app/types";
 
 export function Sales() {
@@ -18,11 +21,11 @@ export function Sales() {
       sale: Row;
       returned: Row;
     } | null>(null);
-  const [offset, setOffset] = useState(0),
-    [number, setNumber] = useState(""),
+  const [number, setNumber] = useState(""),
     { debounced: debouncedNumber, searchPending } = useDebouncedSearch(number),
+    paging = usePagination(number.trim()),
     query = useData(
-      `/sales?offset=${offset}${debouncedNumber ? `&number=${encodeURIComponent(debouncedNumber)}` : ""}`,
+      `/sales?${paging.query}${debouncedNumber ? `&number=${encodeURIComponent(debouncedNumber)}` : ""}`,
       true,
       searchPending,
     ),
@@ -49,13 +52,12 @@ export function Sales() {
               value={number}
               onChange={(e) => {
                 setNumber(e.target.value.trim());
-                setOffset(0);
               }}
             />
           </div>
         </div>
         {query.isLoading ? (
-          <Loading />
+          <TableSkeleton />
         ) : query.error ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
@@ -176,12 +178,7 @@ export function Sales() {
                 },
               ]}
             />
-            <Pager
-              offset={offset}
-              setOffset={setOffset}
-              length={query.data?.data.length ?? 0}
-              total={query.data?.total}
-            />
+            <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} length={query.data?.data.length ?? 0} total={query.data?.total ?? 0} disabled={query.isFetching} />
           </>
         )}
       </section>
@@ -344,4 +341,4 @@ export function Sales() {
       </Modal>
     </>
   );
-                    }
+        }
