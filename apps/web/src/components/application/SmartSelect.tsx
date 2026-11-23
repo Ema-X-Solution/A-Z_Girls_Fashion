@@ -1,7 +1,7 @@
 import { PickerOptionsSkeleton } from "./Skeleton";
 import "./smart-select.css";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { type Row } from "../../app/types";
@@ -161,11 +161,6 @@ export function SmartSelect({
       }}
     >
       <div className="smart-select-control">
-        <Search
-          className="smart-select-search-icon"
-          size={17}
-          aria-hidden="true"
-        />
         <input
           ref={input}
           id={inputId}
