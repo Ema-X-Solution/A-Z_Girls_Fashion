@@ -1,6 +1,7 @@
 import { EntitySelect } from "../../components/application/EntitySelect";
 import { SmartSelect } from "../../components/application/SmartSelect";
 import { Pagination } from "../../components/application/Pagination";
+import { TableSkeleton } from "../../components/application/Skeleton";
 import { usePagination } from "../../hooks/usePagination";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -127,7 +128,7 @@ export function StockDocuments() {
       {query.error ? (
         <ErrorMessage message={query.error.message} />
       ) : query.isLoading ? (
-        <p>جارٍ التحميل…</p>
+        <TableSkeleton columns={6} label="جارٍ تحميل مستندات المخزون" />
       ) : !query.data?.data.length ? (
         <p className="empty">لا توجد مستندات مخزون.</p>
       ) : (
