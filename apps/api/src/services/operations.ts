@@ -1,3 +1,4 @@
+import { fifoStock, type CostSlice } from "./fifo.js";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { id, money, paymentMethods } from "@az/shared";
@@ -63,9 +64,12 @@ export async function stock(
     reference: string;
     reason: string;
     cost?: Prisma.Decimal;
+    layers?: CostSlice[];
   },
 ) {
   const { variantId, locationId, quantity } = input;
+  // Same lock as close: no stock valuation can straddle a closing snapshot.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(98125731)`;
   await tx.stockBalance.upsert({
     where: { variantId_locationId: { variantId, locationId } },
     create: { variantId, locationId },
@@ -80,14 +84,8 @@ export async function stock(
     "INSUFFICIENT_STOCK",
     "الكمية المطلوبة أكبر من المخزون المتاح",
   );
-  const averageCost =
-    quantity > 0 && input.cost
-      ? D(balance.averageCost)
-          .mul(balance.quantity)
-          .plus(input.cost.mul(quantity))
-          .div(balance.quantity + quantity)
-          .toDecimalPlaces(4)
-      : balance.averageCost;
+  const valuation = await fifoStock(tx, input, balance);
+  const averageCost = valuation.averageCost;
   await tx.stockBalance.update({
     where: { variantId_locationId: { variantId, locationId } },
     data: { quantity: { increment: quantity }, averageCost },
@@ -100,11 +98,11 @@ export async function stock(
       type: input.type,
       reference: input.reference,
       reason: input.reason,
-      unitCost: input.cost ?? balance.averageCost,
+      unitCost: valuation.unitCost,
       userId: actor.id,
     },
   });
-  return balance.averageCost;
+  return valuation.unitCost;
 }
 export async function activeShift(
   tx: Tx,
