@@ -342,7 +342,23 @@ function ReceiveForm({
 
 function InvoiceItemName({ item }: { item: Row }) {
   const variant = item.variant;
-  return <><span className="invoice-product-name">{variant?.product?.nameAr ?? variant?.sku ?? item.variantId}</span>{variant && <span className="invoice-variant">{Object.entries(variant.options ?? {}).map(([key, value]) => <span key={key}>{key === "size" ? "المقاس" : key === "color" ? "اللون" : key}: <bdi>{formatDigits(String(value))}</bdi></span>)}</span>}</>;
+  return (
+    <>
+      <span className="invoice-product-name">
+        {variant?.product?.nameAr ?? variant?.sku ?? item.variantId}
+      </span>
+      {variant && (
+        <span className="invoice-variant">
+          {Object.entries(variant.options ?? {}).map(([key, value]) => (
+            <span key={key}>
+              {key === "size" ? "المقاس" : key === "color" ? "اللون" : key}:{" "}
+              <bdi>{formatDigits(String(value))}</bdi>
+            </span>
+          ))}
+        </span>
+      )}
+    </>
+  );
 }
 
 function PurchaseInvoice({ order }: { order: Row }) {
@@ -382,6 +398,8 @@ function PurchaseInvoice({ order }: { order: Row }) {
         <thead>
           <tr>
             <th>الصنف</th>
+            <th>المقاس</th>
+            <th>اللون</th>
             <th>الكمية</th>
             <th>تم استلامه</th>
             <th>سعر الشراء</th>
@@ -391,7 +409,15 @@ function PurchaseInvoice({ order }: { order: Row }) {
         <tbody>
           {order.items.map((i: Row) => (
             <tr key={i.id}>
-              <td><InvoiceItemName item={i} /></td>
+              <td>
+                {i.variant?.product?.nameAr ?? i.variant?.sku ?? i.variantId}
+              </td>
+              <td>
+                <bdi>
+                  {formatDigits(String(i.variant?.options?.size ?? "—"))}
+                </bdi>
+              </td>
+              <td>{i.variant?.options?.color ?? "—"}</td>
               <td>{i.quantity}</td>
               <td>{i.received}</td>
               <td>
@@ -410,6 +436,8 @@ function PurchaseInvoice({ order }: { order: Row }) {
         <tfoot>
           <tr>
             <td>الإجمالي</td>
+            <td></td>
+            <td></td>
             <td>{totalQty}</td>
             <td>{totalReceived}</td>
             <td></td>
@@ -424,7 +452,9 @@ function PurchaseInvoice({ order }: { order: Row }) {
       <div className="invoice-mobile-items">
         {order.items.map((i: Row) => (
           <article className="invoice-item-card" key={i.id}>
-            <strong className="invoice-item-name"><InvoiceItemName item={i} /></strong>
+            <strong className="invoice-item-name">
+              <InvoiceItemName item={i} />
+            </strong>
             <dl>
               <div>
                 <dt>الكمية</dt>
@@ -591,8 +621,7 @@ export function PurchaseForm({
     }));
   };
 
-  const addLine = () =>
-    setLineIds((prev) => [...prev, nextLineId.current++]);
+  const addLine = () => setLineIds((prev) => [...prev, nextLineId.current++]);
 
   const removeLine = (id: number) => {
     setLineIds((prev) =>
@@ -623,13 +652,15 @@ export function PurchaseForm({
     };
   };
 
-  const totals = lineIds.map((id) => lineNumbers(id)).reduce(
-    (t, n) => ({
-      cost: t.cost + n.totalCost,
-      profit: t.profit + (n.ready ? n.totalProfit : 0),
-    }),
-    { cost: 0, profit: 0 },
-  );
+  const totals = lineIds
+    .map((id) => lineNumbers(id))
+    .reduce(
+      (t, n) => ({
+        cost: t.cost + n.totalCost,
+        profit: t.profit + (n.ready ? n.totalProfit : 0),
+      }),
+      { cost: 0, profit: 0 },
+    );
 
   // Same variant entered on more than one row with a different cost price.
   const conflictingVariant = (() => {
@@ -802,8 +833,9 @@ export function PurchaseForm({
                   p.variants.map((v: Row) => (
                     <option key={v.id} value={v.id}>
                       {p.nameAr} •{" "}
-                      {formatDigits(Object.values(v.options ?? {}).join(" / ")) ||
-                        "بدون مقاس أو لون"}
+                      {formatDigits(
+                        Object.values(v.options ?? {}).join(" / "),
+                      ) || "بدون مقاس أو لون"}
                     </option>
                   )),
                 )}
@@ -865,9 +897,7 @@ export function PurchaseForm({
                   </span>
                   <span>
                     نسبة الربح على التكلفة{" "}
-                    <strong>
-                      {n.pct === null ? "—" : percent(n.pct)}
-                    </strong>
+                    <strong>{n.pct === null ? "—" : percent(n.pct)}</strong>
                   </span>
                 </>
               ) : (
@@ -879,8 +909,8 @@ export function PurchaseForm({
       })}
       {conflictingVariant && (
         <p className="form-error" role="alert">
-          الصنف "{variantLabel(conflictingVariant)}" مدخل أكثر من مرة بسعر
-          تكلفة مختلف. صحّح السعر أو احذف الصف الزائد.
+          الصنف "{variantLabel(conflictingVariant)}" مدخل أكثر من مرة بسعر تكلفة
+          مختلف. صحّح السعر أو احذف الصف الزائد.
         </p>
       )}
       {dupWarning && (
@@ -900,7 +930,9 @@ export function PurchaseForm({
         <div>
           <span>نسبة الربح الإجمالية</span>
           <strong>
-            {totals.cost > 0 ? percent((totals.profit / totals.cost) * 100) : "—"}
+            {totals.cost > 0
+              ? percent((totals.profit / totals.cost) * 100)
+              : "—"}
           </strong>
         </div>
       </div>
@@ -908,15 +940,11 @@ export function PurchaseForm({
         التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُحدَّث به سعر المنتج
         فوراً.
       </p>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={addLine}
-      >
+      <Button type="button" variant="outline" onClick={addLine}>
         <Plus size={16} />
         صنف آخر
       </Button>
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-                              }
+}
