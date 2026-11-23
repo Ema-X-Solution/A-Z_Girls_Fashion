@@ -340,6 +340,11 @@ function ReceiveForm({
   );
 }
 
+function InvoiceItemName({ item }: { item: Row }) {
+  const variant = item.variant;
+  return <><span className="invoice-product-name">{variant?.product?.nameAr ?? variant?.sku ?? item.variantId}</span>{variant && <span className="invoice-variant">{Object.entries(variant.options ?? {}).map(([key, value]) => <span key={key}>{key === "size" ? "المقاس" : key === "color" ? "اللون" : key}: <bdi>{formatDigits(String(value))}</bdi></span>)}</span>}</>;
+}
+
 function PurchaseInvoice({ order }: { order: Row }) {
   const totalQty = order.items.reduce((s: number, i: Row) => s + i.quantity, 0),
     totalReceived = order.items.reduce(
@@ -386,7 +391,7 @@ function PurchaseInvoice({ order }: { order: Row }) {
         <tbody>
           {order.items.map((i: Row) => (
             <tr key={i.id}>
-              <td>{itemName(i)}</td>
+              <td><InvoiceItemName item={i} /></td>
               <td>{i.quantity}</td>
               <td>{i.received}</td>
               <td>
@@ -419,7 +424,7 @@ function PurchaseInvoice({ order }: { order: Row }) {
       <div className="invoice-mobile-items">
         {order.items.map((i: Row) => (
           <article className="invoice-item-card" key={i.id}>
-            <strong className="invoice-item-name">{itemName(i)}</strong>
+            <strong className="invoice-item-name"><InvoiceItemName item={i} /></strong>
             <dl>
               <div>
                 <dt>الكمية</dt>
@@ -914,4 +919,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-      }
+                              }
