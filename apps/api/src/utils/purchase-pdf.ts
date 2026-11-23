@@ -1,3 +1,4 @@
+import { variantOption } from "@az/shared";
 import { Prisma } from "@prisma/client";
 import type { Response } from "express";
 import { reportPdf } from "./report-pdf.js";
@@ -43,12 +44,8 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
   );
   const rows: Record<string, unknown>[] = order.items.map((item) => ({
     item: item.variant?.product.nameAr || item.variant?.sku || item.variantId,
-    size: String(
-      (item.variant?.options as Record<string, unknown> | null)?.size ?? "—",
-    ),
-    color: String(
-      (item.variant?.options as Record<string, unknown> | null)?.color ?? "—",
-    ),
+    size: variantOption(item.variant?.options, "size") || "—",
+    color: variantOption(item.variant?.options, "color") || "—",
     quantity: item.quantity,
     received: item.received,
     cost: money(item.unitCost),
@@ -110,4 +107,4 @@ export async function purchasePdf(res: Response, order: PurchaseDocument) {
       ],
     },
   );
-}
+                                     }
