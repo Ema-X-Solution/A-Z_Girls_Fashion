@@ -1,3 +1,6 @@
+import { locationLabels } from "../services/location-labels.js";
+import { page } from "../utils/http.js";
+import { listResult } from "../utils/pagination.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { id } from "@az/shared";
@@ -72,19 +75,14 @@ function itemLabel(variant: ItemIdentity | undefined, id: string) {
 }
 
 async function countPage(req: any, model: "shipment" | "stockHold") {
-  const skip = z.coerce
-    .number()
-    .int()
-    .min(0)
-    .default(0)
-    .parse(req.query.offset);
+  const {skip,take}=page(req.query);
   const result =
     model === "shipment"
       ? await db.$transaction([
           db.shipment.findMany({
             skip,
-            take: 30,
-            orderBy: { createdAt: "desc" },
+            take,
+            orderBy: [{ createdAt: "desc" }, {id:"desc"}],
             include: { items: true },
           }),
           db.shipment.count(),
@@ -92,8 +90,8 @@ async function countPage(req: any, model: "shipment" | "stockHold") {
       : await db.$transaction([
           db.stockHold.findMany({
             skip,
-            take: 30,
-            orderBy: { createdAt: "desc" },
+            take,
+            orderBy: [{ createdAt: "desc" }, {id:"desc"}],
           }),
           db.stockHold.count(),
         ]);
@@ -104,19 +102,17 @@ async function countPage(req: any, model: "shipment" | "stockHold") {
     where: { id: { in: ids } },
     select: { id: true, sku: true, options: true, product: { select: { nameAr: true } } },
   });
+  const names=await locationLabels(result[0]);
   const identities = new Map(variants.map((variant) => [variant.id, variant]));
   const data = result[0].map((row) =>
     "items" in row
-      ? { ...row, items: row.items.map((item) => ({
+      ? { ...row, sourceName:names.get(row.sourceId), destinationName:names.get(row.destinationId), items: row.items.map((item) => ({
           ...item,
           variantLabel: itemLabel(identities.get(item.variantId), item.variantId),
         })) }
-      : { ...row, variantLabel: itemLabel(identities.get(row.variantId), row.variantId) },
+      : { ...row, locationName:names.get(row.locationId), variantLabel: itemLabel(identities.get(row.variantId), row.variantId) },
   );
-  return {
-    data: visible(data, actor(req).permissions.includes("reports.profit")),
-    total: result[1],
-  };
+  return listResult(req.query, visible(data, actor(req).permissions.includes("reports.profit")),result[1]);
 }
 
 export const handleGetInventoryShipments: RequestHandler = async (req, res, next) => {
