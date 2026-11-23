@@ -170,7 +170,7 @@ export const navGroups = [
 
 export function SidebarNavigation({ permissions }: { permissions: string[] }) {
   const { pathname } = useLocation();
-  const [opened, setOpened] = useState<Record<string, boolean>>({});
+  const [opened, setOpened] = useState<Record<string, boolean>>({ selling: true });
   const current = nav
     .filter((n) => pathname === n.path || pathname.startsWith(`${n.path}/`))
     .sort((a, b) => b.path.length - a.path.length)[0];
@@ -178,7 +178,7 @@ export function SidebarNavigation({ permissions }: { permissions: string[] }) {
     g.paths.includes(current?.path ?? ""),
   )?.id;
   useEffect(() => {
-    setOpened(activeGroup ? { [activeGroup]: true } : {});
+    if (activeGroup) setOpened({ [activeGroup]: true });
   }, [pathname, activeGroup]);
   const allowed = nav.filter((n) =>
     (Array.isArray(n.permission) ? n.permission : [n.permission]).some((key) =>
@@ -231,4 +231,4 @@ export function SidebarNavigation({ permissions }: { permissions: string[] }) {
       })}
     </nav>
   );
-    }
+}
