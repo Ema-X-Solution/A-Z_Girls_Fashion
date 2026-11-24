@@ -117,3 +117,87 @@
   min-width: 0;
   padding-inline: 8px;
 }
+
+/* Daily sales report on small screens: each day becomes a card instead of a wide row */
+@media (max-width: 700px) {
+  .report-daily-cards .management-table {
+    overflow: visible;
+  }
+  .report-daily-cards .management-table table,
+  .report-daily-cards .management-table tbody,
+  .report-daily-cards .management-table td {
+    display: block;
+  }
+  .report-daily-cards .management-table thead {
+    display: none;
+  }
+  .report-daily-cards .management-table tbody tr {
+    display: block;
+    margin: 10px 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+  }
+  .report-daily-cards .management-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 5px 0;
+    border: 0;
+    font-weight: 600;
+  }
+  .report-daily-cards .management-table td::before {
+    content: attr(data-label);
+    color: #92959c;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  /* First cell (the day) becomes the card title */
+  .report-daily-cards .management-table td:first-child {
+    display: block;
+    margin-bottom: 6px;
+    padding: 0 0 8px;
+    border-bottom: 1px dashed var(--border);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .report-daily-cards .management-table td:first-child::before {
+    content: none;
+  }
+}
+
+/* Reports filter area on small screens: tidy stacked layout */
+@media (max-width: 700px) {
+  .report-controls.management-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .report-controls.management-tools .management-field {
+    margin-block: 0;
+  }
+  /* Report type and search each take a full row; the two dates share one */
+  .report-controls.management-tools .management-field:nth-child(1),
+  .report-controls.management-tools .management-field:nth-child(4),
+  .report-controls.management-tools .management-field:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+  /* Export buttons side by side, print on its own full-width row */
+  .report-controls.inline-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .report-controls.inline-actions .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+  }
+  .report-controls.inline-actions .btn:last-child {
+    grid-column: 1 / -1;
+  }
+}
