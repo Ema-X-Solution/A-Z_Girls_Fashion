@@ -12,3 +12,4 @@ backups/
 .test-data/
 .local/
 output/pdf/
+.local-data/

@@ -20,6 +20,7 @@ import { AdvancedInventory } from "../features/management/AdvancedInventory";
 import { notify, readableError } from "./notifications";
 import { Gate } from "../components/application/Primitives";
 import { nav, SidebarNavigation } from "./SidebarNavigation";
+import { ThemeToggle } from "../components/application/ThemeToggle";
 import { Dashboard } from "../features/dashboard/Dashboard";
 import { Products } from "../features/products/Products";
 import { Inventory } from "../features/inventory/Inventory";
@@ -80,12 +81,14 @@ export function Shell() {
           >
             <Menu />
           </Button>
+          <ThemeToggle className="mobile-theme-toggle" />
           <div className="breadcrumb">
             المتجر <span>/</span>{" "}
             {nav.find((n) => location.pathname.startsWith(n.path))?.title ??
               ar.brand}
           </div>
           <div className="topbar-end">
+            <ThemeToggle />
             <span className="status-dot" />
             الفرع الرئيسي <span className="divider" />{" "}
             {new Intl.DateTimeFormat(displayLocale, {
@@ -308,4 +311,4 @@ export function Shell() {
       </div>
     </div>
   );
-              }
+}
