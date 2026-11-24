@@ -1385,6 +1385,9 @@ tr:last-child td {
 .mobile-toggle {
   display: none;
 }
+.sidebar-backdrop {
+  display: none;
+}
 .login {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1560,6 +1563,23 @@ tr:last-child td {
   }
   .sidebar.mobile-open {
     transform: translateX(0);
+  }
+  .sidebar .brand {
+    padding-inline-start: 52px;
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: #0a0a0c73;
+    z-index: 15;
+  }
+  .mobile-toggle {
+    position: relative;
+    z-index: 30;
+  }
+  .sidebar.mobile-open + .sidebar-backdrop + .workspace .mobile-toggle {
+    color: #e8e8ea;
   }
   .workspace {
     width: 100%;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { POS } from "../features/pos/POS";
 import { DiscountApprovals } from "../features/pos/DiscountApprovals";
 import { BrandLogo } from "../features/shared/BrandLogo";
@@ -71,15 +71,22 @@ export function Shell() {
           </button>
         </div>
       </aside>
+      {mobile && (
+        <div
+          className="sidebar-backdrop"
+          aria-hidden="true"
+          onClick={() => setMobile(false)}
+        />
+      )}
       <div className={location.pathname === "/pos" ? "workspace workspace-pos" : "workspace"}>
         <header className="topbar">
           <Button
             variant="ghost"
             className="mobile-toggle"
-            aria-label="القائمة"
+            aria-label={mobile ? "إغلاق القائمة" : "القائمة"}
             onClick={() => setMobile(!mobile)}
           >
-            <Menu />
+            {mobile ? <X /> : <Menu />}
           </Button>
           <ThemeToggle className="mobile-theme-toggle" />
           <div className="breadcrumb">
