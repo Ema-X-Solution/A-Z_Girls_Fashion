@@ -2527,3 +2527,15 @@ input[role="switch"].switch:focus-visible {
     margin-top: 2px !important;
   }
 }
+
+.barcode-catalog-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr));
+  gap: 15px;
+  align-items: end;
+}
+.barcode-catalog-filters > .field { min-width: 0; margin: 0; }
+.barcode-catalog-filters .search { width: 100%; min-width: 0; max-width: none; }
+@media (max-width: 700px) {
+  .barcode-catalog-filters { grid-template-columns: minmax(0, 1fr); }
+}
