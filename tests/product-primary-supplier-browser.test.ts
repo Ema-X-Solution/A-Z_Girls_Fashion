@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
 import { chromium, expect as ui, type Browser } from "@playwright/test";
+import { pickSmartOption } from "./smart-select";
 import { preview, type PreviewServer } from "vite";
 import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -29,7 +30,7 @@ it.each([1440, 390])("product create/edit primary supplier at %spx", async (widt
   });
   try {
     await page.goto(`${url}/products`); await page.getByRole("button", { name: "إضافة منتج", exact: true }).click();
-    await page.getByLabel("المورد الأساسي", { exact: true }).selectOption(supplier.id);
+    await pickSmartOption(page, "المورد الأساسي", supplier.name);
     await page.screenshot({ path: `test-results/supplier-feature/product-create-${width}.png`, fullPage: true });
     const dialog = page.getByRole("dialog");
     await dialog.locator('input[name="nameAr"]').fill("منتج جديد");
@@ -37,8 +38,8 @@ it.each([1440, 390])("product create/edit primary supplier at %spx", async (widt
     await dialog.locator('button.form-submit').click();
     await ui(dialog).toHaveCount(0); expect(body.primarySupplierId).toBe(supplier.id);
     await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-    await ui(page.getByLabel("المورد الأساسي", { exact: true })).toHaveValue(supplier.id);
-    await page.getByLabel("المورد الأساسي", { exact: true }).selectOption("");
+    await ui(page.getByLabel("المورد الأساسي", { exact: true })).toHaveValue(supplier.name);
+    await page.getByRole("button", { name: "مسح المورد الأساسي", exact: true }).click();
     await page.getByRole("dialog").locator('button.form-submit').click();
     await ui(page.getByRole("dialog")).toHaveCount(0); expect(body.primarySupplierId).toBe("");
   } finally { await page.close(); }
