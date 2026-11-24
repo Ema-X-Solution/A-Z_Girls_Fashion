@@ -75,7 +75,9 @@ export function Grid({
           {rows.map((r, i) => (
             <tr key={r.id ?? i}>
               {columns.map((c, j) => (
-                <td key={j}>{c.render(r)}</td>
+                <td key={j} data-label={c.label}>
+                  {c.render(r)}
+                </td>
               ))}
             </tr>
           ))}
