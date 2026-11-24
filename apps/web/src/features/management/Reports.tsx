@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Header, ErrorMessage } from "../shared/Controls";
 import { Grid, useRows, FormField, PageState, allowed } from "./Tools";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
-import { Search } from "lucide-react";
+import { FileSpreadsheet, FileText, Printer, Search } from "lucide-react";
 import "./management.css";
 const types = [
   ["daily", "المبيعات اليومية"],
@@ -175,27 +175,30 @@ export function Reports() {
               (kind !== "cashier-invoices" || cashierId) && (
                 <>
                   <a
-                    className="btn btn-outline"
+                    className="btn btn-outline report-action"
                     aria-disabled={exportLimited}
                     href={exportLimited ? undefined : `/api${path}&format=xlsx`}
                   >
+                    <FileSpreadsheet size={16} />
                     تصدير Excel
                   </a>
                   <a
-                    className="btn btn-outline"
+                    className="btn btn-outline report-action"
                     aria-disabled={exportLimited}
                     href={exportLimited ? undefined : `/api${path}&format=pdf`}
                   >
+                    <FileText size={16} />
                     تصدير PDF
                   </a>
                   <button
-                    className="btn btn-outline"
+                    className="btn report-print-btn"
                     onClick={() => {
                       document.body.classList.add("report-print");
                       window.print();
                       document.body.classList.remove("report-print");
                     }}
                   >
+                    <Printer size={16} />
                     طباعة الصفحة الحالية
                   </button>
                 </>
