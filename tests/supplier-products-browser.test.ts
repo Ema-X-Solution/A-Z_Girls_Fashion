@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
 import { chromium, expect as ui, type Browser } from "@playwright/test";
+import { pickSmartOption } from "./smart-select";
 import { preview, type PreviewServer } from "vite";
 import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -34,14 +35,14 @@ it.each([1440, 390])("supplier filter and label fallback in RTL at %spx", async 
     const labels = page.locator(".barcode-preview .label-options");
     await ui(labels).toHaveText(["SUP-0001", "VAR-2", "S / Red"]);
     await ui(page.locator(".barcode-preview .label-number").first()).toHaveText("201234567891");
-    await page.getByLabel("تصفية حسب المورد الأساسي", { exact: true }).selectOption(supplier.id);
+    await pickSmartOption(page, "تصفية حسب المورد الأساسي", supplier.name);
     await ui(page.getByRole("checkbox", { name: "اختيار VAR-2", exact: true })).toHaveCount(0);
     expect(filtered).toBe(true); await ui(all).not.toBeChecked();
     await all.check(); await page.getByRole("button", { name: "معاينة الملصقات", exact: true }).click();
     await ui(page.locator(".barcode-preview .label-options")).toHaveText(["SUP-0001", "S / Red"]);
     await page.screenshot({ path: `test-results/supplier-feature/barcode-filter-${width}.png`, fullPage: true });
     await page.locator(".barcode-preview-panel").screenshot({ path: `test-results/supplier-feature/labels-${width}.png` });
-    await page.getByLabel("تصفية حسب المورد الأساسي", { exact: true }).selectOption("");
+    await page.getByRole("button", { name: "مسح تصفية حسب المورد الأساسي", exact: true }).click();
     await ui(page.getByRole("checkbox", { name: "اختيار VAR-2", exact: true })).toBeVisible();
   } finally { await page.close(); }
 });
