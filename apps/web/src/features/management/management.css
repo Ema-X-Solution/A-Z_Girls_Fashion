@@ -207,3 +207,40 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Reports top bar on desktop: filters and action buttons share one row */
+@media (min-width: 701px) {
+  .report-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+  }
+  .report-top > .management-tools {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+    gap: 10px;
+  }
+  .report-top > .management-tools .management-field {
+    flex: 1 1 0;
+    min-width: 110px;
+    margin-block: 0;
+  }
+  .report-top > .management-tools > .search {
+    flex: 1.3 1 0;
+    min-width: 160px;
+    max-width: none;
+  }
+  .report-top > .barcode-error,
+  .report-top > .notice {
+    flex: 1 1 100%;
+  }
+  .report-top > .inline-actions {
+    flex: none;
+    gap: 8px;
+  }
+  .report-top > .inline-actions .btn {
+    white-space: nowrap;
+  }
+}
