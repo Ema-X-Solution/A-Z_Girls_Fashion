@@ -1,4 +1,5 @@
 import "./partner-settings.css";
+import { ChevronDown } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +69,7 @@ export function PartnerSettings() {
     >
       <header className="partner-settings-header">
         <button
+          type="button"
           className="partner-settings-toggle"
           aria-label={`${expanded ? "إخفاء" : "عرض"} إعداد أسماء الشركاء ونسبهم`}
           aria-expanded={expanded}
@@ -85,8 +87,8 @@ export function PartnerSettings() {
               إدارة بيانات الشركاء ونسب توزيع الأرباح
             </span>
           </span>
-          <span className="partner-settings-toggle-label">
-            <span aria-hidden="true">{expanded ? "⌃" : "⌄"}</span>
+          <span className="partner-settings-toggle-label" aria-hidden="true">
+            <ChevronDown size={20} strokeWidth={1.8} />
           </span>
         </button>
 
