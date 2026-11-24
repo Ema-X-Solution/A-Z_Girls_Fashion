@@ -182,6 +182,10 @@
   color: inherit;
   cursor: pointer;
   font: inherit;
+  border-radius: 8px;
+}
+.partner-settings-toggle > span:first-child {
+  min-width: 0;
 }
 .partner-settings-title {
   display: block;
@@ -196,48 +200,52 @@
   font-size: 12px;
 }
 .partner-settings-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: #80652f;
-  white-space: nowrap;
-  padding: 9px 12px;
-  border: 1px solid #e5d6b0;
-  border-radius: 8px;
-  background: #fffdf7;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #292722;
+  border-radius: 12px;
+  color: #d7b76b;
+  background: #171716;
+  box-shadow: 0 2px 4px #0000000d;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
 }
-.partner-settings-toggle-label > span {
-  font-size: 20px;
+.partner-settings-toggle-label svg {
+  display: block;
+  flex-shrink: 0;
+  transition: transform 180ms ease;
+}
+.partner-settings-toggle[aria-expanded="true"]
+  .partner-settings-toggle-label
+  svg {
+  transform: rotate(180deg);
+}
+.partner-settings-toggle:hover .partner-settings-toggle-label {
+  background: #29251c;
+  border-color: #b89b58;
+}
+.partner-settings-toggle:focus-visible {
+  outline: 2px solid #b89b58;
+  outline-offset: 6px;
 }
 @media (max-width: 600px) {
   .partner-settings-toggle {
-    align-items: start;
-    flex-direction: column;
-    gap: 12px;
+    gap: 16px;
   }
   .partner-settings-title {
     font-size: 17px;
   }
 }
-
-.partner-settings-toggle-label {
-  width: 38px;
-  height: 38px;
-  box-sizing: border-box;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-@media (max-width: 600px) {
-  .partner-settings-toggle {
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
-  }
-  .partner-settings-toggle-label {
-    flex: 0 0 38px;
+@media (prefers-reduced-motion: reduce) {
+  .partner-settings-toggle-label,
+  .partner-settings-toggle-label svg {
+    transition: none;
   }
 }
 
