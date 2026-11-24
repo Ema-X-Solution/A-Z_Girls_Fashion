@@ -41,13 +41,6 @@ export function Shell() {
   return (
     <div className="app-shell">
       <aside className={mobile ? "sidebar mobile-open" : "sidebar"}>
-        <button
-          className="sidebar-close"
-          aria-label="إغلاق القائمة"
-          onClick={() => setMobile(false)}
-        >
-          <X size={18} />
-        </button>
         <Link to="/dashboard" className="brand">
           <BrandLogo className="sidebar-store-logo" />
           <div>
