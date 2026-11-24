@@ -3062,6 +3062,14 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await browserExpect(page.locator(".receipt-preview")).toBeVisible();
       expect(await db.sale.count()).toBe(saleCountBeforeRecovery + 1);
       const receipt = page.locator(".receipt-preview");
+      // Owners and managers sell as themselves (no cashier picker), so the
+      // receipt carries the signed-in owner's seller code.
+      const ownerUser = await db.user.findUniqueOrThrow({
+          where: { email: "owner@example.test" },
+          select: { id: true, employeeCode: true },
+        }),
+        ownerSellerCode =
+          ownerUser.employeeCode ?? ownerUser.id.slice(0, 8).toUpperCase();
       for (const value of [
         "1,090.00",
         "912.28",
@@ -3070,7 +3078,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         "492810",
         "CR-1042",
         "CR-2118",
-        "SELLER-001",
+        ownerSellerCode,
         "included",
       ])
         await browserExpect(receipt).toContainText(value);
@@ -3190,7 +3198,21 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         .getByLabel("سبب الاستبدال بالتفصيل", { exact: true })
         .fill("استبدال مقاس ولون");
       await pickSmartOption(page, "الصنف البديل 1", a.sku);
-      await pickSmartOption(page, "اسم الكاشير للفاتورة البديلة", cashier.user.name);
+      // The exchange dialog hides the cashier picker for owners/managers
+      // (they sell as themselves), so pick only when it renders.
+      if (
+        await page
+          .getByRole("combobox", {
+            name: "اسم الكاشير للفاتورة البديلة",
+            exact: true,
+          })
+          .count()
+      )
+        await pickSmartOption(
+          page,
+          "اسم الكاشير للفاتورة البديلة",
+          cashier.user.name,
+        );
       await page
         .getByRole("button", { name: "اعتماد الاستبدال", exact: true })
         .click();
