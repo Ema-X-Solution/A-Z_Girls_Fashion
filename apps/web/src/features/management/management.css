@@ -179,11 +179,15 @@
   .report-controls.management-tools .management-field {
     margin-block: 0;
   }
-  /* Report type and search each take a full row; the two dates share one */
+  /* Report type, search and cashier picker each take a full row;
+     the two dates share one */
   .report-controls.management-tools .management-field:nth-child(1),
-  .report-controls.management-tools .management-field:nth-child(4),
-  .report-controls.management-tools .management-field:nth-child(5) {
+  .report-controls.management-tools .management-field:nth-child(5),
+  .report-controls.management-tools > .search {
     grid-column: 1 / -1;
+  }
+  .report-controls.management-tools > .search {
+    max-width: none;
   }
   /* Export buttons side by side, print on its own full-width row,
      with a clear gap under the filter fields above */
