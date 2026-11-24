@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { POS } from "../features/pos/POS";
 import { DiscountApprovals } from "../features/pos/DiscountApprovals";
 import { BrandLogo } from "../features/shared/BrandLogo";
@@ -83,10 +83,11 @@ export function Shell() {
           <Button
             variant="ghost"
             className="mobile-toggle"
-            aria-label={mobile ? "إغلاق القائمة" : "القائمة"}
+            aria-label="القائمة"
+            aria-expanded={mobile}
             onClick={() => setMobile(!mobile)}
           >
-            {mobile ? <X /> : <Menu />}
+            <Menu />
           </Button>
           <ThemeToggle className="mobile-theme-toggle" />
           <div className="breadcrumb">
