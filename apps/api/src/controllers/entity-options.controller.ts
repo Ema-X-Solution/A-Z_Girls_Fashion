@@ -30,6 +30,7 @@ export const handleEntityOptions: RequestHandler = route(async (req, res) => {
       "inventory.transfer",
       "purchases.create",
       "settings.manage",
+      "products.view",
     ],
     registers: ["cash.open_shift", "settings.manage"],
     categories: ["products.view", "products.create"],
