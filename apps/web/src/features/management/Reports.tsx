@@ -251,16 +251,18 @@ export function Reports() {
                 )}
               </>
             ) : (
-              <Grid
-                rows={valid ? (query.data?.data ?? []) : []}
-                columns={(query.data?.columns ?? []).map(
-                  (c: { key: string; label: string }) => ({
-                    label: c.label,
-                    render: (r: Record<string, unknown>) =>
-                      String(r[c.key] ?? "—"),
-                  }),
-                )}
-              />
+              <div className={kind === "daily" ? "report-daily-cards" : undefined}>
+                <Grid
+                  rows={valid ? (query.data?.data ?? []) : []}
+                  columns={(query.data?.columns ?? []).map(
+                    (c: { key: string; label: string }) => ({
+                      label: c.label,
+                      render: (r: Record<string, unknown>) =>
+                        String(r[c.key] ?? "—"),
+                    }),
+                  )}
+                />
+              </div>
             )}
           </>
         )}
@@ -278,4 +280,4 @@ export function Reports() {
       </section>
     </>
   );
-            }
+}
