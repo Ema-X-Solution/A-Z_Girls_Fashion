@@ -130,7 +130,7 @@ export function Products() {
               }}
             >
               المنتجات الحالية
-              <span className="tab-count">{formatDigits(String(tabTotal("active") ?? 0))}</span>
+              <span className="tab-count" aria-hidden="true">{formatDigits(String(tabTotal("active") ?? 0))}</span>
             </Button>
             <Button
               variant={productTab === "archived" ? "default" : "outline"}
@@ -139,7 +139,7 @@ export function Products() {
               }}
             >
               أرشيف المنتجات
-              <span className="tab-count">{formatDigits(String(tabTotal("archived") ?? 0))}</span>
+              <span className="tab-count" aria-hidden="true">{formatDigits(String(tabTotal("archived") ?? 0))}</span>
             </Button>
           </div>
         )}
@@ -163,7 +163,7 @@ export function Products() {
             <ListFilter size={16} />
             الفلاتر
             {activeFilters > 0 && (
-              <span className="tab-count">{formatDigits(String(activeFilters))}</span>
+              <span className="tab-count" aria-hidden="true">{formatDigits(String(activeFilters))}</span>
             )}
           </Button>
           <div className={`products-filters${filtersOpen ? " is-open" : ""}`}>
