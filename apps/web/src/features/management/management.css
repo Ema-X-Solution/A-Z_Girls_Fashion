@@ -244,3 +244,56 @@
     white-space: nowrap;
   }
 }
+
+/* Reports export/print actions: premium button treatment (light + theme vars) */
+.report-controls.inline-actions .btn {
+  border-radius: 10px;
+  min-height: 42px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s,
+    background 0.15s;
+}
+.report-controls.inline-actions .btn svg {
+  color: var(--gold);
+}
+.report-controls.inline-actions .btn-outline {
+  background: #fff;
+  border-color: var(--border);
+  color: #3a3d44;
+  box-shadow: 0 1px 2px rgba(16, 16, 16, 0.04);
+}
+.report-controls.inline-actions .btn-outline:hover {
+  border-color: var(--gold);
+  box-shadow: 0 4px 14px rgba(195, 160, 75, 0.18);
+  transform: translateY(-1px);
+}
+.report-controls.inline-actions .btn-outline[aria-disabled="true"] {
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+.report-controls.inline-actions .report-print-btn {
+  background: var(--black);
+  border: 1px solid var(--black);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(16, 16, 16, 0.18);
+}
+.report-controls.inline-actions .report-print-btn:hover {
+  background: #1d1d1f;
+  box-shadow: 0 6px 16px rgba(16, 16, 16, 0.22);
+  transform: translateY(-1px);
+}
+.report-controls.inline-actions .btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-controls.inline-actions .btn {
+    transition: none;
+  }
+  .report-controls.inline-actions .btn:hover {
+    transform: none;
+  }
+}
