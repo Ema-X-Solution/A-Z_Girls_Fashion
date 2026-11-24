@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Header, ErrorMessage } from "../shared/Controls";
 import { Grid, useRows, FormField, PageState, allowed } from "./Tools";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import { Search } from "lucide-react";
 import "./management.css";
 const types = [
   ["daily", "المبيعات اليومية"],
@@ -126,16 +127,19 @@ export function Reports() {
               }}
             />
           </FormField>
-          <FormField label="بحث داخل التقرير">
+          <div className="search report-search">
+            <Search size={18} />
             <input
               type="search"
+              aria-label="بحث داخل التقرير"
+              placeholder="بحث داخل التقرير"
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
                 paging.setPage(1);
               }}
             />
-          </FormField>
+          </div>
           {kind === "cashier-invoices" && (
             <FormField label="الكاشير">
               <SmartSelect
@@ -280,4 +284,4 @@ export function Reports() {
       </section>
     </>
   );
-}
+            }
