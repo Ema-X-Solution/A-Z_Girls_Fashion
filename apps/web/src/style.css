@@ -1842,17 +1842,22 @@ tr:last-child td {
 }
 .label-options {
   font-size: 7pt;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 1mm;
   align-items: center;
   white-space: nowrap;
   overflow: hidden;
   min-height: 3mm;
 }
-.label-options b {
-  font-size: 7pt;
+.label-options > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.label-size { text-align: left; }
+.label-supplier { text-align: center; font-weight: 700; }
+.label-color { text-align: right; }
 .retail-label svg {
   display: block;
   width: 100%;
@@ -1904,7 +1909,7 @@ tr:last-child td {
   -webkit-line-clamp: 2;
 }
 .retail-label-40x25 .label-options {
-  display: block;
+  display: grid;
   font-size: 6pt;
   line-height: 2.4mm;
   text-overflow: ellipsis;
