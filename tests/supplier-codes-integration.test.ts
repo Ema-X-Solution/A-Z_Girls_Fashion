@@ -71,6 +71,28 @@ describe.sequential("auto supplier identity", () => {
     expect((await send("patch", `/products/${plain.body.data.id}`, { primarySupplierId: missing })).status).toBe(400);
     const options = await agent.get(`/api/options/suppliers?q=${a.code}`); expect(options.body.data.some((v: any) => v.id === a.id)).toBe(true);
   });
+  it("inherits the product supplier for every existing size/color variant at print time", async () => {
+    const a = await db.supplier.create({ data: { name: "Variant supplier A" } });
+    const b = await db.supplier.create({ data: { name: "Variant supplier B" } });
+    const cat = await send("post", "/categories", { name: "Supplier variant cases" });
+    const optionCases = [{}, { المقاس: "M" }, { اللون: "Red" }, { المقاس: "M", اللون: "Red" }];
+    const created = await send("post", "/products", { nameAr: "Variant supplier inheritance", categoryId: cat.body.data.id, variants: optionCases.map((options) => ({ price: "100", options })) });
+    expect(created.status).toBe(201);
+    const product = created.body.data;
+    const items = product.variants.map((v: any) => ({ variantId: v.id, quantity: 1 }));
+    for (const supplier of [a, b, null]) {
+      expect((await send("patch", `/products/${product.id}`, { primarySupplierId: supplier?.id ?? null })).status).toBe(200);
+      const printed = await send("post", "/barcodes/print-labels", { items });
+      expect(printed.status).toBe(200);
+      expect(printed.body.data.items).toHaveLength(4);
+      for (const line of printed.body.data.items) {
+        const variant = product.variants.find((v: any) => v.id === line.variantId);
+        expect(line.supplierCode).toBe(supplier?.code ?? null);
+        expect(line.options).toEqual(variant.options);
+        expect(line.barcode).toBe(variant.barcode);
+      }
+    }
+  });
   it("handles parallel creates and skips a manually assigned future generated code", async () => {
     const next = await db.$queryRawUnsafe('SELECT last_value + 1 AS n FROM "Supplier_code_seq"');
     const reservedCode = `SUP-${String(next[0].n).padStart(4, "0")}`;
