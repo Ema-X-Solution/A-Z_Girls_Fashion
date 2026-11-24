@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Header, ErrorMessage } from "../shared/Controls";
 import { Grid, useRows, FormField, PageState, allowed } from "./Tools";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import { Search } from "lucide-react";
 import "./management.css";
 const types = [
   ["daily", "المبيعات اليومية"],
@@ -90,111 +91,116 @@ export function Reports() {
         subtitle="الفترات بتوقيت القاهرة؛ صافي المبيعات يعكس مرتجعات الفترة، والأرصدة المخزنية وأرصدة الموردين حالية"
       />
       <section className="panel management-card">
-        <div className="management-tools report-controls">
-          <FormField label="نوع التقرير">
-            <select
-              value={kind}
-              onChange={(e) => {
-                setKind(e.target.value);
-                paging.setPage(1);
-              }}
-            >
-              {visibleTypes.map((t) => (
-                <option value={t[0]} key={t[0]}>
-                  {t[1]}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="من تاريخ">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => {
-                setFrom(e.target.value);
-                paging.setPage(1);
-              }}
-            />
-          </FormField>
-          <FormField label="إلى تاريخ">
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => {
-                setTo(e.target.value);
-                paging.setPage(1);
-              }}
-            />
-          </FormField>
-          <FormField label="بحث داخل التقرير">
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                paging.setPage(1);
-              }}
-            />
-          </FormField>
-          {kind === "cashier-invoices" && (
-            <FormField label="الكاشير">
-              <SmartSelect
-                id="report-cashier"
-                name="cashierId"
-                label="الكاشير"
-                placeholder="ابحث باسم الكاشير أو الكود"
-                value={cashierId}
-                endpoint="/reports/cashiers"
-                optionLabel={(row) => `${row.name} (${row.sellerCode})`}
-                onChange={(row) => {
-                  setCashierId(row.id);
+        <div className="report-top">
+          <div className="management-tools report-controls">
+            <FormField label="نوع التقرير">
+              <select
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value);
+                  paging.setPage(1);
+                }}
+              >
+                {visibleTypes.map((t) => (
+                  <option value={t[0]} key={t[0]}>
+                    {t[1]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="من تاريخ">
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
                   paging.setPage(1);
                 }}
               />
             </FormField>
-          )}
-        </div>
-        <ErrorMessage
-          message={!valid ? "اختار فترة صحيحة لا تتجاوز 366 يومًا" : ""}
-        />
-        {(query.data?.total ?? 0) >= 10000 && (
-          <div className="notice" role={exportLimited ? "alert" : "status"}>
-            {exportLimited
-              ? "عدد النتائج أكبر من حد التصدير (10,000 صف). ضيّق الفترة أو البحث أولًا؛ لن يتم تنزيل ملف ناقص."
-              : "وصل التقرير إلى حد التصدير: 10,000 صف. يشمل التصدير كل هذه النتائج."}
-          </div>
-        )}
-        <div className="inline-actions report-controls">
-          {valid &&
-            !searchPending &&
-            (kind !== "cashier-invoices" || cashierId) && (
-              <>
-                <a
-                  className="btn btn-outline"
-                  aria-disabled={exportLimited}
-                  href={exportLimited ? undefined : `/api${path}&format=xlsx`}
-                >
-                  تصدير Excel
-                </a>
-                <a
-                  className="btn btn-outline"
-                  aria-disabled={exportLimited}
-                  href={exportLimited ? undefined : `/api${path}&format=pdf`}
-                >
-                  تصدير PDF
-                </a>
-                <button
-                  className="btn btn-outline"
-                  onClick={() => {
-                    document.body.classList.add("report-print");
-                    window.print();
-                    document.body.classList.remove("report-print");
+            <FormField label="إلى تاريخ">
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  paging.setPage(1);
+                }}
+              />
+            </FormField>
+            <div className="search report-search">
+              <Search size={18} />
+              <input
+                type="search"
+                aria-label="بحث داخل التقرير"
+                placeholder="بحث داخل التقرير"
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  paging.setPage(1);
+                }}
+              />
+            </div>
+            {kind === "cashier-invoices" && (
+              <FormField label="الكاشير">
+                <SmartSelect
+                  id="report-cashier"
+                  name="cashierId"
+                  label="الكاشير"
+                  placeholder="ابحث باسم الكاشير أو الكود"
+                  value={cashierId}
+                  endpoint="/reports/cashiers"
+                  optionLabel={(row) => `${row.name} (${row.sellerCode})`}
+                  onChange={(row) => {
+                    setCashierId(row.id);
+                    paging.setPage(1);
                   }}
-                >
-                  طباعة الصفحة الحالية
-                </button>
-              </>
+                />
+              </FormField>
             )}
+          </div>
+          <ErrorMessage
+            message={!valid ? "اختار فترة صحيحة لا تتجاوز 366 يومًا" : ""}
+          />
+          {(query.data?.total ?? 0) >= 10000 && (
+            <div className="notice" role={exportLimited ? "alert" : "status"}>
+              {exportLimited
+                ? "عدد النتائج أكبر من حد التصدير (10,000 صف). ضيّق الفترة أو البحث أولًا؛ لن يتم تنزيل ملف ناقص."
+                : "وصل التقرير إلى حد التصدير: 10,000 صف. يشمل التصدير كل هذه النتائج."}
+            </div>
+          )}
+          <div className="inline-actions report-controls">
+            {valid &&
+              !searchPending &&
+              (kind !== "cashier-invoices" || cashierId) && (
+                <>
+                  <a
+                    className="btn btn-outline"
+                    aria-disabled={exportLimited}
+                    href={exportLimited ? undefined : `/api${path}&format=xlsx`}
+                  >
+                    تصدير Excel
+                  </a>
+                  <a
+                    className="btn btn-outline"
+                    aria-disabled={exportLimited}
+                    href={exportLimited ? undefined : `/api${path}&format=pdf`}
+                  >
+                    تصدير PDF
+                  </a>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      document.body.classList.add("report-print");
+                      window.print();
+                      document.body.classList.remove("report-print");
+                    }}
+                  >
+                    طباعة الصفحة الحالية
+                  </button>
+                </>
+              )}
+          </div>
         </div>
         <h2>{query.data?.title ?? "التقرير"}</h2>
         <p className="management-note">
@@ -251,16 +257,20 @@ export function Reports() {
                 )}
               </>
             ) : (
-              <Grid
-                rows={valid ? (query.data?.data ?? []) : []}
-                columns={(query.data?.columns ?? []).map(
-                  (c: { key: string; label: string }) => ({
-                    label: c.label,
-                    render: (r: Record<string, unknown>) =>
-                      String(r[c.key] ?? "—"),
-                  }),
-                )}
-              />
+              <div
+                className={kind === "daily" ? "report-daily-cards" : undefined}
+              >
+                <Grid
+                  rows={valid ? (query.data?.data ?? []) : []}
+                  columns={(query.data?.columns ?? []).map(
+                    (c: { key: string; label: string }) => ({
+                      label: c.label,
+                      render: (r: Record<string, unknown>) =>
+                        String(r[c.key] ?? "—"),
+                    }),
+                  )}
+                />
+              </div>
             )}
           </>
         )}
@@ -278,4 +288,4 @@ export function Reports() {
       </section>
     </>
   );
-            }
+}
