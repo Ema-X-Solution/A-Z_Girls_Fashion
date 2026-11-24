@@ -258,18 +258,18 @@ describe("unified product pagination", () => {
         .getByRole("combobox", { name: "عدد العناصر في الصفحة" })
         .selectOption("150");
       await ui(nav.getByText("1–150 من 157 منتج")).toBeVisible();
-      await page.locator(".toolbar input").fill("no-such-product");
+      await page.locator(".toolbar .search input").fill("no-such-product");
       await ui(nav.getByText("0–0 من 0 منتج")).toBeVisible();
-      await page.locator(".toolbar input").fill("156");
-      await page.locator(".toolbar input").fill("155");
+      await page.locator(".toolbar .search input").fill("156");
+      await page.locator(".toolbar .search input").fill("155");
       await ui(nav.getByText("1–1 من 1 منتج")).toBeVisible();
       await ui(page.getByText("صنف تجريبي 155", { exact: true })).toBeVisible();
-      await page.locator(".toolbar input").fill("no-such-product");
+      await page.locator(".toolbar .search input").fill("no-such-product");
       await ui(nav.getByText("0–0 من 0 منتج")).toBeVisible();
       await ui(
         nav.getByRole("button", { name: "التالي", exact: true }),
       ).toBeDisabled();
-      await page.locator(".toolbar input").fill("");
+      await page.locator(".toolbar .search input").fill("");
       await ui(nav.getByText("1–150 من 157 منتج")).toBeVisible();
       await nav.getByRole("button", { name: "التالي", exact: true }).click();
       await ui(nav.getByText("151–157 من 157 منتج")).toBeVisible();
