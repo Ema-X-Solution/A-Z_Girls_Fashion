@@ -297,3 +297,11 @@
     transform: none;
   }
 }
+
+/* Reports top bar on tighter desktop widths: the export/print actions move
+   to their own row so filters and buttons never overlap or clip */
+@media (min-width: 701px) and (max-width: 1360px) {
+  .report-top > .inline-actions {
+    flex: 1 1 100%;
+  }
+}
