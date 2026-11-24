@@ -125,7 +125,11 @@ async function drawerShift() {
 // The cashier selected on the shared POS device (the user holding the exact
 // Arabic cashier role).
 async function pickPosCashier(page: Page) {
-  await pickSmartOption(page, "اسم الكاشير", cashier.user.name);
+  // The new POS only renders the cashier picker when the signed-in user
+  // cannot sell as themselves (owners and managers sell directly).
+  const combo = page.getByRole("combobox", { name: "اسم الكاشير", exact: true });
+  if (await combo.count())
+    await pickSmartOption(page, "اسم الكاشير", cashier.user.name);
 }
 beforeAll(async () => {
   pgPort = await new Promise<number>((resolvePort) => {
