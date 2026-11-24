@@ -9,6 +9,7 @@ import { ar } from "../../i18n";
 import { Button } from "../../components/ui/button";
 import { BrandLogo } from "../shared/BrandLogo";
 import { Field } from "../../components/application/Primitives";
+import { ThemeToggle } from "../../components/application/ThemeToggle";
 
 type LoginPageProps = {
   onError: (error: unknown) => void;
@@ -31,6 +32,9 @@ export function LoginPage({ onError }: LoginPageProps) {
     setUser = useSession((s) => s.setUser);
   return (
     <main className="login">
+      <div className="login-theme-toggle">
+        <ThemeToggle />
+      </div>
       <section className="login-brand">
         <BrandLogo className="login-store-logo" />
         <div className="gold-rule" />
