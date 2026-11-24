@@ -21,7 +21,7 @@ type Variant = {
   price: string;
   active: boolean;
   options: Record<string, string>;
-  balances?: { quantity: number }[];
+  balances?: { locationId?: string; quantity: number }[];
 };
 type Product = { id: string; nameAr: string; variants: Variant[] };
 type Line = {
@@ -135,8 +135,8 @@ function Label({
   );
 }
 
-// The barcode catalog has no location filter: its quantity is the net stock
-// across the balances supplied by the server. Never silently cap this at 500.
+// Quantities use the balances in the current warehouse view.
+// Never silently cap this at 500.
 function stockQuantity(variant: Variant) {
   return Math.max(0, variant.balances?.reduce((sum, balance) => sum + balance.quantity, 0) ?? 0);
 }
@@ -146,6 +146,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     receiptId = product ? null : params.get("receiptId"),
     [loadedReceipt, setLoadedReceipt] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState("");
+  const [locationId, setLocationId] = useState("");
   const [q, setQ] = useState(""),
     [selected, setSelected] = useState<
       Record<string, { variant: Variant; name: string; quantity: number }>
@@ -166,12 +167,12 @@ export function BarcodeLabels({ product }: { product?: Product }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const { debounced: debouncedQ, searchPending } = useDebouncedSearch(q);
-  const paging = usePagination(`${q.trim()}|${supplierId}`, !product && !receiptId);
+  const paging = usePagination(`${q.trim()}|${supplierId}|${locationId}`, !product && !receiptId);
   const query = useQuery({
-    queryKey: ["barcode-catalog", debouncedQ, supplierId, paging.page, paging.pageSize],
+    queryKey: ["barcode-catalog", debouncedQ, supplierId, locationId, paging.page, paging.pageSize],
     queryFn: ({ signal }) =>
       api<PaginatedResult<Product>>(
-        `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${supplierId ? `&supplierId=${encodeURIComponent(supplierId)}` : ""}`,
+        `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${supplierId ? `&supplierId=${encodeURIComponent(supplierId)}` : ""}${locationId ? `&locationId=${encodeURIComponent(locationId)}` : ""}`,
         { signal },
       ),
     enabled: !product && !receiptId && !searchPending,
@@ -207,7 +208,12 @@ export function BarcodeLabels({ product }: { product?: Product }) {
       ? [product]
       : receiptId
         ? (receipt.data?.data.products ?? [])
-        : (query.data?.data ?? []),
+        : (query.data?.data ?? []).map((item) => locationId ? {
+            ...item,
+            variants: item.variants
+              .filter((variant) => variant.balances?.some((balance) => balance.locationId === locationId))
+              .map((variant) => ({ ...variant, balances: variant.balances?.filter((balance) => balance.locationId === locationId) })),
+          } : item),
     size = presets[preset] ?? { width: customWidth, height: customHeight },
     total = Object.values(selected).reduce((s, i) => s + i.quantity, 0),
     printableCount = Object.values(selected).filter((item) => item.quantity > 0).length,
@@ -298,25 +304,32 @@ export function BarcodeLabels({ product }: { product?: Product }) {
             </Link>
           </div>
           {!receiptId ? (
-            <div className="form-grid">
-              <Control label="تصفية حسب المورد الأساسي">
-                {(id) => <EntitySelect kind="suppliers" id={id} name="barcodeSupplierId" label="تصفية حسب المورد الأساسي" required={false} value={supplierId} onChange={(value) => {
-                  setSupplierId(value); setSelected({}); setJob(null); setError("");
-                }} />}
-              </Control>
-              <p className="barcode-help">تغيير المورد يلغي الاختيارات السابقة. اترك المورد فارغًا لعرض كل المنتجات.</p>
-            <div className="search">
-              <Search size={18} />
-              <input
-                aria-label="البحث عن منتجات للباركود"
-                placeholder="اسم المنتج، الكود أو الباركود"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                }}
-              />
-            </div>
-            </div>
+            <>
+              <div className="barcode-catalog-filters">
+                <Control label="البحث">
+                  {() => <div className="search">
+                    <Search size={18} />
+                    <input
+                      aria-label="البحث عن منتجات للباركود"
+                      placeholder="اسم المنتج، الكود أو الباركود"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                    />
+                  </div>}
+                </Control>
+                <Control label="المورد الأساسي">
+                  {(id) => <EntitySelect kind="suppliers" id={id} name="barcodeSupplierId" label="تصفية حسب المورد الأساسي" required={false} value={supplierId} onChange={(value) => {
+                    setSupplierId(value); setSelected({}); setJob(null); setError("");
+                  }} />}
+                </Control>
+                <Control label="المخزن">
+                  {(id) => <EntitySelect kind="locations" id={id} name="barcodeLocationId" label="المخزن" required={false} value={locationId} onChange={(value) => {
+                    setLocationId(value); setSelected({}); setJob(null); setError("");
+                  }} />}
+                </Control>
+              </div>
+              <p className="barcode-help">تغيير المورد أو المخزن يلغي الاختيارات السابقة. اترك الفلتر فارغًا لعرض الكل. كمية المخزون تخص المخزن المختار، أو إجمالي المخازن عند عرض الكل.</p>
+            </>
           ) : (
             <p className="notice">
               هذه الملصقات تخص دفعة الاستلام المحددة. الأعداد تستبعد مرتجعات
