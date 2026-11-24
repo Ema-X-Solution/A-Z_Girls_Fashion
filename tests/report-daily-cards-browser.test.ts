@@ -168,15 +168,19 @@ describe("daily sales report on mobile", () => {
             ".report-controls.management-tools .management-field",
           ),
         ].map((el) => rect(el));
+        const search = rect(
+          document.querySelector(".report-controls.management-tools > .search")!,
+        );
         const buttons = [
           ...document.querySelectorAll(".report-controls.inline-actions .btn"),
         ].map((el) => rect(el));
-        return { fields, buttons, innerWidth: window.innerWidth };
+        return { fields, search, buttons, innerWidth: window.innerWidth };
       });
       // Report type and search span the full width; the dates share one row.
-      const [type, from, to, search] = boxes.fields;
+      const [type, from, to] = boxes.fields;
       expect(type!.width).toBeGreaterThan(boxes.innerWidth * 0.7);
-      expect(search!.width).toBeGreaterThan(boxes.innerWidth * 0.7);
+      expect(boxes.search.width).toBeGreaterThan(boxes.innerWidth * 0.7);
+      expect(boxes.search.y).toBeGreaterThan(from!.y);
       expect(from!.y).toBe(to!.y);
       expect(from!.width).toBeLessThan(boxes.innerWidth * 0.6);
       expect(from!.y).toBeGreaterThan(type!.y);
@@ -188,6 +192,24 @@ describe("daily sales report on mobile", () => {
       expect(print!.width).toBeGreaterThan(boxes.innerWidth * 0.7);
       expect(print!.x).toBeGreaterThanOrEqual(0);
       expect(print!.x + print!.width).toBeLessThanOrEqual(boxes.innerWidth);
+      // The search field has no visible label: icon + placeholder + aria-label.
+      const searchBox = page.locator(
+        ".report-controls.management-tools > .search",
+      );
+      await ui(searchBox.locator("svg")).toHaveCount(1);
+      await ui(searchBox.locator("input")).toHaveAttribute(
+        "aria-label",
+        "بحث داخل التقرير",
+      );
+      await ui(searchBox.locator("input")).toHaveAttribute(
+        "placeholder",
+        "بحث داخل التقرير",
+      );
+      await ui(
+        page.locator(".report-controls.management-tools label", {
+          hasText: "بحث داخل التقرير",
+        }),
+      ).toHaveCount(0);
       expect(errors).toEqual([]);
     } finally {
       await context.close();
