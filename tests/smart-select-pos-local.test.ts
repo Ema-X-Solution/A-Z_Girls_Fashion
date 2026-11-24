@@ -118,7 +118,7 @@ async function mount({
         id: userId,
         name: "TEST Owner",
         email: "owner@example.test",
-        roles: ["OWNER"],
+        roles: ["SELLER"],
         permissions: [
           "reports.sales",
           "cash.close_shift",
