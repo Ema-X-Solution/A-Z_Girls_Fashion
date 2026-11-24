@@ -67,6 +67,10 @@ function Label({
   price: boolean;
   compact: boolean;
 }) {
+  const optionEntries = Object.entries(line.options).filter(([, value]) => value.trim());
+  const color = optionEntries.filter(([key]) => /^(color|colour|اللون)$/i.test(key.trim())).map(([, value]) => formatDigits(value.trim())).join(" / ");
+  const size = optionEntries.filter(([key]) => !/^(color|colour|اللون)$/i.test(key.trim())).map(([, value]) => formatDigits(value.trim())).join(" / ");
+  const supplierCode = line.supplierCode || "";
   return (
     <article
       className={`retail-label${compact ? " retail-label-40x25" : ""}${compact && !price ? " retail-label-no-price" : ""}`}
@@ -79,7 +83,9 @@ function Label({
         {line.name}
       </div>
       <div className="label-options">
-        {formatDigits(Object.values(line.options).map((value) => value.trim()).filter(Boolean).join(" / ")) || line.supplierCode || line.sku}
+        <span className="label-size" dir="auto">{size}</span>
+        <span className="label-supplier">{supplierCode}</span>
+        <span className="label-color" dir="auto">{color}</span>
       </div>
       <svg
         aria-label={`Barcode ${line.barcode}`}
@@ -645,4 +651,4 @@ export function BarcodeLabels({ product }: { product?: Product }) {
         )}
     </div>
   );
-                            }
+}

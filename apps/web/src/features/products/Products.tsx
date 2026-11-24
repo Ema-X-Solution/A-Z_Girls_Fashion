@@ -674,7 +674,7 @@ export function Products() {
                             label: "المورد الأساسي",
                             pickerEndpoint: "/options/suppliers",
                             required: false,
-                            hint: "اختياري. يستخدم كود المورد على ملصق المنتج بدون مقاس أو لون.",
+                            hint: "اختياري. يظهر كود المورد على ملصق كل مقاس ولون للمنتج.",
                           },
                           simple(
                             "description",
@@ -823,7 +823,7 @@ export function ProductForm({
         </Field>
         <Field
           label="المورد الأساسي"
-          hint="اختياري. يستخدم كود المورد على الملصق لو مفيش مقاس أو لون."
+          hint="اختياري. يظهر كود المورد على ملصق كل مقاس ولون للمنتج."
         >
           <EntitySelect
             kind="suppliers"
