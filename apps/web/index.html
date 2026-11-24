@@ -26,6 +26,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      try {
+        var azTheme = window.localStorage.getItem("az-theme");
+        document.documentElement.dataset.theme = azTheme === "light" || azTheme === "dark" ? azTheme : "dark";
+      } catch (e) {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
