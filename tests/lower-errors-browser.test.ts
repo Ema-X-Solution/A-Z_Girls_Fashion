@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, expect as ui, type Browser } from "@playwright/test";
+import { pickSmartOption } from "./smart-select";
 import { preview, type PreviewServer } from "vite";
 import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -137,9 +138,7 @@ describe("audit names and expense error lifecycle", () => {
         });
         if (process.env.BEFORE_UI) return;
         await ui(page.getByRole("alert")).toHaveCount(0);
-        await form
-          .getByLabel("التصنيف", { exact: true })
-          .selectOption({ label: "نقل تجريبي" });
+        await pickSmartOption(form, "التصنيف", "نقل تجريبي");
         const amount = form.getByLabel("القيمة", { exact: true });
         await amount.fill("0");
         await form
