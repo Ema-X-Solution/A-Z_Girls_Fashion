@@ -1,4 +1,5 @@
 import { registerRound2Tests } from "./round2-scenarios";
+import { pickSmartOption } from "./smart-select";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import EmbeddedPostgres from "embedded-postgres";
 import { mkdtemp, mkdir, readFile } from "node:fs/promises";
@@ -124,9 +125,7 @@ async function drawerShift() {
 // The cashier selected on the shared POS device (the user holding the exact
 // Arabic cashier role).
 async function pickPosCashier(page: Page) {
-  await page
-    .getByLabel("اسم الكاشير", { exact: true })
-    .selectOption(cashier.user.id);
+  await pickSmartOption(page, "اسم الكاشير", cashier.user.name);
 }
 beforeAll(async () => {
   pgPort = await new Promise<number>((resolvePort) => {
@@ -3186,12 +3185,8 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await page
         .getByLabel("سبب الاستبدال بالتفصيل", { exact: true })
         .fill("استبدال مقاس ولون");
-      await page
-        .getByLabel("الصنف البديل 1", { exact: true })
-        .selectOption(a.id);
-      await page
-        .getByLabel("اسم الكاشير للفاتورة البديلة", { exact: true })
-        .selectOption(cashier.user.id);
+      await pickSmartOption(page, "الصنف البديل 1", a.sku);
+      await pickSmartOption(page, "اسم الكاشير للفاتورة البديلة", cashier.user.name);
       await page
         .getByRole("button", { name: "اعتماد الاستبدال", exact: true })
         .click();
@@ -4150,23 +4145,15 @@ describe.sequential("real PostgreSQL retail workflows", () => {
       await page
         .getByRole("button", { name: "مستند جديد", exact: true })
         .click();
-      await page
-        .getByLabel("المخزن المصدر", { exact: true })
-        .selectOption(location.id);
-      await page
-        .getByLabel("المخزن الوجهة", { exact: true })
-        .selectOption(dest.id);
+      await pickSmartOption(page, "المخزن المصدر", location.name);
+      await pickSmartOption(page, "المخزن الوجهة", dest.name);
       await page
         .getByLabel("بحث أصناف المستند", { exact: true })
         .fill("Stock document garment");
       await browserExpect(
-        page
-          .getByLabel("الصنف 1", { exact: true })
-          .locator(`option[value="${docVariant.id}"]`),
+        page.getByRole("option", { name: docVariant.sku }),
       ).toHaveCount(1);
-      await page
-        .getByLabel("الصنف 1", { exact: true })
-        .selectOption(docVariant.id);
+      await page.getByRole("option", { name: docVariant.sku }).click();
       await page.getByLabel("الكمية 1", { exact: true }).fill("1");
       await page
         .getByLabel("سبب العملية", { exact: true })
@@ -4421,4 +4408,3 @@ registerCompletionTests(() => ({
 }));
 
 registerRound2Tests(() => ({ db, app, owner, manager, cashier, send, login, resetFixtureQuota, drawerShift, password, origin: () => process.env.APP_ORIGIN ?? origin, availablePort }));
-
