@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { chromium, expect as browserExpect } from "@playwright/test";
+import { pickSmartOption } from "./smart-select";
 import { preview } from "vite";
 import { resolve } from "node:path";
 export function registerCompletionTests(get: () => any) {
@@ -813,21 +814,15 @@ export function registerCompletionTests(get: () => any) {
           .getByRole("button", { name: "شحنة تحويل جديدة", exact: true })
           .click();
         const dialog = page.getByRole("dialog");
-        await dialog
-          .getByLabel("المخزن المصدر", { exact: true })
-          .selectOption(f.location.id);
-        await dialog
-          .getByLabel("المخزن المستلم", { exact: true })
-          .selectOption(f.destination.id);
+        await pickSmartOption(dialog, "المخزن المصدر", f.location.name);
+        await pickSmartOption(dialog, "المخزن المستلم", f.destination.name);
         await dialog
           .getByLabel("بحث عن صنف بالاسم أو SKU", { exact: true })
           .fill("OPS-PRODUCT");
         await browserExpect(
-          dialog.getByLabel("الصنف", { exact: true }).locator("option"),
-        ).toHaveCount(2);
-        await dialog
-          .getByLabel("الصنف", { exact: true })
-          .selectOption(f.variant.id);
+          dialog.getByRole("option", { name: f.variant.sku }),
+        ).toHaveCount(1);
+        await dialog.getByRole("option", { name: f.variant.sku }).click();
         await dialog.getByLabel("السبب", { exact: true }).fill("شحنة متصفح");
         const shipmentResponse = page.waitForResponse(
           (r) =>
