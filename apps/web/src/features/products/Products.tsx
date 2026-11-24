@@ -14,6 +14,7 @@ import {
   Check,
   Archive,
   RotateCcw,
+  ListFilter,
 } from "lucide-react";
 import {
   ProductImage,
@@ -41,6 +42,12 @@ import "./products.css";
 import { type Row } from "../../app/types";
 
 export function Products() {
+  const [supplierFilter, setSupplierFilter] = useState(""),
+    [locationFilter, setLocationFilter] = useState(""),
+    [stockFilter, setStockFilter] = useState(""),
+    [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters =
+    (supplierFilter ? 1 : 0) + (locationFilter ? 1 : 0) + (stockFilter ? 1 : 0);
   const [q, setQ] = useState(""),
     { debounced: debouncedQ, searchPending } = useDebouncedSearch(q),
     [open, setOpen] = useState(false),
@@ -48,7 +55,9 @@ export function Products() {
     [categoryOpen, setCategoryOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
     [productTab, setProductTab] = useState<"active" | "archived">("active"),
-    paging = usePagination(`${q.trim()}|${productTab}`),
+    paging = usePagination(
+      `${q.trim()}|${productTab}|${supplierFilter}|${locationFilter}|${stockFilter}`,
+    ),
     [statusChange, setStatusChange] = useState<{
       product: Row;
       restore: boolean;
@@ -56,7 +65,7 @@ export function Products() {
     [statusError, setStatusError] = useState(""),
     [saveError, setSaveError] = useState(""),
     query = useData(
-      `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${productTab === "archived" ? "&archived=1" : ""}`,
+      `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${productTab === "archived" ? "&archived=1" : ""}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`,
       true,
       searchPending,
     ),
@@ -66,6 +75,16 @@ export function Products() {
     changePrice = useAllowed("products.change_price"),
     archive = useAllowed("products.archive");
   const [catFormKey, setCatFormKey] = useState(0);
+  // Count badge for the tab the table query is not currently showing.
+  const otherTabCount = useData(
+    `/products?countOnly=1&q=${encodeURIComponent(debouncedQ)}${productTab === "archived" ? "" : "&archived=1"}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`,
+    archive,
+    searchPending,
+  );
+  const tabTotal = (tab: "active" | "archived") =>
+    tab === "archived" === (productTab === "archived")
+      ? query.data?.total
+      : otherTabCount.data?.total;
   const [editingCat, setEditingCat] = useState<string | null>(null),
     [editingName, setEditingName] = useState(""),
     [confirmRemoveCat, setConfirmRemoveCat] = useState<string | null>(null),
@@ -96,7 +115,7 @@ export function Products() {
           </Button>
         )}
       </Header>
-      <section className="panel">
+      <section className="panel products-panel">
         {archive && (
           <div
             className="cat-tabs"
@@ -111,6 +130,7 @@ export function Products() {
               }}
             >
               المنتجات الحالية
+              <span className="tab-count" aria-hidden="true">{formatDigits(String(tabTotal("active") ?? 0))}</span>
             </Button>
             <Button
               variant={productTab === "archived" ? "default" : "outline"}
@@ -119,6 +139,7 @@ export function Products() {
               }}
             >
               أرشيف المنتجات
+              <span className="tab-count" aria-hidden="true">{formatDigits(String(tabTotal("archived") ?? 0))}</span>
             </Button>
           </div>
         )}
@@ -133,7 +154,47 @@ export function Products() {
               }}
             />
           </div>
-          <span className="muted-text">{query.data?.total ?? 0} منتج</span>
+          <Button
+            variant="outline"
+            className="filters-toggle"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <ListFilter size={16} />
+            الفلاتر
+            {activeFilters > 0 && (
+              <span className="tab-count" aria-hidden="true">{formatDigits(String(activeFilters))}</span>
+            )}
+          </Button>
+          <div className={`products-filters${filtersOpen ? " is-open" : ""}`}>
+            <EntitySelect
+              kind="suppliers"
+              name="supplierFilter"
+              label="المورد"
+              required={false}
+              value={supplierFilter}
+              onChange={setSupplierFilter}
+            />
+            <EntitySelect
+              kind="locations"
+              name="locationFilter"
+              label="المخزن"
+              required={false}
+              value={locationFilter}
+              onChange={setLocationFilter}
+            />
+            <select
+              className="filter-select"
+              aria-label="حالة المخزون"
+              value={stockFilter}
+              onChange={(event) => setStockFilter(event.target.value)}
+            >
+              <option value="">كل الحالات</option>
+              <option value="in">متوفر</option>
+              <option value="low">منخفض في المخزون</option>
+              <option value="out">منتهي</option>
+            </select>
+          </div>
         </div>
         {query.isLoading ? (
           <TableSkeleton columns={7} label="جارٍ تحميل المنتجات" />

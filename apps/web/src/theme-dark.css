@@ -184,6 +184,12 @@
 [data-theme="dark"] .muted-text {
   color: var(--az-muted);
 }
+[data-theme="dark"] .products-panel .filter-select,
+[data-theme="dark"] .products-panel .products-filters .smart-select-control {
+  background: var(--az-surface-2);
+  border-color: var(--az-border-strong);
+  color: var(--az-text);
+}
 
 /* Tables */
 [data-theme="dark"] th {

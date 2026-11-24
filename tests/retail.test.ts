@@ -2716,7 +2716,7 @@ describe.sequential("real PostgreSQL retail workflows", () => {
         else expect(body.data.imageUrl).toBeNull();
         await browserExpect(form).toHaveCount(0);
       }
-      await page.locator(".toolbar input").fill("DRESS-TEST");
+      await page.locator(".toolbar .search input").fill("DRESS-TEST");
       await page
         .getByRole("row")
         .filter({ hasText: "DRESS-TEST" })

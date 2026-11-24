@@ -219,10 +219,18 @@ export const handlePostBrands: RequestHandler = route(async (req, res) =>
 export const handleGetProducts: RequestHandler = route(async (req, res) => {
   const q = z.string().max(200).default("").parse(req.query.q),
     supplierId = id.optional().parse(req.query.supplierId),
+    stock = z.enum(["in", "low", "out"]).optional().parse(req.query.stock),
+    countOnly = z.enum(["1", "true"]).optional().parse(req.query.countOnly),
+    locationId = id.optional().parse(req.query.locationId),
     archived = z.enum(["1", "true"]).optional().parse(req.query.archived),
     where: Prisma.ProductWhereInput = {
       status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
       ...(supplierId ? { primarySupplierId: supplierId } : {}),
+      // Warehouse filter: a stock row in that warehouse is enough, zero
+      // quantity included (Amr, 2026-11-24); "all warehouses" adds nothing.
+      ...(locationId
+        ? { variants: { some: { balances: { some: { locationId } } } } }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -233,6 +241,43 @@ export const handleGetProducts: RequestHandler = route(async (req, res) => {
           }
         : {}),
     };
+  // Stock status: a variant is low when its on-hand total across locations is
+  // at or below its own minStock; a product is out only when nothing is on
+  // hand anywhere. Compared in SQL because Prisma cannot compare across models.
+  if (stock) {
+    const rows = await db.$queryRaw<
+      { productId: string; qty: number; minStock: number }[]
+    >`
+      SELECT v."productId" AS "productId",
+             COALESCE(SUM(b.quantity), 0)::int AS qty,
+             v."minStock" AS "minStock"
+      FROM "ProductVariant" v
+      LEFT JOIN "StockBalance" b ON b."variantId" = v.id
+      GROUP BY v.id, v."productId", v."minStock"`;
+    const totals = new Map<string, { qty: number; low: boolean }>();
+    for (const row of rows) {
+      const total = totals.get(row.productId) ?? { qty: 0, low: false };
+      total.qty += row.qty;
+      if (row.qty <= row.minStock) total.low = true;
+      totals.set(row.productId, total);
+    }
+    where.id = {
+      in: [...totals]
+        .filter(([, total]) =>
+          stock === "out"
+            ? total.qty <= 0
+            : stock === "low"
+              ? total.qty > 0 && total.low
+              : total.qty > 0 && !total.low,
+        )
+        .map(([productId]) => productId),
+    };
+  }
+  // Tab badges ask for the matching count only: skip the row read entirely.
+  if (countOnly) {
+    res.json({ total: await db.product.count({ where }) });
+    return;
+  }
   // Keep legacy offset/limit callers unchanged until their screens migrate.
   const current =
     req.query.page !== undefined || req.query.pageSize !== undefined

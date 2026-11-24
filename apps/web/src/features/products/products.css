@@ -94,3 +94,92 @@
     min-height: 46px;
   }
 }
+
+/* List toolbar filters: supplier picker + stock status, matching .search. */
+.products-panel .products-filters {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.products-panel .products-filters .smart-select {
+  flex: 0 1 220px;
+  min-width: 170px;
+}
+.products-panel .products-filters .smart-select-control {
+  min-height: 40px;
+  border: 1px solid #e5e5e8;
+  border-radius: 7px;
+  background: #fbfbfc;
+}
+.products-panel .products-filters input.smart-select-input {
+  min-height: 38px;
+  font-size: 12px;
+}
+.products-panel .filter-select {
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #e5e5e8;
+  border-radius: 7px;
+  background: #fbfbfc;
+  color: #30312f;
+  font-size: 12px;
+  font-family: inherit;
+}
+.products-panel .filter-select:focus {
+  outline: none;
+  border-color: #a8893d;
+  box-shadow: 0 0 0 3px #b69a501a;
+}
+@media (max-width: 920px) {
+  .products-panel .toolbar {
+    flex-wrap: wrap;
+  }
+  .products-panel .products-filters {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    gap: 15px;
+  }
+  .products-panel .products-filters .smart-select,
+  .products-panel .filter-select {
+    flex: 1 1 140px;
+  }
+}
+
+/* Filtered product count shown as a badge inside the tab buttons. */
+.products-panel .cat-tabs .tab-count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 7px;
+  margin-inline-start: 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+/* Mobile: filters collapse behind a toggle; desktop keeps the single row. */
+.products-panel .filters-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  order: 2;
+}
+@media (max-width: 920px) {
+  .products-panel .filters-toggle {
+    display: inline-flex;
+  }
+  .products-panel .products-filters {
+    display: none;
+  }
+  .products-panel .products-filters.is-open {
+    display: flex;
+  }
+}
