@@ -793,3 +793,22 @@
   background: var(--az-surface-2);
   border-color: var(--az-border);
 }
+
+/* Daily report cards on small screens: the base card style pins a white
+   background for the light theme; match the dark surfaces instead */
+@media (max-width: 700px) {
+  [data-theme="dark"] .report-daily-cards .management-table tbody tr {
+    background: var(--az-surface-2);
+    border-color: var(--az-border);
+    color: var(--az-text);
+  }
+  [data-theme="dark"] .report-daily-cards .management-table td {
+    color: var(--az-text);
+  }
+  [data-theme="dark"] .report-daily-cards .management-table td::before {
+    color: var(--az-muted);
+  }
+  [data-theme="dark"] .report-daily-cards .management-table td:first-child {
+    border-bottom-color: var(--az-border);
+  }
+}
