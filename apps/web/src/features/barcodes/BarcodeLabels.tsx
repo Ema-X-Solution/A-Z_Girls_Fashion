@@ -43,15 +43,17 @@ const presets: Record<string, { width: number; height: number }> = {
 };
 function Control({
   label,
+  hideLabel = false,
   children,
 }: {
   label: string;
+  hideLabel?: boolean;
   children: (id: string) => React.ReactNode;
 }) {
   const id = useId();
   return (
     <div className="field">
-      <label htmlFor={id}>{label}</label>
+      {hideLabel ? null : <label htmlFor={id}>{label}</label>}
       {children(id)}
     </div>
   );
@@ -306,7 +308,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
           {!receiptId ? (
             <>
               <div className="barcode-catalog-filters">
-                <Control label="البحث">
+                <Control label="البحث" hideLabel>
                   {() => <div className="search">
                     <Search size={18} />
                     <input
@@ -317,12 +319,12 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                     />
                   </div>}
                 </Control>
-                <Control label="المورد الأساسي">
+                <Control label="المورد الأساسي" hideLabel>
                   {(id) => <EntitySelect kind="suppliers" id={id} name="barcodeSupplierId" label="تصفية حسب المورد الأساسي" required={false} value={supplierId} onChange={(value) => {
                     setSupplierId(value); setSelected({}); setJob(null); setError("");
                   }} />}
                 </Control>
-                <Control label="المخزن">
+                <Control label="المخزن" hideLabel>
                   {(id) => <EntitySelect kind="locations" id={id} name="barcodeLocationId" label="المخزن" required={false} value={locationId} onChange={(value) => {
                     setLocationId(value); setSelected({}); setJob(null); setError("");
                   }} />}
