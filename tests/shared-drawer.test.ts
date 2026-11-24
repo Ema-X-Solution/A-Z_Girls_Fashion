@@ -1,4 +1,5 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
+import { pickSmartOption } from "./smart-select";
 import EmbeddedPostgres from "embedded-postgres";
 import { mkdtemp, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -420,9 +421,7 @@ describe.sequential(
         await page
           .getByRole("button", { name: "فتح وردية", exact: true })
           .click();
-        await page
-          .getByLabel("جهاز الكاشير", { exact: true })
-          .selectOption(register.id);
+        await pickSmartOption(page, "جهاز الكاشير", register.name);
         await page.getByLabel("النقد الافتتاحي", { exact: true }).fill("500");
         await page.getByRole("button", { name: "حفظ", exact: true }).click();
         await ui(

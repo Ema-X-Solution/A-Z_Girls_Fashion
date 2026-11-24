@@ -61,7 +61,7 @@ export function Inventory() {
           </Button>
         )}
       </Header>
-      <section className="panel">
+      <section className="panel inventory-panel">
         <div className="tabs">
           {[
             ["balances", "أرصدة المخزون"],
@@ -103,11 +103,12 @@ export function Inventory() {
               />
             </div>
             <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: "260px" }}
             >
-              <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
+              <span style={{ fontSize: "0.9rem", color: "var(--muted)", flex: "none" }}>
                 المخزن:
               </span>
+              <div style={{ flex: 1, minWidth: "180px" }}>
               <EntitySelect
                 kind="locations"
                 name="locationFilter"
@@ -117,6 +118,7 @@ export function Inventory() {
                 value={locationFilter}
                 onChange={setLocationFilter}
               />
+              </div>
             </div>
             <label
               className="checkbox"
@@ -130,6 +132,8 @@ export function Inventory() {
             >
               <input
                 type="checkbox"
+                role="switch"
+                className="switch"
                 checked={low}
                 onChange={(e) => setLow(e.target.checked)}
               />

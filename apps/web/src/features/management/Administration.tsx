@@ -62,10 +62,7 @@ export function Administration() {
               {t[1]}
             </button>
           ))}
-      </div>
-      <ErrorMessage message={task.error} />
-      {tab === "branches" && (
-        <>
+        {tab === "branches" && (
           <div className="inline-actions">
             <button
               className="btn btn-primary"
@@ -80,6 +77,11 @@ export function Administration() {
               إضافة جهاز كاشير
             </button>
           </div>
+        )}
+      </div>
+      <ErrorMessage message={task.error} />
+      {tab === "branches" && (
+        <>
           <PageState query={branches} />
           {allBranches.map((b) => (
             <section key={b.id} className="panel management-card">

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, useSession } from "./api";
 import { LoginPage } from "./features/auth/LoginPage";
 import { notify, readableError, Toasts } from "./app/notifications";
-import { Loading } from "./components/application/Primitives";
+import { AppLoader } from "./components/application/Skeleton";
 import { Shell } from "./app/Shell";
 
 export default function App() {
@@ -39,7 +39,7 @@ export default function App() {
     <>
       <Toasts />
       {!ready ? (
-        <Loading />
+        <AppLoader />
       ) : user ? (
         <Shell />
       ) : (

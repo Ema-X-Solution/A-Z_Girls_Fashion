@@ -253,20 +253,17 @@ export function QuickAccess() {
                     style={{
                       display: "flex",
                       alignItems: "center",
+                      height: "100%",
                       gap: "1rem",
                       padding: "1rem 1.25rem",
-                      border: action.primary
-                        ? `2px solid ${action.color}`
-                        : "1px solid var(--border)",
+                      border: "1px solid var(--border)",
                       borderRadius: "10px",
                       background: "var(--card-bg, #fff)",
                       textDecoration: "none",
                       color: "inherit",
                       transition:
                         "transform 0.15s ease, box-shadow 0.15s ease",
-                      boxShadow: action.primary
-                        ? "0 4px 12px rgba(5,150,105,0.12)"
-                        : "0 2px 6px rgba(0,0,0,0.03)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
                     }}
                   >
                     <div
@@ -274,8 +271,8 @@ export function QuickAccess() {
                         width: "48px",
                         height: "48px",
                         borderRadius: "10px",
-                        background: action.bg,
-                        color: action.color,
+                        background: "#f7f2e4",
+                        color: "#a4823c",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",

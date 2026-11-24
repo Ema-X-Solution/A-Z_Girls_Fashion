@@ -37,6 +37,7 @@ import {
   Table,
 } from "../../components/application/Primitives";
 import { EntryForm, simple } from "../../components/application/EntryForm";
+import "./products.css";
 import { type Row } from "../../app/types";
 
 export function Products() {
@@ -53,6 +54,7 @@ export function Products() {
       restore: boolean;
     } | null>(null),
     [statusError, setStatusError] = useState(""),
+    [saveError, setSaveError] = useState(""),
     query = useData(
       `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${productTab === "archived" ? "&archived=1" : ""}`,
       true,
@@ -559,10 +561,13 @@ export function Products() {
       <Modal
         title={selected?.nameAr ?? "المنتج"}
         open={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setSelected(null);
+          setSaveError("");
+        }}
       >
         {selected && (
-          <>
+          <div className="product-edit">
             {edit && (
               <ProductImageEditor
                 key={selected.id}
@@ -580,129 +585,184 @@ export function Products() {
                 }
               />
             )}
-            <Table
-              rows={selected.variants}
-              columns={[
-                { label: ar.sku, render: (r) => r.sku },
-                {
-                  label: "المقاس / اللون",
-                  render: (r) =>
-                    formatDigits(Object.values(r.options).join(" / ")) || "—",
-                },
-                { label: ar.barcode, render: (r) => <code>{r.barcode}</code> },
-                { label: ar.price, render: (r) => fm(r.price) },
-                {
-                  label: "المخزون",
-                  render: (r) => {
-                    const total = (r.balances ?? []).reduce(
-                      (s: number, b: Row) => s + b.quantity,
-                      0,
-                    );
-                    return (
-                      <span className={total <= r.minStock ? "low-stock" : ""}>
-                        {total} قطعة
-                      </span>
-                    );
-                  },
-                },
-              ]}
-            />
-            <h4 style={{ margin: "1.2rem 0 0.5rem" }}>
-              تفاصيل المخزون حسب المخزن
-            </h4>
-            <Table
-              rows={selected.variants.flatMap((v: Row) =>
-                (v.balances ?? []).map((b: Row) => ({ ...b, variant: v })),
-              )}
-              columns={[
-                {
-                  label: "المتغير",
-                  render: (r) =>
-                    formatDigits(
-                      Object.values(r.variant.options).join(" / "),
-                    ) || r.variant.sku,
-                },
-                {
-                  label: "المخزن",
-                  render: (r) => r.location?.name ?? "—",
-                },
-                {
-                  label: "الكمية",
-                  render: (r) => (
-                    <span
-                      className={
-                        r.quantity <= r.variant.minStock ? "low-stock" : ""
-                      }
-                    >
-                      {r.quantity}
-                    </span>
-                  ),
-                },
-                {
-                  label: "الحد الأدنى",
-                  render: (r) => r.variant.minStock,
-                },
-              ]}
-            />
-            {edit && (
-              <EntryForm
-                initial={selected}
-                fields={[
-                  simple("nameAr", "الاسم بالعربية"),
-                  { key: "primarySupplierId", label: "المورد الأساسي", pickerEndpoint: "/options/suppliers", required: false, hint: "اختياري. يستخدم كود المورد على ملصق المنتج بدون مقاس أو لون." },
-                  simple("description", ar.description, "textarea", false),
+            <section className="pe-section">
+              <h3 className="pe-title">المتغيرات والأسعار</h3>
+              <Table
+                rows={selected.variants}
+                columns={[
+                  { label: ar.sku, render: (r) => r.sku },
                   {
-                    key: "returnRule",
-                    label: "سياسة إرجاع هذا المنتج",
-                    options: [
-                      { value: "STANDARD", label: "استرجاع عادي" },
-                      { value: "DEFECT_ONLY", label: "عيب صناعة فقط" },
-                    ],
+                    label: "المقاس / اللون",
+                    render: (r) =>
+                      formatDigits(Object.values(r.options).join(" / ")) || "—",
+                  },
+                  {
+                    label: ar.barcode,
+                    render: (r) => <code>{r.barcode}</code>,
+                  },
+                  { label: ar.price, render: (r) => fm(r.price) },
+                  {
+                    label: "المخزون",
+                    render: (r) => {
+                      const total = (r.balances ?? []).reduce(
+                        (s: number, b: Row) => s + b.quantity,
+                        0,
+                      );
+                      return (
+                        <span
+                          className={total <= r.minStock ? "low-stock" : ""}
+                        >
+                          {total} قطعة
+                        </span>
+                      );
+                    },
                   },
                 ]}
-                busy={action.busy}
-                submit={(body) =>
-                  void action.run(
-                    () => patch(`/products/${selected.id}`, body),
-                    () => setSelected(null),
-                  )
-                }
               />
-            )}{" "}
-            {changePrice && (
-              <EntryForm
-                fields={[
+            </section>
+            <section className="pe-section">
+              <h3 className="pe-title">المخزون حسب المخزن</h3>
+              <Table
+                rows={selected.variants.flatMap((v: Row) =>
+                  (v.balances ?? []).map((b: Row) => ({ ...b, variant: v })),
+                )}
+                columns={[
                   {
-                    key: "variantId",
                     label: "المتغير",
-                    options: selected.variants.map((v: Row) => ({
-                      value: v.id,
-                      label: `${v.sku} ${formatDigits(Object.values(v.options).join(" / "))} (الحد الأدنى الحالي: ${v.minStock})`,
-                    })),
+                    render: (r) =>
+                      formatDigits(
+                        Object.values(r.variant.options).join(" / "),
+                      ) || r.variant.sku,
                   },
-                  simple("price", "سعر البيع الجديد", "number", false),
-                  simple(
-                    "minStock",
-                    "الحد الأدنى للمخزون الجديد (ديناميكي)",
-                    "number",
-                    false,
-                  ),
+                  {
+                    label: "المخزن",
+                    render: (r) => r.location?.name ?? "—",
+                  },
+                  {
+                    label: "الكمية",
+                    render: (r) => (
+                      <span
+                        className={
+                          r.quantity <= r.variant.minStock ? "low-stock" : ""
+                        }
+                      >
+                        {r.quantity}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "الحد الأدنى",
+                    render: (r) => r.variant.minStock,
+                  },
                 ]}
-                busy={action.busy}
-                submit={(body) => {
-                  const data: Row = {};
-                  if (body.price) data.price = body.price;
-                  if (body.minStock !== "" && body.minStock !== undefined) {
-                    data.minStock = Number(body.minStock);
-                  }
-                  void action.run(
-                    () => patch(`/variants/${body.variantId}`, data),
-                    () => setSelected(null),
-                  );
-                }}
               />
+            </section>
+            {(edit || changePrice) && (
+              <section className="pe-section pe-form">
+                <h3 className="pe-title">
+                  {edit ? "بيانات المنتج" : "تغيير سعر متغير"}
+                </h3>
+                <EntryForm
+                  initial={selected}
+                  error={saveError}
+                  fields={[
+                    ...(edit
+                      ? [
+                          simple("nameAr", "الاسم بالعربية"),
+                          {
+                            key: "primarySupplierId",
+                            label: "المورد الأساسي",
+                            pickerEndpoint: "/options/suppliers",
+                            required: false,
+                            hint: "اختياري. يستخدم كود المورد على ملصق المنتج بدون مقاس أو لون.",
+                          },
+                          simple(
+                            "description",
+                            ar.description,
+                            "textarea",
+                            false,
+                          ),
+                          {
+                            key: "returnRule",
+                            label: "سياسة إرجاع هذا المنتج",
+                            options: [
+                              { value: "STANDARD", label: "استرجاع عادي" },
+                              { value: "DEFECT_ONLY", label: "عيب صناعة فقط" },
+                            ],
+                          },
+                        ]
+                      : []),
+                    ...(changePrice
+                      ? [
+                          {
+                            key: "variant-section",
+                            type: "section",
+                            label: edit
+                              ? "تغيير سعر متغير (اختياري)"
+                              : "بيانات المتغير",
+                          },
+                          {
+                            key: "variantId",
+                            label: "المتغير",
+                            required: !edit,
+                            hint: edit
+                              ? "اختياري. اختر المتغير فقط لو هتغيّر سعره أو حده الأدنى مع نفس الحفظ."
+                              : undefined,
+                            options: selected.variants.map((v: Row) => ({
+                              value: v.id,
+                              label: `${v.sku} ${formatDigits(Object.values(v.options).join(" / "))} (الحد الأدنى الحالي: ${v.minStock})`,
+                            })),
+                          },
+                          simple("price", "سعر البيع الجديد", "number", false),
+                          simple(
+                            "minStock",
+                            "الحد الأدنى للمخزون الجديد (ديناميكي)",
+                            "number",
+                            false,
+                          ),
+                        ]
+                      : []),
+                  ]}
+                  busy={action.busy}
+                  submit={(body) => {
+                    setSaveError("");
+                    const data: Row = {};
+                    if (changePrice && body.price) data.price = body.price;
+                    if (
+                      changePrice &&
+                      body.minStock !== "" &&
+                      body.minStock !== undefined
+                    ) {
+                      data.minStock = Number(body.minStock);
+                    }
+                    const changeVariant = Object.keys(data).length > 0;
+                    if (changeVariant && !body.variantId) {
+                      setSaveError(
+                        "اختر المتغير اللي عايز تغيّر سعره أو حده الأدنى قبل الحفظ.",
+                      );
+                      return;
+                    }
+                    void action.run(
+                      async () => {
+                        if (edit) {
+                          await patch(`/products/${selected.id}`, {
+                            nameAr: body.nameAr,
+                            primarySupplierId: body.primarySupplierId,
+                            description: body.description,
+                            returnRule: body.returnRule,
+                          });
+                        }
+                        if (changeVariant) {
+                          await patch(`/variants/${body.variantId}`, data);
+                        }
+                      },
+                      () => setSelected(null),
+                    );
+                  }}
+                />
+              </section>
             )}
-          </>
+          </div>
         )}
       </Modal>
       <Modal
@@ -761,8 +821,17 @@ export function ProductForm({
         <Field label="اسم المنتج بالعربية">
           <input name="nameAr" required />
         </Field>
-        <Field label="المورد الأساسي" hint="اختياري. يستخدم كود المورد على الملصق لو مفيش مقاس أو لون.">
-          <EntitySelect kind="suppliers" id="product-primary-supplier" name="primarySupplierId" label="المورد الأساسي" required={false} />
+        <Field
+          label="المورد الأساسي"
+          hint="اختياري. يستخدم كود المورد على الملصق لو مفيش مقاس أو لون."
+        >
+          <EntitySelect
+            kind="suppliers"
+            id="product-primary-supplier"
+            name="primarySupplierId"
+            label="المورد الأساسي"
+            required={false}
+          />
         </Field>
         <Field label={ar.category}>
           <EntitySelect
@@ -869,4 +938,4 @@ export function ProductForm({
       </Button>
     </form>
   );
-          }
+}

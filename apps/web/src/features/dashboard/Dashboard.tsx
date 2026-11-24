@@ -5,10 +5,13 @@ import { ShoppingBag, ScanBarcode, Boxes, Receipt, ChartNoAxesCombined, Plus, Ar
 import { useSession } from "../../api";
 import { ar, formatMoney as fm } from "../../i18n";
 import { useData, useAllowed } from "../../hooks/useData";
-import { Loading, ErrorState, Empty, Header } from "../../components/application/Primitives";
+import { ErrorState, Empty, Header } from "../../components/application/Primitives";
+import { DashboardSkeleton } from "../../components/application/Skeleton";
 
 import { dashboardInterval, defaultDashboardDays } from "./dashboard-period";
 import "./dashboard.css";
+
+const dmy = (iso: string) => iso.split("-").reverse().join("/");
 
 export function Dashboard({ reports = false }: { reports?: boolean }) {
   const posAllowed = useAllowed("pos.access");
@@ -69,8 +72,8 @@ export function Dashboard({ reports = false }: { reports?: boolean }) {
             </button>
           </div>
           <p className="dashboard-period-summary" aria-live="polite">
-            الفترة المعروضة: <bdi dir="ltr">{range.from}</bdi> إلى{" "}
-            <bdi dir="ltr">{range.to}</bdi> · بتوقيت القاهرة
+            الفترة المعروضة: <bdi dir="ltr">{dmy(range.from)}</bdi> إلى{" "}
+            <bdi dir="ltr">{dmy(range.to)}</bdi> · بتوقيت القاهرة
             {validDraft && unapplied && " · اضغط تطبيق لعرض الفترة الجديدة"}
           </p>
           {!validDraft && (
@@ -95,7 +98,7 @@ export function Dashboard({ reports = false }: { reports?: boolean }) {
         )}
       </Header>
       {query.isLoading ? (
-        <Loading />
+        <DashboardSkeleton />
       ) : query.error ? (
         <ErrorState error={query.error} retry={() => void query.refetch()} />
       ) : (

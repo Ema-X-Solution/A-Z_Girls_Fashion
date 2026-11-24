@@ -13,7 +13,8 @@ import { defaultReturnPolicy } from "@az/shared";
 import "./receipts.css";
 import { cents, decimal } from "../pos/money";
 import { useData } from "../../hooks/useData";
-import { Loading, ErrorState } from "../../components/application/Primitives";
+import { ErrorState } from "../../components/application/Primitives";
+import { ReceiptSkeleton } from "../../components/application/Skeleton";
 type Row = Record<string, any>;
 const money = (v: unknown) =>
   new Intl.NumberFormat("en-US", {
@@ -117,7 +118,7 @@ export function ReceiptView({
             retry={() => void storeQuery.refetch()}
           />
         ) : (
-          <Loading />
+          <ReceiptSkeleton />
         )}
       </div>
     );
