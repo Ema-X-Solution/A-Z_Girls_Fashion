@@ -113,13 +113,14 @@ describe("purchase sale-price permission", () => {
       expect(audit).not.toHaveBeenCalled();
     }
   });
-  it("permits a price-authorized buyer to update prices, including zero", async () => {
+  it("keeps a price-authorized buyer's prices on the line without touching the variant, including zero", async () => {
     for (const price of ["135.50", "0"]) {
       expect((await purchase([item(price)], true)).status).toBe(201);
-      expect(update).toHaveBeenLastCalledWith({
-        where: { id: variantId },
-        data: { price },
-      });
+      // The price waits on the line and is applied when it is received.
+      expect(update).not.toHaveBeenCalled();
+      expect(create.mock.lastCall?.[0].data.items.create[0].salePrice).toBe(
+        price,
+      );
     }
   });
   it("keeps sale price mandatory and preserves purchase-create permission", async () => {

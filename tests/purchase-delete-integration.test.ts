@@ -226,4 +226,94 @@ describe.sequential("delete a draft purchase invoice", () => {
     });
     expect(del.map((x: any) => x.reference).sort()).toEqual([d1, d2].sort());
   });
+  it("applies sale price and min stock at first receive, not at save, edit or delete", async () => {
+    const supplier = await db.supplier.create({
+      data: { name: "Price supplier" },
+    });
+    const branch = await db.branch.findFirstOrThrow();
+    const loc = await db.stockLocation.create({
+      data: { name: "Price loc", branchId: branch.id },
+    });
+    const cat = await send("post", "/categories", { name: "Price cases" });
+    const mk = async (n: string) =>
+      (
+        await send("post", "/products", {
+          nameAr: n,
+          categoryId: cat.body.data.id,
+          variants: [{ price: "900", options: { المقاس: "M" } }],
+        })
+      ).body.data.variants[0].id;
+    const [a, b] = [await mk("Price A"), await mk("Price B")];
+    const price = async (v: string) => {
+      const x = await db.productVariant.findUniqueOrThrow({ where: { id: v } });
+      return [x.price.toFixed(2), x.minStock];
+    };
+    const before = await price(a);
+    const created = await send("post", "/purchases", {
+      supplierId: supplier.id,
+      locationId: loc.id,
+      items: [
+        {
+          variantId: a,
+          quantity: 4,
+          unitCost: "500",
+          salePrice: "1000",
+          minStock: 7,
+        },
+        { variantId: b, quantity: 2, unitCost: "300", salePrice: "1500" },
+      ],
+    });
+    const pid = created.body.data.id;
+    expect(await price(a)).toEqual(before); // save does not touch the price
+    // edit keeps the pending price on the kept line
+    expect(
+      (
+        await send("patch", `/purchases/${pid}`, {
+          supplierId: supplier.id,
+          locationId: loc.id,
+          items: [{ variantId: a, quantity: 6, unitCost: "510" }],
+        })
+      ).status,
+    ).toBe(200);
+    expect(await price(a)).toEqual(before);
+    await send("post", `/purchases/${pid}/approve`, {});
+    expect(await price(a)).toEqual(before); // approve does not either
+    const order = await db.purchaseOrder.findUniqueOrThrow({
+      where: { id: pid },
+      include: { items: true },
+    });
+    expect(order.items[0].salePrice.toFixed(2)).toBe("1000.00");
+    expect(order.items[0].minStock).toBe(7);
+    const rec = await send(
+      "post",
+      `/purchases/${pid}/receive`,
+      { items: [{ purchaseItemId: order.items[0].id, quantity: 2 }] },
+      crypto.randomUUID(),
+    );
+    expect(rec.status).toBe(200);
+    expect(Number(rec.body.data.total)).toBe(1020); // cost unchanged by price logic
+    expect(await price(a)).toEqual(["1000.00", 7]); // now it applies
+    // a later manual price change is not overwritten by the next partial receipt
+    await db.productVariant.update({
+      where: { id: a },
+      data: { price: "1100" },
+    });
+    await send(
+      "post",
+      `/purchases/${pid}/receive`,
+      { items: [{ purchaseItemId: order.items[0].id, quantity: 2 }] },
+      crypto.randomUUID(),
+    );
+    expect(await price(a)).toEqual(["1100.00", 7]);
+    // a deleted draft leaves the price alone
+    const d = await send("post", "/purchases", {
+      supplierId: supplier.id,
+      locationId: loc.id,
+      items: [{ variantId: b, quantity: 1, unitCost: "10", salePrice: "5000" }],
+    });
+    expect(
+      (await send("delete", `/purchases/${d.body.data.id}`, {})).status,
+    ).toBe(200);
+    expect((await price(b))[0]).toBe("900.00");
+  });
 });

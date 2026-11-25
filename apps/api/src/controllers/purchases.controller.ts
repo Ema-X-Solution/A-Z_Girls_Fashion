@@ -86,9 +86,15 @@ export const handlePostPurchases: RequestHandler = route(async (req, res) => {
         );
       }
     }
-    // Extract salePrice and minStock from items before inserting (not DB columns on PurchaseItem)
+    // Sale price and min stock are kept on the line and applied to the variant
+    // when the line is received. Without price permission the typed price only
+    // had to match the current one, so nothing is kept to apply later.
     const itemsForCreate = input.items.map(
-      ({ salePrice: _sp, minStock: _ms, ...item }) => item,
+      ({ salePrice, minStock, ...item }) => ({
+        ...item,
+        salePrice: canChangePrice ? salePrice : null,
+        minStock: minStock ?? null,
+      }),
     );
     const p = await tx.purchaseOrder.create({
       data: {
@@ -99,18 +105,6 @@ export const handlePostPurchases: RequestHandler = route(async (req, res) => {
       },
       include: { items: true },
     });
-    // Update variant sale prices and dynamic minStock where provided
-    for (const item of input.items) {
-      const updateData: Record<string, any> = {};
-      if (canChangePrice) updateData.price = item.salePrice;
-      if (item.minStock !== undefined) updateData.minStock = item.minStock;
-      if (Object.keys(updateData).length > 0) {
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: updateData,
-        });
-      }
-    }
     await audit(tx, actor(req).id, "PURCHASE_CREATE", p.id);
     return p;
   });
@@ -155,9 +149,20 @@ export const handlePatchPurchasesById: RequestHandler = route(
         "لا يمكن تعديل الفاتورة إلا وهي مسودة. ألغِ الاعتماد أولاً.",
         409,
       );
+      // The edit form has no price fields: keep what each kept line already carried.
+      const old = new Map(
+        (await tx.purchaseOrderItem.findMany({ where: { purchaseId } })).map(
+          (i) => [i.variantId, i],
+        ),
+      );
       await tx.purchaseOrderItem.deleteMany({ where: { purchaseId } });
       await tx.purchaseOrderItem.createMany({
-        data: input.items.map((item) => ({ ...item, purchaseId })),
+        data: input.items.map((item) => ({
+          ...item,
+          purchaseId,
+          salePrice: old.get(item.variantId)?.salePrice ?? null,
+          minStock: old.get(item.variantId)?.minStock ?? null,
+        })),
       });
       await audit(tx, actor(req).id, "PURCHASE_EDIT", purchaseId);
       return tx.purchaseOrder.findUnique({
