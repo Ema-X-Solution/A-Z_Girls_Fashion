@@ -6,7 +6,7 @@ import { variantOption } from "@az/shared";
 import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Eye, Printer, Trash2, FileText, Pencil } from "lucide-react";
-import { post, patch } from "../../api";
+import { post, patch, del } from "../../api";
 import { SmartSelect } from "../../components/application/SmartSelect";
 import {
   formatDigits,
@@ -53,6 +53,7 @@ export function Purchases() {
     [approving, setApproving] = useState<Row | null>(null),
     [unapproving, setUnapproving] = useState<Row | null>(null),
     [editing, setEditing] = useState<Row | null>(null),
+    [deleting, setDeleting] = useState<Row | null>(null),
     [preview, setPreview] = useState<Row | null>(null),
     action = useAction(),
     create = useAllowed("purchases.create"),
@@ -120,6 +121,18 @@ export function Purchases() {
                         >
                           <Pencil size={17} />
                           تعديل
+                        </Button>
+                      )}
+                      {create && r.status === "DRAFT" && (
+                        <Button
+                          variant="outline"
+                          title="حذف الفاتورة"
+                          aria-label="حذف الفاتورة"
+                          disabled={action.busy}
+                          onClick={() => setDeleting(r)}
+                        >
+                          <Trash2 size={17} />
+                          حذف
                         </Button>
                       )}
                       {receive && r.status === "APPROVED" && (
@@ -207,6 +220,46 @@ export function Purchases() {
               )
             }
           />
+        )}
+      </Modal>
+      <Modal
+        title="تأكيد حذف فاتورة المشتريات"
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+      >
+        {deleting && (
+          <div className="entry-form">
+            <p>
+              سيتم حذف هذه المسودة نهائياً ولا يمكن استرجاعها. لا يتأثر المخزن
+              ولا حساب المورد لأنها لم تُستلم.
+            </p>
+            <ul className="confirm-list">
+              {deleting.items.map((i: Row) => (
+                <li key={i.id}>
+                  <span>{itemName(i)}</span>
+                  <strong>× {i.quantity}</strong>
+                </li>
+              ))}
+            </ul>
+            <p className="note">
+              المورد: {deleting.supplier.name} • الإجمالي:{" "}
+              {fm(orderTotal(deleting))}
+            </p>
+            <Button
+              disabled={action.busy}
+              onClick={() =>
+                void action.run(
+                  () => del(`/purchases/${deleting.id}`),
+                  () => setDeleting(null),
+                )
+              }
+            >
+              تأكيد الحذف
+            </Button>
+            <Button variant="outline" onClick={() => setDeleting(null)}>
+              {ar.cancel}
+            </Button>
+          </div>
         )}
       </Modal>
       <Modal
@@ -946,7 +999,7 @@ export function PurchaseForm({
                 />
               </Field>
               {!editing && (
-                <Field label="سعر البيع">
+                <Field label="سعر البيع" hint="يُطبَّق على المنتج عند الاستلام">
                   <input
                     required
                     type="number"
@@ -1030,7 +1083,7 @@ export function PurchaseForm({
       <p className="note">
         {editing
           ? "تعديل الفاتورة لا يغيّر سعر بيع المنتج ولا المخزون. التغيير يشمل المورد والمخزن والأصناف والكميات وأسعار الشراء فقط."
-          : "التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُحدَّث به سعر المنتج فوراً."}
+          : "التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُطبَّق على سعر المنتج عند الاستلام."}
       </p>
       <Button type="button" variant="outline" onClick={addLine}>
         <Plus size={16} />

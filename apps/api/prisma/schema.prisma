@@ -281,6 +281,9 @@ model PurchaseOrderItem {
   quantity Int
   received Int @default(0)
   unitCost Decimal @db.Decimal(18,4)
+  // Applied to the variant only when the line is first received, never at save time.
+  salePrice Decimal? @db.Decimal(18,2)
+  minStock Int?
   purchase PurchaseOrder @relation(fields:[purchaseId], references:[id])
   variant ProductVariant @relation(fields:[variantId], references:[id])
   receipts PurchaseReceiptItem[]

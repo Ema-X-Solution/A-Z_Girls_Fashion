@@ -178,6 +178,16 @@ export async function receive(
       where: { id: item.id },
       data: { received: { increment: line.quantity } },
     });
+    // First receipt of the line: now the typed sale price / min stock take effect.
+    if (item.received === 0 && (item.salePrice || item.minStock !== null)) {
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: {
+          ...(item.salePrice ? { price: item.salePrice } : {}),
+          ...(item.minStock !== null ? { minStock: item.minStock } : {}),
+        },
+      });
+    }
     total = total.plus(item.unitCost.mul(line.quantity));
     items.push({ ...line, unitCost: item.unitCost });
   }
