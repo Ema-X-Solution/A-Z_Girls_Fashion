@@ -289,6 +289,7 @@ export const handleGetProducts: RequestHandler = route(async (req, res) => {
       where,
       include: {
         category: true,
+        primarySupplier: { select: { code: true } },
         variants: { include: { balances: { include: { location: true } } } },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],

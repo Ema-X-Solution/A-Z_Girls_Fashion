@@ -2539,3 +2539,28 @@ input[role="switch"].switch:focus-visible {
 @media (max-width: 700px) {
   .barcode-catalog-filters { grid-template-columns: minmax(0, 1fr); }
 }
+
+.card-options-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 10px;
+  margin: 3px 0 10px;
+}
+.card-options-line > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-size { text-align: left; }
+.card-supplier { text-align: center; font-weight: 700; }
+.card-color { text-align: right; }
+[data-theme="dark"] .card-options-line {
+  color: var(--az-muted);
+}
+[data-theme="dark"] .card-supplier {
+  color: var(--az-text);
+}
