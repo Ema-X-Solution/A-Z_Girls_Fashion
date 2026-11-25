@@ -1,3 +1,4 @@
+import { SupplierOptionsLine } from "../shared/SupplierOptionsLine";
 import { SmartSelect } from "../../components/application/SmartSelect";
 import { Pagination } from "../../components/application/Pagination";
 import { CardSkeleton } from "../../components/application/Skeleton";
@@ -689,11 +690,15 @@ export function POS() {
                             <span>{p.category.name}</span>
                           </div>
                           <strong>{p.nameAr}</strong>
-                          <small>
-                            {formatDigits(
-                              Object.values(v.options).join(" / "),
-                            ) || v.sku}
-                          </small>
+                          {Object.values(v.options).some((x) => String(x).trim()) ||
+                          p.primarySupplier?.code ? (
+                            <SupplierOptionsLine
+                              supplierCode={p.primarySupplier?.code}
+                              options={v.options}
+                            />
+                          ) : (
+                            <small>{v.sku}</small>
+                          )}
                           <div
                             style={{
                               display: "flex",
