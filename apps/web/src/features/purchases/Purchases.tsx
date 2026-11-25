@@ -999,7 +999,7 @@ export function PurchaseForm({
                 />
               </Field>
               {!editing && (
-                <Field label="سعر البيع">
+                <Field label="سعر البيع" hint="يُطبَّق على المنتج عند الاستلام">
                   <input
                     required
                     type="number"
