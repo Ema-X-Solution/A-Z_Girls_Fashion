@@ -5,8 +5,8 @@ import { usePagination } from "../../hooks/usePagination";
 import { variantOption } from "@az/shared";
 import "./purchases.css";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Eye, Printer, Trash2, FileText } from "lucide-react";
-import { post } from "../../api";
+import { Plus, Eye, Printer, Trash2, FileText, Pencil } from "lucide-react";
+import { post, patch } from "../../api";
 import { SmartSelect } from "../../components/application/SmartSelect";
 import {
   formatDigits,
@@ -51,6 +51,8 @@ export function Purchases() {
     [open, setOpen] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
     [approving, setApproving] = useState<Row | null>(null),
+    [unapproving, setUnapproving] = useState<Row | null>(null),
+    [editing, setEditing] = useState<Row | null>(null),
     [preview, setPreview] = useState<Row | null>(null),
     action = useAction(),
     create = useAllowed("purchases.create"),
@@ -108,6 +110,27 @@ export function Purchases() {
                       >
                         <Eye size={17} />
                       </Button>
+                      {create && r.status === "DRAFT" && (
+                        <Button
+                          variant="outline"
+                          title="تعديل الفاتورة"
+                          aria-label="تعديل الفاتورة"
+                          disabled={action.busy}
+                          onClick={() => setEditing(r)}
+                        >
+                          <Pencil size={17} />
+                          تعديل
+                        </Button>
+                      )}
+                      {receive && r.status === "APPROVED" && (
+                        <Button
+                          variant="outline"
+                          disabled={action.busy}
+                          onClick={() => setUnapproving(r)}
+                        >
+                          إلغاء الاعتماد
+                        </Button>
+                      )}
                       {receive && r.status === "DRAFT" ? (
                         <Button
                           variant="outline"
@@ -132,7 +155,15 @@ export function Purchases() {
                 },
               ]}
             />
-            <Pagination page={paging.page} pageSize={paging.pageSize} onPageChange={paging.setPage} onPageSizeChange={paging.setPageSize} length={query.data?.data.length ?? 0} total={query.data?.total ?? 0} disabled={query.isFetching} />
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              onPageChange={paging.setPage}
+              onPageSizeChange={paging.setPageSize}
+              length={query.data?.data.length ?? 0}
+              total={query.data?.total ?? 0}
+              disabled={query.isFetching}
+            />
           </>
         )}
       </section>
@@ -156,6 +187,67 @@ export function Purchases() {
             )
           }
         />
+      </Modal>
+      <Modal
+        title="تعديل فاتورة المشتريات"
+        open={!!editing}
+        onClose={() => setEditing(null)}
+      >
+        {editing && (
+          <PurchaseForm
+            key={editing.id}
+            order={editing}
+            busy={action.busy}
+            registerOutside={() => {}}
+            close={() => setEditing(null)}
+            submit={(body) =>
+              void action.run(
+                () => patch(`/purchases/${editing.id}`, body),
+                () => setEditing(null),
+              )
+            }
+          />
+        )}
+      </Modal>
+      <Modal
+        title="تأكيد إلغاء اعتماد فاتورة المشتريات"
+        open={!!unapproving}
+        onClose={() => setUnapproving(null)}
+      >
+        {unapproving && (
+          <div className="entry-form">
+            <p>
+              سترجع الفاتورة إلى مسودة ويمكنك تعديلها ثم اعتمادها من جديد. لا
+              يتأثر المخزن ولا حساب المورد لأن الاستلام لم يتم.
+            </p>
+            <ul className="confirm-list">
+              {unapproving.items.map((i: Row) => (
+                <li key={i.id}>
+                  <span>{itemName(i)}</span>
+                  <strong>× {i.quantity}</strong>
+                </li>
+              ))}
+            </ul>
+            <p className="note">
+              المورد: {unapproving.supplier.name} • الإجمالي:{" "}
+              {fm(orderTotal(unapproving))}
+            </p>
+            <Button
+              disabled={action.busy}
+              onClick={() =>
+                void action.run(
+                  () => post(`/purchases/${unapproving.id}/unapprove`, {}),
+                  () => setUnapproving(null),
+                )
+              }
+            >
+              تأكيد إلغاء الاعتماد
+            </Button>
+            <Button variant="outline" onClick={() => setUnapproving(null)}>
+              {ar.cancel}
+            </Button>
+          </div>
+        )}
       </Modal>
       <Modal
         title="معاينة فاتورة المشتريات"
@@ -544,13 +636,29 @@ export function PurchaseForm({
   submit,
   close,
   registerOutside,
+  order,
 }: {
+  order?: Row;
   busy: boolean;
   submit: (v: Row) => void;
   close: () => void;
   registerOutside: (fn: () => void) => void;
 }) {
-  const [initialDraft] = useState(readPurchaseDraft);
+  const editing = !!order;
+  const [initialDraft] = useState<PurchaseDraft | null>(() =>
+    order
+      ? {
+          supplierId: order.supplierId ?? order.supplier?.id ?? "",
+          locationId: order.locationId ?? order.location?.id ?? "",
+          lines: order.items.map((i: Row) => ({
+            v: i.variantId ?? i.variant?.id,
+            q: String(i.quantity),
+            c: String(Number(i.unitCost)),
+            sp: "",
+          })),
+        }
+      : readPurchaseDraft(),
+  );
   const [lineIds, setLineIds] = useState<number[]>(() =>
     initialDraft ? initialDraft.lines.map((_, i) => i) : [0],
   );
@@ -726,8 +834,14 @@ export function PurchaseForm({
           variantId: String(f.get(`v${id}`) ?? ""),
           quantity: Number(f.get(`q${id}`)),
           unitCost: String(f.get(`c${id}`) ?? ""),
-          salePrice: String(f.get(`sp${id}`) ?? ""),
-          ...(f.get(`ms${id}`) ? { minStock: Number(f.get(`ms${id}`)) } : {}),
+          ...(editing
+            ? {}
+            : {
+                salePrice: String(f.get(`sp${id}`) ?? ""),
+                ...(f.get(`ms${id}`)
+                  ? { minStock: Number(f.get(`ms${id}`)) }
+                  : {}),
+              }),
         }));
         // Same item with a different cost price must not merge: warn and stop.
         const costs = new Map<string, Set<string>>();
@@ -766,10 +880,20 @@ export function PurchaseForm({
     >
       <div className="form-grid">
         <Field label={ar.supplier}>
-          <EntitySelect kind="suppliers" name="supplierId" label="المورد" initial={initialDraft?.supplierId ?? ""}/>
+          <EntitySelect
+            kind="suppliers"
+            name="supplierId"
+            label="المورد"
+            initial={initialDraft?.supplierId ?? ""}
+          />
         </Field>
         <Field label={ar.location}>
-          <EntitySelect kind="locations" name="locationId" label="المخزن" initial={initialDraft?.locationId ?? ""}/>
+          <EntitySelect
+            kind="locations"
+            name="locationId"
+            label="المخزن"
+            initial={initialDraft?.locationId ?? ""}
+          />
         </Field>
       </div>
       {lineIds.map((id, i) => {
@@ -821,46 +945,52 @@ export function PurchaseForm({
                   onChange={(e) => setLineValue(id, "c", e.target.value)}
                 />
               </Field>
-              <Field label="سعر البيع">
-                <input
-                  required
-                  type="number"
-                  name={`sp${id}`}
-                  min="0"
-                  step="0.01"
-                  value={lineValues[id]?.sp ?? ""}
-                  onChange={(e) => setLineValue(id, "sp", e.target.value)}
-                />
-              </Field>
-              <Field label="الحد الأدنى">
-                <input
-                  type="number"
-                  name={`ms${id}`}
-                  min="0"
-                  placeholder="ديناميكي"
-                  defaultValue={lineValues[id]?.ms ?? ""}
-                />
-              </Field>
-            </div>
-            <div
-              className={`profit-readout ${
-                n.ready ? (n.profit < 0 ? "negative" : "positive") : ""
-              }`}
-            >
-              {n.ready ? (
-                <>
-                  <span>
-                    ربح القطعة <strong>{fm(n.profit)}</strong>
-                  </span>
-                  <span>
-                    نسبة الربح على التكلفة{" "}
-                    <strong>{n.pct === null ? "—" : percent(n.pct)}</strong>
-                  </span>
-                </>
-              ) : (
-                "أدخل التكلفة وسعر البيع ليظهر ربح القطعة ونسبة الربح"
+              {!editing && (
+                <Field label="سعر البيع">
+                  <input
+                    required
+                    type="number"
+                    name={`sp${id}`}
+                    min="0"
+                    step="0.01"
+                    value={lineValues[id]?.sp ?? ""}
+                    onChange={(e) => setLineValue(id, "sp", e.target.value)}
+                  />
+                </Field>
+              )}
+              {!editing && (
+                <Field label="الحد الأدنى">
+                  <input
+                    type="number"
+                    name={`ms${id}`}
+                    min="0"
+                    placeholder="ديناميكي"
+                    defaultValue={lineValues[id]?.ms ?? ""}
+                  />
+                </Field>
               )}
             </div>
+            {!editing && (
+              <div
+                className={`profit-readout ${
+                  n.ready ? (n.profit < 0 ? "negative" : "positive") : ""
+                }`}
+              >
+                {n.ready ? (
+                  <>
+                    <span>
+                      ربح القطعة <strong>{fm(n.profit)}</strong>
+                    </span>
+                    <span>
+                      نسبة الربح على التكلفة{" "}
+                      <strong>{n.pct === null ? "—" : percent(n.pct)}</strong>
+                    </span>
+                  </>
+                ) : (
+                  "أدخل التكلفة وسعر البيع ليظهر ربح القطعة ونسبة الربح"
+                )}
+              </div>
+            )}
           </div>
         );
       })}
@@ -880,22 +1010,27 @@ export function PurchaseForm({
           <span>إجمالي التكلفة</span>
           <strong>{fm(totals.cost)}</strong>
         </div>
-        <div>
-          <span>إجمالي الربح المتوقع</span>
-          <strong>{fm(totals.profit)}</strong>
-        </div>
-        <div>
-          <span>نسبة الربح الإجمالية</span>
-          <strong>
-            {totals.cost > 0
-              ? percent((totals.profit / totals.cost) * 100)
-              : "—"}
-          </strong>
-        </div>
+        {!editing && (
+          <>
+            <div>
+              <span>إجمالي الربح المتوقع</span>
+              <strong>{fm(totals.profit)}</strong>
+            </div>
+            <div>
+              <span>نسبة الربح الإجمالية</span>
+              <strong>
+                {totals.cost > 0
+                  ? percent((totals.profit / totals.cost) * 100)
+                  : "—"}
+              </strong>
+            </div>
+          </>
+        )}
       </div>
       <p className="note">
-        التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُحدَّث به سعر المنتج
-        فوراً.
+        {editing
+          ? "تعديل الفاتورة لا يغيّر سعر بيع المنتج ولا المخزون. التغيير يشمل المورد والمخزن والأصناف والكميات وأسعار الشراء فقط."
+          : "التكلفة هي سعر الشراء من المورد. سعر البيع مطلوب ويُحدَّث به سعر المنتج فوراً."}
       </p>
       <Button type="button" variant="outline" onClick={addLine}>
         <Plus size={16} />
@@ -904,4 +1039,4 @@ export function PurchaseForm({
       <Button disabled={busy}>{ar.save}</Button>
     </form>
   );
-                          }
+}

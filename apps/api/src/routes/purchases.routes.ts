@@ -23,6 +23,18 @@ purchasesRouter.post(
   controllers.handlePostPurchases,
 );
 
+purchasesRouter.patch(
+  "/purchases/:id",
+  can("purchases.create"),
+  controllers.handlePatchPurchasesById,
+);
+
+purchasesRouter.post(
+  "/purchases/:id/unapprove",
+  can("purchases.receive"),
+  controllers.handlePostPurchasesByIdUnapprove,
+);
+
 purchasesRouter.post(
   "/purchases/:id/approve",
   can("purchases.receive"),
