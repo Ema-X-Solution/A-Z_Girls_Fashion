@@ -70,6 +70,7 @@ export const post = async (path: string, body: unknown, key?: string) => {
 };
 export const patch = (path: string, body: unknown) =>
   api(path, { method: "PATCH", body: JSON.stringify(body) });
+export const del = (path: string) => api(path, { method: "DELETE" });
 export const useCart = create<{
   items: { variant: any; quantity: number }[];
   add: (v: any) => void;

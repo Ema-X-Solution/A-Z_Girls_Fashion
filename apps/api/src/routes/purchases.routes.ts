@@ -29,6 +29,12 @@ purchasesRouter.patch(
   controllers.handlePatchPurchasesById,
 );
 
+purchasesRouter.delete(
+  "/purchases/:id",
+  can("purchases.create"),
+  controllers.handleDeletePurchasesById,
+);
+
 purchasesRouter.post(
   "/purchases/:id/unapprove",
   can("purchases.receive"),

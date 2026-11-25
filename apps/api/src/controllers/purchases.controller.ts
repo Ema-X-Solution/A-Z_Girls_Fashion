@@ -169,6 +169,42 @@ export const handlePatchPurchasesById: RequestHandler = route(
   },
 );
 
+export const handleDeletePurchasesById: RequestHandler = route(
+  async (req, res) => {
+    const purchaseId = uuid(req.params.id);
+    await transaction(async (tx) => {
+      // The status guard is the lock: only a draft that nobody approved meanwhile.
+      const draft = await tx.purchaseOrder.findFirst({
+        where: { id: purchaseId, status: "DRAFT" },
+        select: { id: true },
+      });
+      assert(
+        draft,
+        "PURCHASE_STATUS",
+        "لا يمكن حذف الفاتورة إلا وهي مسودة. ألغِ الاعتماد أولاً.",
+        409,
+      );
+      // A draft cannot be received, so no receipt, stock or supplier effect exists.
+      const receipts = await tx.purchaseReceipt.count({
+        where: { purchaseId },
+      });
+      assert(
+        receipts === 0,
+        "PURCHASE_RECEIVED",
+        "تم استلام جزء من الفاتورة، لا يمكن حذفها.",
+        409,
+      );
+      await tx.purchaseOrderItem.deleteMany({ where: { purchaseId } });
+      const removed = await tx.purchaseOrder.deleteMany({
+        where: { id: purchaseId, status: "DRAFT" },
+      });
+      assert(removed.count === 1, "PURCHASE_STATUS", "تعذر حذف الفاتورة.", 409);
+      await audit(tx, actor(req).id, "PURCHASE_DELETE", purchaseId);
+    });
+    res.json({ data: { ok: true } });
+  },
+);
+
 export const handlePostPurchasesByIdUnapprove: RequestHandler = route(
   async (req, res) => {
     const purchaseId = uuid(req.params.id);
