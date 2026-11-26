@@ -266,7 +266,6 @@ export async function catalogPdf(
       PRICE,
       GOLD_DARK,
     );
-    draw(r.sku, x + 8, priceBase, cardW - 16, 7.5, "#bbbbbb", "right");
   };
 
   const usable = rows;
