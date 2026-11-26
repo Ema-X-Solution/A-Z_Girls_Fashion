@@ -263,13 +263,12 @@ export function Products() {
                         <ProductImage url={r.imageUrl} name={r.nameAr} />
                       </div>
                       <div>
-                        <strong>{r.nameAr}</strong>
+                        <strong>
+                          {r.supplierCode
+                            ? `${r.nameAr} - ${r.supplierCode}`
+                            : r.nameAr}
+                        </strong>
                         <small dir="ltr">{r.sku}</small>
-                        {r.supplierCode && (
-                          <small dir="ltr" className="product-supplier-code">
-                            {r.supplierCode}
-                          </small>
-                        )}
                       </div>
                     </div>
                   ),
