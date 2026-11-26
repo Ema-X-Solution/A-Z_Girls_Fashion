@@ -2,6 +2,7 @@ import { handlePurchaseItemOptions as handleVariantOptions } from "../controller
 import { Router } from "express";
 import { requirePermission as can } from "../middleware/auth.js";
 import * as controllers from "../controllers/catalog.controller.js";
+import { handleGetProductsExport } from "../controllers/product-export.controller.js";
 
 export const catalogRouter = Router();
 
@@ -59,6 +60,12 @@ catalogRouter.post(
   "/products",
   can("products.create"),
   controllers.handlePostProducts,
+);
+
+catalogRouter.get(
+  "/products/export",
+  can("products.view"),
+  handleGetProductsExport,
 );
 
 catalogRouter.get(

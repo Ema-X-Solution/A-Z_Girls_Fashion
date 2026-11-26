@@ -26,7 +26,7 @@ function normalizeReportText(text: string) {
         `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")} ${time} ${meridiem === "ص" ? "AM" : "PM"}`,
     );
 }
-function runsFor(text: string) {
+export function runsFor(text: string) {
   text = normalizeReportText(text);
   // Empty cells have no bidi runs. Avoid an infinite -Infinity level loop.
   if (!text) return [];
