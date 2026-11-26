@@ -35,6 +35,12 @@ type Line = {
   options: Record<string, string>;
   quantity: number;
 };
+// 40x25 label barcode: module width 0.25mm (2 dots at 203dpi, 3 at 300dpi), quiet zone 12 modules (3mm).
+const COMPACT_MODULE_MM = 0.25;
+const COMPACT_QUIET_MODULES = 12;
+// 50x30 label: module 0.375mm (3 dots at 203dpi), quiet zone 10 modules (3.75mm).
+const WIDE_MODULE_MM = 0.375;
+const WIDE_QUIET_MODULES = 10;
 type Job = { storeName: string; items: Line[] };
 const presets: Record<string, { width: number; height: number }> = {
   "40x25": { width: 40, height: 25 },
@@ -64,12 +70,16 @@ function Label({
   storeName,
   price,
   compact,
+  wide = false,
 }: {
   line: Line;
   storeName: string;
   price: boolean;
   compact: boolean;
+  wide?: boolean;
 }) {
+  // Both fixed stock sizes (40x25 and 50x30) use fixed-module barcodes.
+  const fixed = compact || wide;
   const optionEntries = Object.entries(line.options).filter(([, value]) => value.trim());
   const color = optionEntries.filter(([key]) => /^(color|colour|اللون)$/i.test(key.trim())).map(([, value]) => formatDigits(value.trim())).join(" / ");
   const size = optionEntries.filter(([key]) => !/^(color|colour|اللون)$/i.test(key.trim())).map(([, value]) => formatDigits(value.trim())).join(" / ");
@@ -77,13 +87,13 @@ function Label({
   const productCode = line.productSupplierCode?.trim() ?? "";
   return (
     <article
-      className={`retail-label${compact ? " retail-label-40x25" : ""}${compact && !price ? " retail-label-no-price" : ""}`}
+      className={`retail-label${compact ? " retail-label-40x25" : ""}${wide ? " retail-label-50x30" : ""}${fixed && !price ? " retail-label-no-price" : ""}`}
       data-barcode={line.barcode}
       dir="ltr"
       lang="en"
     >
-      <strong className="label-store">{storeName}</strong>
-      <div className="label-name" dir={compact ? "auto" : undefined}>
+      {!fixed && <strong className="label-store">{storeName}</strong>}
+      <div className="label-name" dir={fixed ? "auto" : undefined}>
         {productCode ? `${line.name} - ${productCode}` : line.name}
       </div>
       <div className="label-options">
@@ -96,31 +106,28 @@ function Label({
         role="img"
         ref={(svg) => {
           if (!svg) return;
+          // 40x25 labels: draw one module as 1 unit, then size the SVG in whole
+          // printer dots (0.25mm = 2 dots at 203dpi). No stretching, so every bar
+          // keeps an exact width and laser scanners can read it.
           JsBarcode(svg, line.barcode, {
             format: "CODE128",
-            height: 50,
-            width: 2,
+            height: fixed ? 40 : 50,
+            width: fixed ? 1 : 2,
             displayValue: false,
             margin: 0,
-            marginLeft: 20,
-            marginRight: 20,
+            marginLeft: fixed ? (wide ? WIDE_QUIET_MODULES : COMPACT_QUIET_MODULES) : 20,
+            marginRight: fixed ? (wide ? WIDE_QUIET_MODULES : COMPACT_QUIET_MODULES) : 20,
             background: "#fff",
             lineColor: "#000",
           });
-          const w = svg.getAttribute("width"),
-            h = svg.getAttribute("height");
-          svg.setAttribute(
-            "viewBox",
-            compact
-              ? `0 0 ${Number.parseFloat(w ?? "0")} ${Number.parseFloat(h ?? "0")}`
-              : `0 0 ${w} ${h}`,
-          );
+          const w = Number.parseFloat(svg.getAttribute("width") ?? "0"),
+            h = Number.parseFloat(svg.getAttribute("height") ?? "0");
+          svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
           svg.removeAttribute("width");
           svg.removeAttribute("height");
-          svg.setAttribute(
-            "preserveAspectRatio",
-            compact ? "none" : "xMidYMid meet",
-          );
+          svg.setAttribute("preserveAspectRatio", fixed ? "none" : "xMidYMid meet");
+          svg.setAttribute("shape-rendering", "crispEdges");
+          if (fixed) svg.style.width = `${(w * (wide ? WIDE_MODULE_MM : COMPACT_MODULE_MM)).toFixed(3)}mm`;
         }}
       />
       <div className="label-number" dir="ltr">
@@ -635,6 +642,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                 storeName={job.storeName}
                 price={showPrice}
                 compact={size.width === 40 && size.height === 25}
+                wide={size.width === 50 && size.height === 30}
               />
             ))}
           </div>
@@ -661,6 +669,7 @@ export function BarcodeLabels({ product }: { product?: Product }) {
                 storeName={job.storeName}
                 price={showPrice}
                 compact={size.width === 40 && size.height === 25}
+                wide={size.width === 50 && size.height === 30}
               />
             ))}
           </div>,

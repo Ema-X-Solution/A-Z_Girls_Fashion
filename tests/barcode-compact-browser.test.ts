@@ -62,7 +62,7 @@ async function checkLayout(label: Locator, price: boolean) {
   });
   expect(boxes.width).toBeCloseTo((40 * 96) / 25.4, 0);
   expect(boxes.height).toBeCloseTo((25 * 96) / 25.4, 0);
-  expect(boxes.rows).toHaveLength(price ? 6 : 5);
+  expect(boxes.rows).toHaveLength(price ? 5 : 4);
   for (const [index, row] of boxes.rows.entries()) {
     expect(row.top).toBeGreaterThanOrEqual(0);
     expect(row.bottom).toBeLessThanOrEqual(boxes.height + 0.2);
@@ -75,8 +75,8 @@ async function checkLayout(label: Locator, price: boolean) {
       );
   }
   await ui(label.locator(".label-name")).toHaveText(name);
-  expect(boxes.rows[1].scrollHeight).toBeLessThanOrEqual(
-    boxes.rows[1].clientHeight + 1,
+  expect(boxes.rows[0].scrollHeight).toBeLessThanOrEqual(
+    boxes.rows[0].clientHeight + 1,
   );
 }
 describe("40x25 barcode label", () => {
