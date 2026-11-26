@@ -766,8 +766,9 @@ export function PurchaseForm({
         sp: "",
         ...prev[lineIndex],
         v: variantId,
-        // Cost starts empty like the sale price (Amr, 2026-11-26): the user types it.
-        c: "",
+        // A saved cost of 0 is not a real cost: leave the field empty like the
+        // sale price (Amr, 2026-11-26). A real saved cost still prefills.
+        c: Number(variant?.cost) > 0 ? String(variant.cost) : "",
       },
     }));
   };
