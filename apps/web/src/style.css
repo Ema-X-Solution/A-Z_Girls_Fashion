@@ -1869,16 +1869,17 @@ tr:last-child td {
   font: 700 8pt/1.1 Arial, sans-serif;
   direction: ltr;
 }
-/* Compact stock uses a fixed text budget so no row can squeeze another out. */
+/* Compact 40x25 stock: fixed row budget so no row can squeeze another out.
+   The store row is dropped here so the barcode keeps 9mm+ of bar height. */
 .retail-label-40x25 {
-  padding: 1mm;
+  padding: 0.8mm 1mm;
   display: grid;
-  grid-template-rows: 2.8mm 6mm 2.4mm minmax(5mm, 1fr) 2.4mm 2.8mm;
-  row-gap: 0.15mm;
+  grid-template-rows: 5.4mm 2.3mm minmax(9mm, 1fr) 2mm 2.6mm;
+  row-gap: 0.4mm;
   align-content: stretch;
 }
 .retail-label-40x25.retail-label-no-price {
-  grid-template-rows: 2.8mm 6mm 2.4mm minmax(5mm, 1fr) 2.4mm;
+  grid-template-rows: 5.4mm 2.3mm minmax(9mm, 1fr) 2mm;
 }
 .retail-label-40x25 > * {
   min-width: 0;
@@ -1886,12 +1887,11 @@ tr:last-child td {
   margin: 0;
 }
 .retail-label-40x25 .label-store {
-  font-size: 7pt;
-  line-height: 2.8mm;
+  display: none;
 }
 .retail-label-40x25 .label-name {
-  font-size: 7pt;
-  line-height: 3mm;
+  font-size: 6.5pt;
+  line-height: 2.7mm;
   white-space: normal;
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -1901,22 +1901,24 @@ tr:last-child td {
 .retail-label-40x25 .label-options {
   display: grid;
   font-size: 6pt;
-  line-height: 2.4mm;
+  line-height: 2.3mm;
   text-overflow: ellipsis;
 }
 .retail-label-40x25 svg {
-  width: 100%;
+  /* width is set inline in whole 0.25mm modules; never stretched */
+  width: auto;
   height: 100%;
   min-height: 0;
   max-height: none;
+  margin: 0 auto;
 }
 .retail-label-40x25 .label-number {
   font-size: 6pt;
-  line-height: 2.4mm;
+  line-height: 2mm;
 }
 .retail-label-40x25 .label-price {
   font-size: 7pt;
-  line-height: 2.8mm;
+  line-height: 2.6mm;
 }
 #az-label-print-root {
   display: none;

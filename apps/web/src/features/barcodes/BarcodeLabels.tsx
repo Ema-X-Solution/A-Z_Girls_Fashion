@@ -35,6 +35,9 @@ type Line = {
   options: Record<string, string>;
   quantity: number;
 };
+// 40x25 label barcode: module width 0.25mm (2 dots at 203dpi, 3 at 300dpi), quiet zone 12 modules (3mm).
+const COMPACT_MODULE_MM = 0.25;
+const COMPACT_QUIET_MODULES = 12;
 type Job = { storeName: string; items: Line[] };
 const presets: Record<string, { width: number; height: number }> = {
   "40x25": { width: 40, height: 25 },
@@ -96,31 +99,28 @@ function Label({
         role="img"
         ref={(svg) => {
           if (!svg) return;
+          // 40x25 labels: draw one module as 1 unit, then size the SVG in whole
+          // printer dots (0.25mm = 2 dots at 203dpi). No stretching, so every bar
+          // keeps an exact width and laser scanners can read it.
           JsBarcode(svg, line.barcode, {
             format: "CODE128",
-            height: 50,
-            width: 2,
+            height: compact ? 40 : 50,
+            width: compact ? 1 : 2,
             displayValue: false,
             margin: 0,
-            marginLeft: 20,
-            marginRight: 20,
+            marginLeft: compact ? COMPACT_QUIET_MODULES : 20,
+            marginRight: compact ? COMPACT_QUIET_MODULES : 20,
             background: "#fff",
             lineColor: "#000",
           });
-          const w = svg.getAttribute("width"),
-            h = svg.getAttribute("height");
-          svg.setAttribute(
-            "viewBox",
-            compact
-              ? `0 0 ${Number.parseFloat(w ?? "0")} ${Number.parseFloat(h ?? "0")}`
-              : `0 0 ${w} ${h}`,
-          );
+          const w = Number.parseFloat(svg.getAttribute("width") ?? "0"),
+            h = Number.parseFloat(svg.getAttribute("height") ?? "0");
+          svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
           svg.removeAttribute("width");
           svg.removeAttribute("height");
-          svg.setAttribute(
-            "preserveAspectRatio",
-            compact ? "none" : "xMidYMid meet",
-          );
+          svg.setAttribute("preserveAspectRatio", compact ? "none" : "xMidYMid meet");
+          svg.setAttribute("shape-rendering", "crispEdges");
+          if (compact) svg.style.width = `${(w * COMPACT_MODULE_MM).toFixed(3)}mm`;
         }}
       />
       <div className="label-number" dir="ltr">
