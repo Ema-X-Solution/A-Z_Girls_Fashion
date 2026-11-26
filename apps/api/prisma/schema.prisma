@@ -140,6 +140,7 @@ model Product {
   categoryId String @db.Uuid
   brandId String? @db.Uuid
   primarySupplierId String? @db.Uuid
+  supplierCode String?
   season String?
   collection String?
   status String @default("ACTIVE")
@@ -153,6 +154,7 @@ model Product {
   variants ProductVariant[]
   @@index([primarySupplierId,status])
   @@index([nameAr])
+  @@index([supplierCode])
   @@index([categoryId,status])
 }
 model ProductVariant {

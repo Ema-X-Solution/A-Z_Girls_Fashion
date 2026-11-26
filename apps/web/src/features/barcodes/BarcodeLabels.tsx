@@ -28,6 +28,7 @@ type Line = {
   variantId: string;
   name: string;
   supplierCode?: string | null;
+  productSupplierCode?: string | null;
   sku: string;
   barcode: string;
   price: string;
@@ -73,6 +74,7 @@ function Label({
   const color = optionEntries.filter(([key]) => /^(color|colour|اللون)$/i.test(key.trim())).map(([, value]) => formatDigits(value.trim())).join(" / ");
   const size = optionEntries.filter(([key]) => !/^(color|colour|اللون)$/i.test(key.trim())).map(([, value]) => formatDigits(value.trim())).join(" / ");
   const supplierCode = line.supplierCode || "";
+  const productCode = line.productSupplierCode?.trim() ?? "";
   return (
     <article
       className={`retail-label${compact ? " retail-label-40x25" : ""}${compact && !price ? " retail-label-no-price" : ""}`}
@@ -82,7 +84,7 @@ function Label({
     >
       <strong className="label-store">{storeName}</strong>
       <div className="label-name" dir={compact ? "auto" : undefined}>
-        {line.name}
+        {productCode ? `${line.name} - ${productCode}` : line.name}
       </div>
       <div className="label-options">
         <span className="label-size" dir="auto">{size}</span>

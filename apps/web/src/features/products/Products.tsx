@@ -45,11 +45,12 @@ import { type Row } from "../../app/types";
 export function Products() {
   const [exportOpen, setExportOpen] = useState(false),
     [supplierFilter, setSupplierFilter] = useState(""),
+    [supplierCodeFilter, setSupplierCodeFilter] = useState(""),
     [locationFilter, setLocationFilter] = useState(""),
     [stockFilter, setStockFilter] = useState(""),
     [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilters =
-    (supplierFilter ? 1 : 0) + (locationFilter ? 1 : 0) + (stockFilter ? 1 : 0);
+    (supplierFilter ? 1 : 0) + (supplierCodeFilter.trim() ? 1 : 0) + (locationFilter ? 1 : 0) + (stockFilter ? 1 : 0);
   const [q, setQ] = useState(""),
     { debounced: debouncedQ, searchPending } = useDebouncedSearch(q),
     [open, setOpen] = useState(false),
@@ -58,7 +59,7 @@ export function Products() {
     [selected, setSelected] = useState<Row | null>(null),
     [productTab, setProductTab] = useState<"active" | "archived">("active"),
     paging = usePagination(
-      `${q.trim()}|${productTab}|${supplierFilter}|${locationFilter}|${stockFilter}`,
+      `${q.trim()}|${productTab}|${supplierFilter}|${supplierCodeFilter.trim()}|${locationFilter}|${stockFilter}`,
     ),
     [statusChange, setStatusChange] = useState<{
       product: Row;
@@ -67,7 +68,7 @@ export function Products() {
     [statusError, setStatusError] = useState(""),
     [saveError, setSaveError] = useState(""),
     query = useData(
-      `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${productTab === "archived" ? "&archived=1" : ""}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`,
+      `/products?q=${encodeURIComponent(debouncedQ)}&${paging.query}${productTab === "archived" ? "&archived=1" : ""}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${supplierCodeFilter.trim() ? `&supplierCode=${encodeURIComponent(supplierCodeFilter.trim())}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`,
       true,
       searchPending,
     ),
@@ -79,7 +80,7 @@ export function Products() {
   const [catFormKey, setCatFormKey] = useState(0);
   // Count badge for the tab the table query is not currently showing.
   const otherTabCount = useData(
-    `/products?countOnly=1&q=${encodeURIComponent(debouncedQ)}${productTab === "archived" ? "" : "&archived=1"}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`,
+    `/products?countOnly=1&q=${encodeURIComponent(debouncedQ)}${productTab === "archived" ? "" : "&archived=1"}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${supplierCodeFilter.trim() ? `&supplierCode=${encodeURIComponent(supplierCodeFilter.trim())}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`,
     archive,
     searchPending,
   );
@@ -129,7 +130,7 @@ export function Products() {
                 <a
                   key={format}
                   role="menuitem"
-                  href={`/api/products/export?format=${format}&q=${encodeURIComponent(debouncedQ)}${productTab === "archived" ? "&archived=1" : ""}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`}
+                  href={`/api/products/export?format=${format}&q=${encodeURIComponent(debouncedQ)}${productTab === "archived" ? "&archived=1" : ""}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${supplierCodeFilter.trim() ? `&supplierCode=${encodeURIComponent(supplierCodeFilter.trim())}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`}
                   download
                   onClick={() => setExportOpen(false)}
                 >
@@ -215,6 +216,15 @@ export function Products() {
               value={supplierFilter}
               onChange={setSupplierFilter}
             />
+            <input
+              className="filter-select"
+              name="supplierCodeFilter"
+              dir="ltr"
+              aria-label="كود المورد"
+              placeholder="كود المورد"
+              value={supplierCodeFilter}
+              onChange={(event) => setSupplierCodeFilter(event.target.value)}
+            />
             <EntitySelect
               kind="locations"
               name="locationFilter"
@@ -253,7 +263,11 @@ export function Products() {
                         <ProductImage url={r.imageUrl} name={r.nameAr} />
                       </div>
                       <div>
-                        <strong>{r.nameAr}</strong>
+                        <strong>
+                          {r.supplierCode
+                            ? `${r.nameAr} - ${r.supplierCode}`
+                            : r.nameAr}
+                        </strong>
                         <small dir="ltr">{r.sku}</small>
                       </div>
                     </div>
@@ -777,6 +791,7 @@ export function Products() {
                             required: false,
                             hint: "اختياري. يظهر كود المورد على ملصق كل مقاس ولون للمنتج.",
                           },
+                          simple("supplierCode", "كود المورد", "text", false),
                           simple(
                             "description",
                             ar.description,
@@ -849,6 +864,7 @@ export function Products() {
                           await patch(`/products/${selected.id}`, {
                             nameAr: body.nameAr,
                             primarySupplierId: body.primarySupplierId,
+                            supplierCode: String(body.supplierCode ?? "").trim(),
                             description: body.description,
                             returnRule: body.returnRule,
                           });
@@ -906,6 +922,7 @@ export function ProductForm({
           ...(f.brandId ? { brandId: f.brandId } : {}),
           description: f.description ?? "",
           primarySupplierId: f.primarySupplierId || null,
+          supplierCode: String(f.supplierCode ?? "").trim(),
           returnRule: f.returnRule,
           ...(imageDataUrl ? { imageDataUrl } : {}),
           variants: variants.map((v) => ({
@@ -933,6 +950,12 @@ export function ProductForm({
             label="المورد الأساسي"
             required={false}
           />
+        </Field>
+        <Field
+          label="كود المورد"
+          hint="اختياري. حروف أو أرقام أو الاتنين. بتقدر تفلتر وتبحث بيه."
+        >
+          <input name="supplierCode" dir="ltr" maxLength={50} />
         </Field>
         <Field label={ar.category}>
           <EntitySelect
