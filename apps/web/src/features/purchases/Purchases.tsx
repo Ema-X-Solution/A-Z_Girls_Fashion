@@ -766,7 +766,8 @@ export function PurchaseForm({
         sp: "",
         ...prev[lineIndex],
         v: variantId,
-        c: variant?.cost !== undefined ? String(variant.cost) : "",
+        // Cost starts empty like the sale price (Amr, 2026-11-26): the user types it.
+        c: "",
       },
     }));
   };

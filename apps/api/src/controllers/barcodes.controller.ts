@@ -95,7 +95,7 @@ export const handlePostPrintLabels: RequestHandler = async (req, res, next) => {
     const data = await transaction(async (tx) => {
       const variants = await tx.productVariant.findMany({
         where: { id: { in: input.items.map((i) => i.variantId) } },
-        include: { product: { select: { nameAr: true, status: true, primarySupplier: { select: { code: true } } } } },
+        include: { product: { select: { nameAr: true, status: true, supplierCode: true, primarySupplier: { select: { code: true } } } } },
       });
       assert(
         variants.length === input.items.length &&
@@ -114,6 +114,7 @@ export const handlePostPrintLabels: RequestHandler = async (req, res, next) => {
           name: v.product.nameAr,
           sku: v.sku,
           supplierCode: v.product.primarySupplier?.code ?? null,
+          productSupplierCode: v.product.supplierCode ?? null,
           barcode: v.barcode,
           options: v.options,
           price: v.price.toFixed(2),

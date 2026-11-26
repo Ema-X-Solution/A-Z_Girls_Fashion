@@ -634,7 +634,7 @@ export function POS() {
               <Search size={18} />
               <input
                 aria-label="بحث المنتجات"
-                placeholder="ابحث بالاسم أو الكود..."
+                placeholder="ابحث بالاسم أو الكود أو كود المورد..."
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
@@ -690,6 +690,11 @@ export function POS() {
                             <span>{p.category.name}</span>
                           </div>
                           <strong>{p.nameAr}</strong>
+                          {p.supplierCode && (
+                            <span className="card-product-code" dir="ltr">
+                              {p.supplierCode}
+                            </span>
+                          )}
                           {Object.values(v.options).some((x) => String(x).trim()) ||
                           p.primarySupplier?.code ? (
                             <SupplierOptionsLine

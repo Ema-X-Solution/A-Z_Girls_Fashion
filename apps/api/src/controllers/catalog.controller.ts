@@ -34,6 +34,8 @@ const productSchema = z.object({
   categoryId: id,
   brandId: id.optional(),
   primarySupplierId: z.union([id, z.literal("")]).nullable().optional().transform((value) => value === "" ? null : value),
+  // Free text, letters and/or digits and common separators; blank clears it.
+  supplierCode: z.string().trim().max(50).regex(/^[\p{L}\p{N}][\p{L}\p{N} ._\/#-]*$/u, "كود المورد يقبل حروفًا وأرقامًا وعلامات - _ . / فقط.").or(z.literal("")).nullable().optional().transform((value) => value || null),
   season: text.optional(),
   collection: text.optional(),
   returnRule: z.enum(["STANDARD", "DEFECT_ONLY"]).default("STANDARD"),
@@ -219,12 +221,14 @@ export const handlePostBrands: RequestHandler = route(async (req, res) =>
 export async function buildProductWhere(query: Record<string, unknown>): Promise<Prisma.ProductWhereInput> {
   const q = z.string().max(200).default("").parse(query.q),
     supplierId = id.optional().parse(query.supplierId),
+    supplierCode = z.string().trim().max(50).optional().parse(query.supplierCode),
     stock = z.enum(["in", "low", "out"]).optional().parse(query.stock),
     locationId = id.optional().parse(query.locationId),
     archived = z.enum(["1", "true"]).optional().parse(query.archived),
     where: Prisma.ProductWhereInput = {
       status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
       ...(supplierId ? { primarySupplierId: supplierId } : {}),
+      ...(supplierCode ? { supplierCode: { contains: supplierCode, mode: "insensitive" } } : {}),
       // Warehouse filter: a stock row in that warehouse is enough, zero
       // quantity included (Amr, 2026-11-24); "all warehouses" adds nothing.
       ...(locationId
@@ -235,6 +239,7 @@ export async function buildProductWhere(query: Record<string, unknown>): Promise
             OR: [
               { nameAr: { contains: q, mode: "insensitive" } },
               { sku: { contains: q, mode: "insensitive" } },
+              { supplierCode: { contains: q, mode: "insensitive" } },
               { variants: { some: { barcode: q } } },
             ],
           }
