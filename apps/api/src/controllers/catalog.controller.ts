@@ -35,7 +35,7 @@ const productSchema = z.object({
   brandId: id.optional(),
   primarySupplierId: z.union([id, z.literal("")]).nullable().optional().transform((value) => value === "" ? null : value),
   // Free text, letters and/or digits and common separators; blank clears it.
-  supplierCode: z.string().trim().max(50).regex(/^[\p{L}\p{N}][\p{L}\p{N} ._\/#-]*$/u, "كود المورد يقبل حروفًا وأرقامًا وعلامات - _ . / فقط.").or(z.literal("")).nullable().optional().transform((value) => value || null),
+  supplierCode: z.string().trim().max(50).regex(/^[\p{L}\p{N}][\p{L}\p{N} ._/#-]*$/u, "كود المورد يقبل حروفًا وأرقامًا وعلامات - _ . / فقط.").or(z.literal("")).nullable().optional().transform((value) => value || null),
   season: text.optional(),
   collection: text.optional(),
   returnRule: z.enum(["STANDARD", "DEFECT_ONLY"]).default("STANDARD"),
