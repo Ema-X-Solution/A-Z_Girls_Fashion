@@ -83,8 +83,8 @@ export function Sales() {
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", maxWidth: "240px" }}>
                       {r.items?.map((it: Row) => (
                         <div key={it.id} style={{ fontSize: "0.82rem", lineHeight: 1.3 }}>
+                          <span className="muted-text">{it.quantity} × </span>
                           <span>{it.name}</span>
-                          <span className="muted-text"> × {it.quantity}</span>
                         </div>
                       ))}
                     </div>
