@@ -78,25 +78,12 @@ export function Sales() {
                 },
                 { label: ar.date, render: (r) => formatDate(r.createdAt) },
                 {
-                  label: "الأصناف والباركود",
+                  label: "الأصناف",
                   render: (r) => (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", maxWidth: "240px" }}>
                       {r.items?.map((it: Row) => (
                         <div key={it.id} style={{ fontSize: "0.82rem", lineHeight: 1.3 }}>
                           <span>{it.name}</span>
-                          {it.barcode && (
-                            <code
-                              style={{
-                                fontSize: "0.75rem",
-                                background: "var(--bg-subtle, #f1f5f9)",
-                                padding: "1px 5px",
-                                borderRadius: "4px",
-                                marginInlineStart: "5px",
-                              }}
-                            >
-                              {it.barcode}
-                            </code>
-                          )}
                           <span className="muted-text"> × {it.quantity}</span>
                         </div>
                       ))}
