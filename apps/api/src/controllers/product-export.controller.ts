@@ -1,13 +1,11 @@
 import type { RequestHandler } from "express";
 import ExcelJS from "exceljs";
-import PDFDocument from "pdfkit";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { variantOption } from "@az/shared";
 import { db } from "../lib/db.js";
 import { route } from "../utils/http.js";
-import { runsFor } from "../utils/report-pdf.js";
 import { buildProductWhere } from "./catalog.controller.js";
+import { catalogPdf } from "./product-catalog-pdf.js";
 
 // Catalog export of the product list: one row per variant. Cost is never
 // exported: this is a customer-facing price list, not a financial report.
@@ -22,6 +20,7 @@ type Line = {
   price: number;
   stock: number;
   status: string;
+  archived: boolean;
   imageId: string | null;
 };
 type Image = { mime: string; data: Buffer };
@@ -39,8 +38,6 @@ const labels = {
   stock: "المخزون",
   status: "الحالة",
 };
-const asset = (name: string) =>
-  fileURLToPath(new URL(`../../assets/${name}`, import.meta.url));
 const imageIdOf = (url: string | null) =>
   url?.startsWith("/api/brand-assets/")
     ? url.slice("/api/brand-assets/".length)
@@ -78,6 +75,7 @@ async function lines(query: Record<string, unknown>) {
         price: Number(v.price),
         stock: v.balances.reduce((sum, b) => sum + b.quantity, 0),
         status: p.status === "ARCHIVED" ? "مؤرشف" : "نشط",
+        archived: p.status === "ARCHIVED",
         imageId: imageIdOf(p.imageUrl),
       });
   return out;
@@ -196,191 +194,20 @@ async function xlsx(rows: Line[], res: Parameters<RequestHandler>[1]) {
   res.end();
 }
 
-async function pdfOut(rows: Line[], res: Parameters<RequestHandler>[1]) {
-  const imgs = await images(rows);
-  const pdf = new PDFDocument({
-    size: "A4",
-    layout: "landscape",
-    margin: 32,
-    bufferPages: true,
-    info: {
-      Title: "A&Z Girls Fashion - Product Catalog",
-      Author: "A&Z Girls Fashion",
-    },
-  });
-  const done = new Promise<void>((ok, bad) => {
-    res.on("finish", ok);
-    res.on("error", bad);
-    pdf.on("error", bad);
-  });
-  res.set({
-    "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename=az-products-${stamp()}.pdf`,
-    "Cache-Control": "no-store",
-  });
-  pdf.pipe(res);
-  pdf.registerFont("Arabic", asset("Amiri-Regular.ttf"));
-  const logo = asset("az-logo.jpg");
-  const W = pdf.page.width,
-    H = pdf.page.height,
-    M = 32,
-    tableW = W - M * 2;
-  // Columns laid out right to left (Arabic). Fractions of the table width.
-  const cols: { key: keyof typeof labels; w: number }[] = [
-    { key: "image", w: 0.08 },
-    { key: "name", w: 0.22 },
-    { key: "sku", w: 0.13 },
-    { key: "size", w: 0.08 },
-    { key: "color", w: 0.1 },
-    { key: "category", w: 0.14 },
-    { key: "price", w: 0.13 },
-    { key: "stock", w: 0.1 },
-  ];
-  const widths = cols.map((c) => c.w * tableW);
-  const xs = widths.map(
-    (_, i) => M + tableW - widths.slice(0, i + 1).reduce((a, b) => a + b, 0),
-  );
-  const fontFor = (v: string) =>
-    /^[\x20-\x7e]*$/.test(v) ? "Helvetica" : "Arabic";
-  const wid = (v: string, size: number) =>
-    pdf.font(fontFor(v)).fontSize(size).widthOfString(v, { features: [] });
-  const measure = (v: string, size: number) =>
-    runsFor(v).reduce((s, r) => s + wid(r.text, size), 0);
-  const draw = (
-    v: string,
-    x: number,
-    y: number,
-    w: number,
-    size: number,
-    color = "#171717",
-    align: "right" | "center" = "center",
-  ) => {
-    pdf.fillColor(color);
-    const runs = runsFor(v);
-    const total = runs.reduce((s, r) => s + wid(r.text, size), 0);
-    let cur = align === "center" ? x + (w - total) / 2 : x + w - total;
-    for (const r of runs) {
-      pdf
-        .font(fontFor(r.text))
-        .fontSize(size)
-        .text(r.text, cur, y, { lineBreak: false, features: [] });
-      cur += wid(r.text, size);
-    }
-  };
-  const wrap = (v: string, w: number, size: number): string[] => {
-    const out: string[] = [];
-    let line = "";
-    for (const word of v.split(/\s+/)) {
-      const c = line ? `${line} ${word}` : word;
-      if (measure(c, size) <= w) line = c;
-      else {
-        if (line) out.push(line);
-        line = word;
-      }
-    }
-    if (line) out.push(line);
-    return out.slice(0, 3);
-  };
-  const date = new Date().toISOString().slice(0, 10);
-  let y = 0;
-  const header = () => {
-    pdf.rect(0, 0, W, 78).fill("#111111");
-    pdf.rect(0, 78, W, 3).fill("#D4AF37");
-    pdf.image(logo, M, 10, { height: 58 });
-    draw("كتالوج المنتجات", M, 10, tableW, 22, "#D4AF37", "right");
-    draw(
-      `A&Z Girls Fashion  |  ${date}`,
-      M,
-      52,
-      tableW,
-      11,
-      "#dddddd",
-      "right",
-    );
-    y = 94;
-    pdf.rect(M, y, tableW, 24).fill("#D4AF37");
-    cols.forEach((c, i) =>
-      draw(labels[c.key], xs[i]!, y + 5, widths[i]!, 12, "#111111"),
-    );
-    y += 28;
-  };
-  header();
-  let n = 0;
-  for (const r of rows) {
-    const rowH = 46;
-    if (y + rowH > H - 40) {
-      pdf.addPage();
-      header();
-    }
-    if (n++ % 2 === 0) pdf.rect(M, y - 2, tableW, rowH).fill("#faf6e9");
-    const img = usable(r.imageId ? imgs.get(r.imageId) : undefined);
-    if (img) {
-      try {
-        pdf.image(img.data, xs[0]! + (widths[0]! - 40) / 2, y + 1, {
-          fit: [40, 40],
-          align: "center",
-          valign: "center",
-        });
-      } catch {
-        /* unreadable image: leave the cell empty */
-      }
-    }
-    const nameLines = wrap(r.name, widths[1]! - 10, 11);
-    nameLines.forEach((l, k) =>
-      draw(
-        l,
-        xs[1]!,
-        y + 10 - (nameLines.length - 1) * 7 + k * 14,
-        widths[1]!,
-        11,
-        "#171717",
-        "right",
-      ),
-    );
-    const mid = y + 10;
-    draw(r.sku, xs[2]!, mid, widths[2]!, 9);
-    draw(r.size || "-", xs[3]!, mid, widths[3]!, 11);
-    draw(r.color || "-", xs[4]!, mid, widths[4]!, 11);
-    draw(r.category, xs[5]!, mid, widths[5]!, 10);
-    draw(`EGP ${money(r.price)}`, xs[6]!, mid, widths[6]!, 11, "#7a5c00");
-    draw(
-      String(r.stock),
-      xs[7]!,
-      mid,
-      widths[7]!,
-      11,
-      r.stock <= 0 ? "#b00020" : "#171717",
-    );
-    pdf
-      .moveTo(M, y + rowH - 2)
-      .lineTo(M + tableW, y + rowH - 2)
-      .lineWidth(0.4)
-      .stroke("#dddddd");
-    y += rowH;
-  }
-  const range = pdf.bufferedPageRange();
-  for (let i = 0; i < range.count; i++) {
-    pdf.switchToPage(i);
-    draw(
-      `${i + 1} / ${range.count}`,
-      M,
-      H - 26,
-      tableW,
-      9,
-      "#666666",
-      "center",
-    );
-  }
-  pdf.end();
-  await done;
-}
-
 export const handleGetProductsExport: RequestHandler = route(
   async (req, res) => {
     const format = z.enum(["pdf", "xlsx", "csv"]).parse(req.query.format);
     const rows = await lines(req.query);
     if (format === "csv") return csv(rows, res);
     if (format === "xlsx") return xlsx(rows, res);
-    return pdfOut(rows, res);
+    // Customer-facing catalog: available items only - no archived products,
+    // no out-of-stock variants, and the card layout never shows quantities.
+    const available = rows.filter((r) => !r.archived && r.stock > 0);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=az-catalog-${stamp()}.pdf`,
+      "Cache-Control": "no-store",
+    });
+    return catalogPdf(available, await images(rows), res);
   },
 );
