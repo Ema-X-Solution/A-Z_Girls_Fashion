@@ -92,7 +92,7 @@ function Label({
       dir="ltr"
       lang="en"
     >
-      <strong className="label-store">{storeName}</strong>
+      {!fixed && <strong className="label-store">{storeName}</strong>}
       <div className="label-name" dir={fixed ? "auto" : undefined}>
         {productCode ? `${line.name} - ${productCode}` : line.name}
       </div>
