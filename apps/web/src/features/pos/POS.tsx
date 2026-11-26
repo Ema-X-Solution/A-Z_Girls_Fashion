@@ -38,6 +38,28 @@ import { CustomerPicker } from "../customers/CustomerPicker";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
 import "./pos.css";
 type Row = Record<string, any>;
+let audioCtx: AudioContext | undefined;
+// Short, quiet confirmation tone after a scan adds an item (no audio file).
+function beep() {
+  try {
+    audioCtx ??= new AudioContext();
+    const ctx = audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    const osc = ctx.createOscillator(),
+      gain = ctx.createGain(),
+      t = ctx.currentTime;
+    osc.type = "sine";
+    osc.frequency.value = 1200;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  } catch {
+    // sound is optional
+  }
+}
 export function POS() {
   const client = useQueryClient(),
     user = useSession((s) => s.user),
@@ -82,7 +104,7 @@ export function POS() {
     clearOpen;
   useEffect(() => {
     if (!frozen) scanInput.current?.focus();
-  }, [ready, scanning]);
+  }, [ready, scanning, frozen]);
   function field<K extends keyof CartDraft>(
     name: K,
     value: CartDraft[K] | ((old: CartDraft[K]) => CartDraft[K]),
@@ -400,22 +422,66 @@ export function POS() {
     }));
     setError("");
   }
-  async function scan(e: FormEvent) {
-    e.preventDefault();
-    if (frozen || !code.trim()) return;
-    const scanned = code.trim();
-    setCode("");
+  const blockedRef = useRef(false);
+  blockedRef.current =
+    busy ||
+    customerBusy ||
+    !ready ||
+    !!pending ||
+    !!workspace.receiptId ||
+    clearOpen;
+  const cartRef = useRef(cart);
+  cartRef.current = cart;
+  const scanQueue = useRef<Promise<void>>(Promise.resolve());
+  const scanTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const lastKey = useRef(0);
+  const fastKeys = useRef(true);
+  async function lookupAndAdd(scanned: string) {
     setScanning(true);
     try {
       const r = await api(`/barcodes/${encodeURIComponent(scanned)}/lookup`, {
         signal: AbortSignal.timeout(15000),
       });
       setStockVariants((old) => ({ ...old, [r.data.id]: r.data }));
-      cart.add(r.data);
+      if (cartRef.current.add(r.data)) beep();
     } catch (e) {
       setError(e instanceof Error ? e.message : "الباركود غير موجود");
     } finally {
       setScanning(false);
+    }
+  }
+  function submitCode(value: string) {
+    const scanned = value.trim();
+    clearTimeout(scanTimer.current);
+    fastKeys.current = true;
+    lastKey.current = 0;
+    if (!scanned || blockedRef.current) return;
+    setCode("");
+    scanQueue.current = scanQueue.current.then(() => lookupAndAdd(scanned));
+  }
+  function scan(e: FormEvent) {
+    e.preventDefault();
+    submitCode(code);
+  }
+  // A scanner types the whole code within milliseconds. When the field fills
+  // that fast and then goes quiet, add the item without waiting for Enter.
+  // Slow, hand-typed input is never auto-submitted.
+  function onCodeChange(value: string) {
+    const now = Date.now();
+    if (!value) {
+      fastKeys.current = true;
+      lastKey.current = 0;
+    } else {
+      if (lastKey.current && now - lastKey.current > 50)
+        fastKeys.current = false;
+      lastKey.current = now;
+    }
+    setCode(value);
+    clearTimeout(scanTimer.current);
+    if (fastKeys.current && value.trim().length >= 4) {
+      scanTimer.current = setTimeout(() => submitCode(value), 120);
     }
   }
   async function complete() {
@@ -623,10 +689,19 @@ export function POS() {
                 ref={scanInput}
                 autoFocus
                 aria-label="مسح الباركود"
-                placeholder="امسح الباركود ثم اضغط Enter"
+                placeholder="امسح الباركود (يتضاف تلقائي)"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => onCodeChange(e.target.value)}
                 disabled={busy}
+                onBlur={(e) => {
+                  // keep the cursor in the scanner field unless focus moved to another field
+                  if (e.relatedTarget) return;
+                  setTimeout(() => {
+                    const a = document.activeElement;
+                    if (!blockedRef.current && (!a || a === document.body))
+                      scanInput.current?.focus();
+                  }, 0);
+                }}
               />
               <Button disabled={busy}>إضافة</Button>
             </form>
@@ -695,8 +770,9 @@ export function POS() {
                               {p.supplierCode}
                             </span>
                           )}
-                          {Object.values(v.options).some((x) => String(x).trim()) ||
-                          p.primarySupplier?.code ? (
+                          {Object.values(v.options).some((x) =>
+                            String(x).trim(),
+                          ) || p.primarySupplier?.code ? (
                             <SupplierOptionsLine
                               supplierCode={p.primarySupplier?.code}
                               options={v.options}
@@ -1219,4 +1295,4 @@ export function POS() {
       </Modal>
     </div>
   );
-    }
+}
