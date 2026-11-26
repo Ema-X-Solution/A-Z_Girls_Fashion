@@ -15,6 +15,7 @@ import {
   Archive,
   RotateCcw,
   ListFilter,
+  Download,
 } from "lucide-react";
 import {
   ProductImage,
@@ -42,7 +43,8 @@ import "./products.css";
 import { type Row } from "../../app/types";
 
 export function Products() {
-  const [supplierFilter, setSupplierFilter] = useState(""),
+  const [exportOpen, setExportOpen] = useState(false),
+    [supplierFilter, setSupplierFilter] = useState(""),
     [locationFilter, setLocationFilter] = useState(""),
     [stockFilter, setStockFilter] = useState(""),
     [filtersOpen, setFiltersOpen] = useState(false);
@@ -82,7 +84,7 @@ export function Products() {
     searchPending,
   );
   const tabTotal = (tab: "active" | "archived") =>
-    tab === "archived" === (productTab === "archived")
+    (tab === "archived") === (productTab === "archived")
       ? query.data?.total
       : otherTabCount.data?.total;
   const [editingCat, setEditingCat] = useState<string | null>(null),
@@ -105,6 +107,38 @@ export function Products() {
           <Printer size={16} />
           طباعة الباركود
         </Link>
+        <div className="export-menu">
+          <Button
+            variant="outline"
+            aria-haspopup="menu"
+            aria-expanded={exportOpen}
+            onClick={() => setExportOpen((value) => !value)}
+          >
+            <Download size={16} />
+            تصدير
+          </Button>
+          {exportOpen && (
+            <div className="export-menu-list" role="menu">
+              {(
+                [
+                  ["pdf", "PDF كتالوج"],
+                  ["xlsx", "Excel"],
+                  ["csv", "CSV"],
+                ] as const
+              ).map(([format, label]) => (
+                <a
+                  key={format}
+                  role="menuitem"
+                  href={`/api/products/export?format=${format}&q=${encodeURIComponent(debouncedQ)}${productTab === "archived" ? "&archived=1" : ""}${supplierFilter ? `&supplierId=${encodeURIComponent(supplierFilter)}` : ""}${locationFilter ? `&locationId=${encodeURIComponent(locationFilter)}` : ""}${stockFilter ? `&stock=${stockFilter}` : ""}`}
+                  download
+                  onClick={() => setExportOpen(false)}
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
         <Button variant="outline" onClick={() => setCategoryOpen(true)}>
           {ar.category}
         </Button>
@@ -130,7 +164,9 @@ export function Products() {
               }}
             >
               المنتجات الحالية
-              <span className="tab-count" aria-hidden="true">{formatDigits(String(tabTotal("active") ?? 0))}</span>
+              <span className="tab-count" aria-hidden="true">
+                {formatDigits(String(tabTotal("active") ?? 0))}
+              </span>
             </Button>
             <Button
               variant={productTab === "archived" ? "default" : "outline"}
@@ -139,7 +175,9 @@ export function Products() {
               }}
             >
               أرشيف المنتجات
-              <span className="tab-count" aria-hidden="true">{formatDigits(String(tabTotal("archived") ?? 0))}</span>
+              <span className="tab-count" aria-hidden="true">
+                {formatDigits(String(tabTotal("archived") ?? 0))}
+              </span>
             </Button>
           </div>
         )}
@@ -163,7 +201,9 @@ export function Products() {
             <ListFilter size={16} />
             الفلاتر
             {activeFilters > 0 && (
-              <span className="tab-count" aria-hidden="true">{formatDigits(String(activeFilters))}</span>
+              <span className="tab-count" aria-hidden="true">
+                {formatDigits(String(activeFilters))}
+              </span>
             )}
           </Button>
           <div className={`products-filters${filtersOpen ? " is-open" : ""}`}>

@@ -216,13 +216,12 @@ export const handlePostBrands: RequestHandler = route(async (req, res) =>
     }),
   );
 
-export const handleGetProducts: RequestHandler = route(async (req, res) => {
-  const q = z.string().max(200).default("").parse(req.query.q),
-    supplierId = id.optional().parse(req.query.supplierId),
-    stock = z.enum(["in", "low", "out"]).optional().parse(req.query.stock),
-    countOnly = z.enum(["1", "true"]).optional().parse(req.query.countOnly),
-    locationId = id.optional().parse(req.query.locationId),
-    archived = z.enum(["1", "true"]).optional().parse(req.query.archived),
+export async function buildProductWhere(query: Record<string, unknown>): Promise<Prisma.ProductWhereInput> {
+  const q = z.string().max(200).default("").parse(query.q),
+    supplierId = id.optional().parse(query.supplierId),
+    stock = z.enum(["in", "low", "out"]).optional().parse(query.stock),
+    locationId = id.optional().parse(query.locationId),
+    archived = z.enum(["1", "true"]).optional().parse(query.archived),
     where: Prisma.ProductWhereInput = {
       status: archived ? "ARCHIVED" : { not: "ARCHIVED" },
       ...(supplierId ? { primarySupplierId: supplierId } : {}),
@@ -273,6 +272,12 @@ export const handleGetProducts: RequestHandler = route(async (req, res) => {
         .map(([productId]) => productId),
     };
   }
+  return where;
+}
+
+export const handleGetProducts: RequestHandler = route(async (req, res) => {
+  const countOnly = z.enum(["1", "true"]).optional().parse(req.query.countOnly),
+    where = await buildProductWhere(req.query);
   // Tab badges ask for the matching count only: skip the row read entirely.
   if (countOnly) {
     res.json({ total: await db.product.count({ where }) });
